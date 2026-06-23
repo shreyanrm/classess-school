@@ -86,6 +86,10 @@ class Span:
         self.attributes["quality.served"] = served
         self.attributes["quality.confidence"] = confidence
 
+    def record_cache_hit(self, hit: bool) -> None:
+        """Record whether this request was served from the verified-content cache."""
+        self.attributes["cache.hit"] = bool(hit)
+
     @property
     def latency_ms(self) -> float | None:
         if self.end_ns is None:

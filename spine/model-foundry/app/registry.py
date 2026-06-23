@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from enum import Enum
 from uuid import UUID
 
-from .eval import Comparison, Scorecard
+from .eval import Comparison, GateResult, Scorecard
 
 TRACK_ID = 2
 
@@ -45,6 +45,7 @@ class CandidateRecord:
     state: CandidateState
     scorecard: Scorecard | None = None
     comparison: Comparison | None = None
+    gate_result: GateResult | None = None
 
 
 @dataclass(frozen=True)
@@ -110,13 +111,19 @@ class ModelRegistry:
         return rec
 
     def attach_eval(
-        self, *, candidate_id: str, scorecard: Scorecard, comparison: Comparison
+        self,
+        *,
+        candidate_id: str,
+        scorecard: Scorecard,
+        comparison: Comparison,
+        gate_result: GateResult | None = None,
     ) -> CandidateRecord:
         rec = self._require(candidate_id)
         updated = replace(
             rec,
             scorecard=scorecard,
             comparison=comparison,
+            gate_result=gate_result,
             state=CandidateState.EVALUATED,
         )
         self._candidates[candidate_id] = updated
@@ -132,6 +139,14 @@ class ModelRegistry:
         if rec.state == CandidateState.REGISTERED or rec.comparison is None:
             eligible = False
             reason = "candidate has no eval scorecard; cannot request promotion"
+        elif rec.gate_result is not None and not rec.gate_result.passed:
+            # Absolute pedagogy/correctness/safety floors are not met; a candidate
+            # that fails the gate is BLOCKED even if it beats a weak incumbent.
+            eligible = False
+            reason = (
+                "eval gate not cleared (absolute floors): "
+                + "; ".join(rec.gate_result.failures)
+            )
         elif not rec.comparison.candidate_better:
             eligible = False
             reason = f"eval says candidate is not better: {rec.comparison.summary}"

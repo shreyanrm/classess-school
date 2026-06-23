@@ -31,6 +31,23 @@ from .models import (
     PrerequisiteGraph,
     ScoreRecordedPayload,
 )
+from .mind import (
+    ALLOWED_CONDITIONING_PURPOSES,
+    MIND_SCHEMA_VERSION,
+    CognitiveFingerprint,
+    ConditioningPayload,
+    ConditioningPurpose,
+    ConsentDenied,
+    ConsentGrant,
+    IndependenceProfile,
+    PurposeNotPermitted,
+    RetentionParams,
+    assert_pii_free,
+    build_conditioning_payload,
+    build_fingerprint,
+    derive_fingerprint,
+    open_faucet,
+)
 from .profile import LearnerProfile, TopicProjection, build_profile, build_topic_projection
 from .source import EventSource, InMemoryEventSource, make_event_source
 
@@ -69,4 +86,19 @@ __all__ = [
     "EventSource",
     "InMemoryEventSource",
     "make_event_source",
+    "ALLOWED_CONDITIONING_PURPOSES",
+    "MIND_SCHEMA_VERSION",
+    "CognitiveFingerprint",
+    "ConditioningPayload",
+    "ConditioningPurpose",
+    "ConsentDenied",
+    "ConsentGrant",
+    "IndependenceProfile",
+    "PurposeNotPermitted",
+    "RetentionParams",
+    "assert_pii_free",
+    "build_conditioning_payload",
+    "build_fingerprint",
+    "derive_fingerprint",
+    "open_faucet",
 ]

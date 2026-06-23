@@ -12,6 +12,10 @@ import { expect, type Page } from '@playwright/test';
 
 /** The one localStorage key the web store writes (lib/store.ts STORE_KEY). */
 export const STORE_KEY = 'clss.web.store.v1';
+/** Must match lib/store.ts STORE_VERSION. The store adapter drops any blob whose
+ *  version !== STORE_VERSION (returns emptyState), so a seeded session is
+ *  silently ignored unless it carries the current version. */
+export const STORE_VERSION = 1;
 
 export type Role = 'student' | 'teacher' | 'admin' | 'parent';
 
@@ -22,8 +26,24 @@ export type Role = 'student' | 'teacher' | 'admin' | 'parent';
  * reads the store on mount (use page.addInitScript so it lands pre-hydration).
  */
 export async function seedSession(page: Page, role: Role = 'teacher'): Promise<void> {
+  // Simulate a device with NO microphone. Vidya is voice-first (the orb
+  // auto-starts listening on open), and in headless an ungranted getUserMedia
+  // hangs in the "prompt" state — a pending call that deadlocks Playwright's CDP
+  // keyboard input. Rejecting it immediately makes the orb degrade to the typed
+  // composer (the realistic no-mic path) and keeps input responsive.
+  await page.addInitScript(() => {
+    try {
+      // Remove mediaDevices so micSupported() is false -> the orb opens straight
+      // into TEXT mode (no listening state, no mic overlay). A live/listening
+      // voice state holds an overlay that blocks Playwright CDP input on the
+      // panel; the typed path is what these specs exercise anyway.
+      Object.defineProperty(navigator, 'mediaDevices', { value: undefined, configurable: true });
+    } catch {
+      /* ignore */
+    }
+  });
   await page.addInitScript(
-    ([key, r]) => {
+    ([key, r, version]) => {
       const account = {
         id: `e2e-${r}-${Date.now()}`,
         role: r,
@@ -35,13 +55,15 @@ export async function seedSession(page: Page, role: Role = 'teacher'): Promise<v
       try {
         const raw = window.localStorage.getItem(key);
         const state = raw ? JSON.parse(raw) : {};
+        // version MUST be present or the store adapter discards the blob.
+        state.version = version;
         state.account = account;
         window.localStorage.setItem(key, JSON.stringify(state));
       } catch {
-        window.localStorage.setItem(key, JSON.stringify({ account }));
+        window.localStorage.setItem(key, JSON.stringify({ version, account }));
       }
     },
-    [STORE_KEY, role] as const,
+    [STORE_KEY, role, STORE_VERSION] as const,
   );
 }
 
@@ -67,9 +89,28 @@ export async function signInDemo(page: Page, role: Role = 'teacher'): Promise<vo
   await expect(page.getByTestId('role-landing')).toBeVisible();
 }
 
+/**
+ * Set the orb composer's text the React-compatible way (native value setter +
+ * an input event so React's onChange updates its state), bypassing locator.fill —
+ * the open orb panel never settles to Playwright's "stable" actionability state,
+ * so fill/click/press stall; DOM-event/evaluate paths exercise the same handlers.
+ */
+export async function setComposerText(page: Page, text: string): Promise<void> {
+  await page.getByTestId('vidya-composer-input').evaluate((el, v) => {
+    const proto = window.HTMLTextAreaElement.prototype;
+    const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
+    setter?.call(el, v);
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }, text);
+}
+
 /** Open the Vidya orb panel and wait for it to appear. */
 export async function openOrb(page: Page): Promise<void> {
-  await page.getByTestId('vidya-orb').click();
+  // force:true — the orb is a fixed-position, idle-animated button; elementFromPoint
+  // confirms it is unobstructed and a real click opens the panel, but Playwright's
+  // strict actionability wait intermittently stalls on it. The panel-visible assert
+  // below is the real proof the open worked.
+  await page.getByTestId('vidya-orb').dispatchEvent('click');
   await expect(page.getByTestId('vidya-panel')).toBeVisible();
 }
 
@@ -80,7 +121,7 @@ export async function openOrb(page: Page): Promise<void> {
 export async function useTypedComposer(page: Page): Promise<void> {
   const typeInstead = page.getByTestId('vidya-type-instead');
   if (await typeInstead.isVisible().catch(() => false)) {
-    await typeInstead.click();
+    await typeInstead.dispatchEvent('click');
   }
   await expect(page.getByTestId('vidya-composer')).toBeVisible();
 }

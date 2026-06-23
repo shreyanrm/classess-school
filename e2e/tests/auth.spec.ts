@@ -84,9 +84,10 @@ test.describe('stepped sign-in', () => {
     await page.goto('/sign-in');
     await page.getByLabel('Email').fill('not-an-email');
     await page.getByTestId('auth-continue').click();
-    // Stays on identifier and surfaces a calm error.
+    // Stays on identifier and surfaces a calm, specific error (target the message
+    // itself — other role="alert" regions can coexist on the page).
     await expect(page.locator(step('identifier'))).toBeVisible();
-    await expect(page.getByRole('alert')).toBeVisible();
+    await expect(page.getByText('Enter a valid email address.')).toBeVisible();
   });
 });
 

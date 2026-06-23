@@ -26,8 +26,10 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Protocol
 
+from .cache import VerifiedResponseCache
 from .capability_registry import Capability, CapabilityRegistry, default_registry
 from .observability import Tracer
+from .retrieval import NullRetriever, RetrievedContext, Retriever
 from .router import (
     ModelRouter,
     RouteResolution,
@@ -60,9 +62,13 @@ class Intent:
     payload: dict[str, object] = field(default_factory=dict)
     # An explicit human-approval token for consequential capabilities.
     approval_token: str | None = None
-    # Routing signals.
+    # Routing signals (complexity + latency + cost + context).
     difficulty: float | None = None
     latency_sensitive: bool | None = None
+    cost_sensitive: bool | None = None
+    context_tokens: int | None = None
+    # An optional retrieval query; when set, the retriever grounds generation.
+    retrieval_query: str | None = None
 
 
 @dataclass(frozen=True)
@@ -79,6 +85,10 @@ class GenerateResult:
     detail: str | None = None
     tier: str | None = None
     track: int | None = None
+    # True when the verified artifact was served straight from the response cache.
+    cache_hit: bool = False
+    # How many grounding snippets the retrieval hook supplied (0 when ungrounded).
+    retrieved: int = 0
 
 
 # ---------------------------------------------------------------------------
@@ -150,10 +160,17 @@ class Orchestrator:
         second_model: SecondModelChecker | None = None,
         provider: ProviderAdapter | None = None,
         tracer: Tracer | None = None,
+        cache: VerifiedResponseCache | None = None,
+        retriever: Retriever | None = None,
     ) -> None:
         self.registry = registry if registry is not None else default_registry()
         self.router = router if router is not None else ModelRouter()
         self.gate = gate if gate is not None else ConfidenceGate()
+        # The response cache holds ONLY verified artifacts (INVARIANT 7); a hit
+        # returns a gate-cleared artifact without re-running generation/verify.
+        self.cache = cache if cache is not None else VerifiedResponseCache()
+        # The retrieval hook grounds generation; defaults to no grounding.
+        self.retriever = retriever if retriever is not None else NullRetriever()
         # The factory wires the LIVE second-model cross-check when the
         # cross-check provider key is present (by NAME) and a seam is available;
         # otherwise it returns the abstaining model so the gate stays closed and
@@ -200,11 +217,14 @@ class Orchestrator:
                 )
 
             # ROUTE on the OWNING track (INVARIANT 11 — never crosses).
+            # The router weighs complexity + latency + cost + context.
             route = self.router.resolve(RouterSelectionInput(
                 task_class=cap.task_class,
                 requires_verification=cap.requires_verification,
                 difficulty=intent.difficulty,
                 latency_sensitive=intent.latency_sensitive,
+                cost_sensitive=intent.cost_sensitive,
+                context_tokens=intent.context_tokens,
                 track=cap.track,
             ))
             span.set("router.tier", route.selection.tier.value)
@@ -236,13 +256,52 @@ class Orchestrator:
                     detail="no provider adapter wired for this capability.",
                 )
 
-            candidate = provider.generate(capability=cap, route=route, payload=intent.payload)
+            # RETRIEVAL hook: ground the request before generation. The snippets
+            # are passed to the provider via the payload (a real adapter folds
+            # them into its prompt); the count is recorded on the span.
+            contexts = self._retrieve(intent, cap.task_class)
+            span.set("retrieval.count", len(contexts))
+            payload = dict(intent.payload)
+            if contexts:
+                payload["_retrieved_context"] = [c.text for c in contexts]
+
+            candidate = provider.generate(capability=cap, route=route, payload=payload)
             # Tokens are recorded only when the provider reported them.
             if candidate.prompt_tokens is not None or candidate.completion_tokens is not None:
                 span.record_tokens(
                     prompt=candidate.prompt_tokens,
                     completion=candidate.completion_tokens,
                 )
+
+            tier = route.selection.tier.value
+
+            # RESPONSE CACHE: keyed by the VERIFIED-CONTENT hash. A hit returns a
+            # gate-cleared artifact without re-running the second model — only
+            # verified content ever entered the cache (INVARIANT 7).
+            cached = self.cache.get(
+                capability=cap.name, task_class=cap.task_class, tier=tier,
+                payload=intent.payload, content=candidate.content,
+            )
+            if cached is not None:
+                span.record_cache_hit(True)
+                span.record_quality(served=True, confidence=cached.confidence)
+                verification = GenerateVerification(
+                    deterministic_checks=[],
+                    deterministic_checks_passed=True,
+                    second_model_agrees=True,
+                    confidence=cached.confidence,
+                    gate_threshold=self.gate.threshold,
+                    served=True,
+                    review_reason=None,
+                )
+                return GenerateResult(
+                    request_id=intent.request_id, capability=cap.name,
+                    content=cached.content, verification=verification,
+                    refused=False, provider_available=True,
+                    track=cap.track, tier=tier, cache_hit=True,
+                    retrieved=len(contexts),
+                )
+            span.record_cache_hit(False)
 
             # GENERATE-AND-VERIFY: deterministic checks FIRST.
             det_checks = self._deterministic_checks(candidate)
@@ -259,16 +318,34 @@ class Orchestrator:
             span.record_quality(served=verification.served, confidence=confidence)
 
             content = candidate.content if verification.served else None
+            # Only a VERIFIED artifact is cached (INVARIANT 7).
+            if verification.served:
+                self.cache.put(
+                    capability=cap.name, task_class=cap.task_class, tier=tier,
+                    payload=intent.payload, content=candidate.content,
+                    confidence=confidence,
+                )
             return GenerateResult(
                 request_id=intent.request_id, capability=cap.name,
                 content=content, verification=verification,
                 refused=not verification.served,
                 provider_available=True,
-                track=cap.track, tier=route.selection.tier.value,
+                track=cap.track, tier=tier, cache_hit=False,
+                retrieved=len(contexts),
                 detail=None if verification.served else verification.review_reason,
             )
 
     # -- helpers -----------------------------------------------------------
+
+    def _retrieve(self, intent: Intent, task_class: str) -> list[RetrievedContext]:
+        """Run the retrieval hook for the intent's query, if any. Never raises
+        into the pipeline — a retrieval error degrades to ungrounded generation."""
+        if not intent.retrieval_query:
+            return []
+        try:
+            return self.retriever.retrieve(query=intent.retrieval_query, task_class=task_class)
+        except Exception:
+            return []
 
     def _provider_for(self, intent: Intent) -> ProviderAdapter | None:
         if self.provider is not None:

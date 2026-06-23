@@ -80,8 +80,20 @@ export interface Recording {
   stop: () => Promise<Blob>;
 }
 
+/** How long to wait for the mic before degrading to the typed composer. A real
+ *  permission grant resolves in well under this; a headless/no-device environment
+ *  may otherwise hang the getUserMedia promise indefinitely. */
+const MIC_ACQUIRE_TIMEOUT_MS = 4000;
+
 export async function startRecording(): Promise<Recording> {
-  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  // Never let an unresolved getUserMedia stall the UI: race it against a timeout
+  // so a missing/denied device degrades to text instead of hanging forever.
+  const stream = await Promise.race([
+    navigator.mediaDevices.getUserMedia({ audio: true }),
+    new Promise<MediaStream>((_, reject) =>
+      setTimeout(() => reject(new Error('mic-acquire-timeout')), MIC_ACQUIRE_TIMEOUT_MS),
+    ),
+  ]);
   const rec = new MediaRecorder(stream);
   const chunks: BlobPart[] = [];
   rec.ondataavailable = (e) => e.data.size > 0 && chunks.push(e.data);

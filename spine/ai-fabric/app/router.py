@@ -135,12 +135,25 @@ TrackId = Literal[1, 2]
 
 @dataclass(frozen=True)
 class RouterSelectionInput:
-    """The signals the router selects a tier on. Mirrors the contract."""
+    """The signals the router selects a tier on. Mirrors the contract.
+
+    Real per-request routing weighs FOUR signals (the brief's complexity +
+    latency + cost + context):
+      - ``difficulty``  — complexity; pushes toward frontier,
+      - ``latency_sensitive`` — favours the edge tier (fast/small),
+      - ``cost_sensitive`` — favours the cheaper tier (steps down a rung),
+      - ``context_tokens`` — a large context demands a higher-capacity tier so
+        the request is not truncated (steps frontier-ward).
+    An explicit task-class mapping still wins; these signals resolve the
+    unmapped / ambiguous requests and can adjust a heuristic pick.
+    """
 
     task_class: str
     requires_verification: bool
     difficulty: float | None = None          # [0,1]; pushes toward frontier
     latency_sensitive: bool | None = None     # favours the edge tier
+    cost_sensitive: bool | None = None         # favours the cheaper tier
+    context_tokens: int | None = None          # large context -> higher tier
     # Which track OWNS this capability. Selection respects this; never crosses.
     track: TrackId = 1
 
@@ -198,6 +211,8 @@ class ModelRouter:
 
     # Difficulty at or above this routes to frontier when no explicit mapping.
     FRONTIER_DIFFICULTY = 0.8
+    # A context this large needs a higher-capacity tier so it is not truncated.
+    LARGE_CONTEXT_TOKENS = 16_000
 
     def __init__(
         self,
@@ -213,20 +228,61 @@ class ModelRouter:
 
     # -- tier selection ----------------------------------------------------
 
+    # Tier ordering by capability/cost, for cheap stepping up/down a rung.
+    _ORDER = (ModelTier.EDGE, ModelTier.MID, ModelTier.FRONTIER)
+
+    def _step(self, tier: ModelTier, delta: int) -> ModelTier:
+        idx = self._ORDER.index(tier)
+        idx = max(0, min(len(self._ORDER) - 1, idx + delta))
+        return self._ORDER[idx]
+
     def select_tier(self, inp: RouterSelectionInput) -> RouterSelection:
+        large_context = (
+            inp.context_tokens is not None and inp.context_tokens >= self.LARGE_CONTEXT_TOKENS
+        )
+
         mapped = _TASK_CLASS_TIER.get(inp.task_class)
         if mapped is not None:
             tier = mapped
             why = f"task_class '{inp.task_class}' is mapped to {tier.value}"
-        elif inp.difficulty is not None and inp.difficulty >= self.FRONTIER_DIFFICULTY:
+            # A large context must not be truncated: lift a mapped EDGE pick to
+            # MID so the whole context fits, even for a high-frequency class.
+            if large_context and tier is ModelTier.EDGE:
+                tier = ModelTier.MID
+                why += (
+                    f"; lifted to {tier.value} because context {inp.context_tokens} tokens "
+                    f">= {self.LARGE_CONTEXT_TOKENS} (avoid truncation)"
+                )
+            return RouterSelection(task_class=inp.task_class, tier=tier, track=inp.track, rationale=why)
+
+        # -- unmapped: resolve from complexity + latency + cost + context --
+        if inp.difficulty is not None and inp.difficulty >= self.FRONTIER_DIFFICULTY:
             tier = ModelTier.FRONTIER
             why = f"difficulty {inp.difficulty:.2f} >= {self.FRONTIER_DIFFICULTY} -> frontier"
+        elif large_context:
+            # Even a latency-sensitive request needs capacity if context is huge.
+            tier = ModelTier.MID
+            why = (
+                f"context {inp.context_tokens} tokens >= {self.LARGE_CONTEXT_TOKENS} "
+                "-> mid (capacity over latency)"
+            )
         elif inp.latency_sensitive:
             tier = ModelTier.EDGE
             why = "latency_sensitive -> edge (the high-frequency ocean)"
         else:
             tier = ModelTier.MID
             why = "no explicit mapping; defaulting to the mid workhorse tier"
+
+        # COST signal: when cost-sensitive and the request is not hard / huge,
+        # step down one rung to the cheaper tier.
+        if inp.cost_sensitive and not large_context and (
+            inp.difficulty is None or inp.difficulty < self.FRONTIER_DIFFICULTY
+        ):
+            stepped = self._step(tier, -1)
+            if stepped is not tier:
+                why += f"; cost_sensitive -> stepped down to {stepped.value}"
+                tier = stepped
+
         return RouterSelection(task_class=inp.task_class, tier=tier, track=inp.track, rationale=why)
 
     # -- track resolution --------------------------------------------------

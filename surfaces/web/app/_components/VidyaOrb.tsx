@@ -133,15 +133,26 @@ export function VidyaOrb() {
 
   // Voice-first: when the orb opens (and not into a text starter), go straight to
   // listening. Falls back to text silently when there is no mic.
+  //
+  // The auto-start is DEFERRED off the opening click's synchronous task: kicking
+  // off mic capture (getUserMedia) inline with the same input event that opened
+  // the panel can stall the input pipeline (the pointerup that follows the
+  // pointerdown never settles) and freeze the orb. A macrotask hop lets the open
+  // gesture complete first, then voice begins. It also never hangs the UI: if the
+  // mic is missing we degrade to the typed composer immediately.
   useEffect(() => {
     if (!open || textMode) return;
     const handle = voiceRef.current;
     if (!handle) return;
-    if (handle.available()) {
-      handle.start();
-    } else {
+    if (!handle.available()) {
       setTextMode(true); // graceful degrade: no mic -> text
+      return;
     }
+    const id = window.setTimeout(() => {
+      // Re-read the handle: the panel may have closed during the hop.
+      voiceRef.current?.start();
+    }, 0);
+    return () => window.clearTimeout(id);
   }, [open, textMode]);
 
   // Close on Escape; return focus to the orb so keyboard users are not stranded.

@@ -28,6 +28,9 @@ for (const role of ROLES) {
     });
 
     test('every rail-item resolves without a 404', async ({ page }) => {
+      // Visits ~10 routes sequentially; in dev each compiles on first hit, so give
+      // this test extra room (a prod build would be fast).
+      test.slow();
       await page.goto('/');
       await expect(page.getByTestId('rail')).toBeVisible();
 
@@ -42,7 +45,7 @@ for (const role of ROLES) {
       expect(unique.length).toBeGreaterThan(0);
 
       for (const href of unique) {
-        const res = await page.goto(href);
+        const res = await page.goto(href, { waitUntil: 'commit' });
         // The HTTP layer must not 404 (Next renders not-found as a 404 status).
         expect(res, `no response for ${href}`).not.toBeNull();
         expect(res!.status(), `unexpected status for ${href}`).toBeLessThan(400);

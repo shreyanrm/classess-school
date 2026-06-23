@@ -35,9 +35,31 @@ from .capture import LearningSignal, SignalCapture
 from .consent_gate import ConsentGate
 from .curate import CurationReport, Curator, Verifier
 from .dataset import Dataset, DatasetBuilder
-from .eval import Comparison, Evaluator, Predictor, SafetyProbe, Scorecard, compare
+from .eval import (
+    Comparison,
+    Evaluator,
+    Predictor,
+    PromotionGate,
+    SafetyProbe,
+    Scorecard,
+    compare,
+)
 from .finetune import DistillRecipe, FineTuneRunner, NoComputePlan, TrainedCandidate
 from .registry import ModelRegistry, PromotionDecision, PromotionRecord
+from .teacher import (
+    DistillationTeacher,
+    TeacherResult,
+    VerifiedTrack1Output,
+    signals_from_verified_outputs,
+)
+
+# Synthetic provenance for teacher-produced targets: no learner produced them, so
+# they ride a fixed opaque ref. A deployment SHOULD register a matching
+# model-improvement consent for this synthetic ref in the gate; otherwise teacher
+# targets are denied by default (deny-by-default — INVARIANT 6), exactly as
+# desired when no synthetic-data consent is on record.
+_SYNTHETIC_TEACHER_UUID = UUID("5a17471c-0000-4000-8000-000000000000")
+_SYNTHETIC_TEACHER_CONSENT = UUID("5a17471c-0000-4000-8000-000000000001")
 
 
 @dataclass(frozen=True)
@@ -58,6 +80,7 @@ class TurnResult:
     scorecard: Scorecard | None
     comparison: Comparison | None
     promotion: PromotionDecision | None
+    teacher: TeacherResult | None = None
 
 
 class ContinuousLearningLoop:
@@ -72,6 +95,8 @@ class ContinuousLearningLoop:
         curator: Curator | None = None,
         evaluator: Evaluator | None = None,
         builder: DatasetBuilder | None = None,
+        teacher: DistillationTeacher | None = None,
+        promotion_gate: PromotionGate | None = None,
         sink: fevents.EventSink | None = None,
     ) -> None:
         self._gate = consent_gate
@@ -81,6 +106,8 @@ class ContinuousLearningLoop:
         self._curator = curator or Curator()
         self._evaluator = evaluator or Evaluator()
         self._builder = builder or DatasetBuilder()
+        self._teacher = teacher
+        self._promotion_gate = promotion_gate or PromotionGate()
         self._sink = sink or (lambda _e: None)
 
     @property
@@ -95,6 +122,10 @@ class ContinuousLearningLoop:
         incumbent_scorecard: Scorecard | None = None,
         candidate_predictor: Predictor | None = None,
         safety_probes: list[SafetyProbe] | None = None,
+        verified_outputs: list[VerifiedTrack1Output] | None = None,
+        teacher_gap_fill: list[str] | None = None,
+        teacher_synthetic_uuid: UUID | None = None,
+        teacher_synthetic_consent_ref: UUID | None = None,
     ) -> TurnResult:
         """Run one turn: events -> ... -> a promotion decision (never promotes).
 
@@ -102,9 +133,38 @@ class ContinuousLearningLoop:
         the caller (e.g. a TrainedCandidate's served predictor, or a stub when
         running the loop with no compute). With none supplied, eval is skipped
         and no promotion can be requested — the turn stops at the dataset/plan.
+
+        ``verified_outputs`` are Track-1 outputs that already passed the fabric's
+        generate-and-verify gate; they become distillation examples directly
+        (always-available path, no live call). ``teacher_gap_fill`` lists gap
+        types to request rubric-grounded targets for from the Track-1 teacher
+        (live path; degrades to verified-only when no key/provider). Both are
+        consent-gated and PII-scrubbed exactly like captured signals.
         """
         # observe -> capture
         signals = self._capture.capture_stream(events)
+
+        # Verified Track-1 outputs -> distillation examples (always available).
+        if verified_outputs:
+            signals = signals + signals_from_verified_outputs(
+                verified_outputs, consent_gate=self._gate
+            )
+
+        # Teacher gap-fill: ask the Track-1 teacher for rubric-grounded targets
+        # where coverage is thin. Degrades to verified-only with no key/provider.
+        teacher_result: TeacherResult | None = None
+        if teacher_gap_fill and self._teacher is not None:
+            teacher_result = self._teacher.propose_for_gaps(teacher_gap_fill)
+            if teacher_result.available and teacher_result.targets:
+                t_uuid = teacher_synthetic_uuid or _SYNTHETIC_TEACHER_UUID
+                t_consent = teacher_synthetic_consent_ref or _SYNTHETIC_TEACHER_CONSENT
+                signals = signals + self._teacher.signals_from_targets(
+                    teacher_result,
+                    canonical_uuid=t_uuid,
+                    consent_ref=t_consent,
+                    consent_gate=self._gate,
+                )
+
         # consent-gate (keep only admissible — INVARIANT 6)
         admissible = [s for s in signals if s.admissible]
         # curate (safety + verify + balance — INVARIANT 7)
@@ -153,8 +213,12 @@ class ContinuousLearningLoop:
                 safety_probes=safety_probes,
             )
             comparison = compare(scorecard, incumbent_scorecard)
+            gate_result = self._promotion_gate.evaluate(scorecard)
             self._registry.attach_eval(
-                candidate_id=candidate_id, scorecard=scorecard, comparison=comparison
+                candidate_id=candidate_id,
+                scorecard=scorecard,
+                comparison=comparison,
+                gate_result=gate_result,
             )
             self._sink(
                 fevents.candidate_evaluated(
@@ -187,6 +251,7 @@ class ContinuousLearningLoop:
             scorecard=scorecard,
             comparison=comparison,
             promotion=promotion,
+            teacher=teacher_result,
         )
 
     def approve_and_promote(

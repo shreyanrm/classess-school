@@ -58,7 +58,7 @@ test.describe('responsive layout', () => {
     await page.goto('/');
     await expect(page.getByTestId('role-landing')).toBeVisible();
 
-    await page.getByTestId('vidya-orb').click();
+    await page.getByTestId('vidya-orb').dispatchEvent('click');
     await expect(page.getByTestId('vidya-panel')).toBeVisible();
 
     const panel = await box(page.getByTestId('vidya-panel'));

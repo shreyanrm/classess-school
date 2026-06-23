@@ -367,22 +367,44 @@ export function localStorageAdapter(storage?: StorageLike): StoreAdapter {
   const store = storage ?? ambientStorage();
   if (!store) return memoryAdapter();
 
+  // Snapshot cache: read() must return a STABLE reference until the underlying
+  // blob changes, or useSyncExternalStore (lib/useStore) treats every render as
+  // a store change and spins into an infinite update loop. We key the cache on
+  // the raw string — it only changes on write — so repeated reads return the
+  // identical object.
+  let cache: { raw: string | null; state: StoreState } | null = null;
+
+  function parse(raw: string | null): StoreState {
+    if (!raw) return emptyState();
+    try {
+      const parsed = JSON.parse(raw) as Partial<StoreState>;
+      // Drop an incompatible older blob rather than crash on it.
+      if (!parsed || parsed.version !== STORE_VERSION) return emptyState();
+      return { ...emptyState(), ...parsed } as StoreState;
+    } catch {
+      return emptyState();
+    }
+  }
+
   return {
     read(): StoreState {
+      let raw: string | null = null;
       try {
-        const raw = store.getItem(STORE_KEY);
-        if (!raw) return emptyState();
-        const parsed = JSON.parse(raw) as Partial<StoreState>;
-        // Drop an incompatible older blob rather than crash on it.
-        if (!parsed || parsed.version !== STORE_VERSION) return emptyState();
-        return { ...emptyState(), ...parsed } as StoreState;
+        raw = store.getItem(STORE_KEY);
       } catch {
-        return emptyState();
+        raw = null;
       }
+      if (cache && cache.raw === raw) return cache.state;
+      const state = parse(raw);
+      cache = { raw, state };
+      return state;
     },
     write(state: StoreState) {
       try {
-        store.setItem(STORE_KEY, JSON.stringify(state));
+        const raw = JSON.stringify(state);
+        store.setItem(STORE_KEY, raw);
+        // Keep the cache coherent so the next read returns this exact state.
+        cache = { raw, state };
       } catch {
         // Quota / private mode — non-fatal; in-memory state still stands.
       }
@@ -393,6 +415,7 @@ export function localStorageAdapter(storage?: StorageLike): StoreAdapter {
       } catch {
         // Non-fatal.
       }
+      cache = null;
     },
   };
 }

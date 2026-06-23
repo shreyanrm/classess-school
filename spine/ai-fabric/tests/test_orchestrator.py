@@ -193,6 +193,62 @@ class _TokenfulMathProvider:
         )
 
 
+# -- response cache: a hit returns the verified artifact -------------------
+
+def test_second_call_is_cache_hit_serving_verified_artifact():
+    sink = BufferingTraceSink()
+    orch = Orchestrator(
+        provider=_GoodMathProvider(), second_model=_AgreeingSecondModel(),
+        tracer=Tracer(sink=sink),
+    )
+    intent = lambda: Intent(
+        request_id=_rid(), capability="content.generate-practice-item",
+        purpose="practice_item_generation",
+    )
+    first = orch.handle(intent())
+    assert first.cache_hit is False
+    assert first.verification.served is True
+
+    second = orch.handle(intent())
+    assert second.cache_hit is True
+    assert second.content == {"answer": 144}
+    assert second.verification.served is True
+    # The cache recorded one hit and the span carries the cache-hit signal.
+    assert orch.cache.hits == 1
+    assert sink.spans[-1].attributes.get("cache.hit") is True
+
+
+def test_unverified_content_is_never_cached():
+    # Wrong math => withheld => must NOT be cached.
+    orch = Orchestrator(provider=_WrongMathProvider(), second_model=_AgreeingSecondModel())
+    orch.handle(Intent(
+        request_id=_rid(), capability="content.generate-practice-item",
+        purpose="practice_item_generation",
+    ))
+    assert len(orch.cache) == 0
+
+
+# -- retrieval hook --------------------------------------------------------
+
+def test_retrieval_hook_grounds_and_counts():
+    from app.retrieval import RetrievedContext, StaticRetriever
+
+    retriever = StaticRetriever(corpus=[
+        RetrievedContext("c1", "twelve times twelve is one hundred forty four"),
+    ])
+    orch = Orchestrator(
+        provider=_GoodMathProvider(), second_model=_AgreeingSecondModel(),
+        retriever=retriever,
+    )
+    res = orch.handle(Intent(
+        request_id=_rid(), capability="content.generate-practice-item",
+        purpose="practice_item_generation",
+        retrieval_query="twelve times twelve",
+    ))
+    assert res.retrieved == 1
+    assert res.verification.served is True
+
+
 def test_span_records_model_and_tokens_when_available():
     from app.router import ModelRouter, Track1Config, env_var_name
 

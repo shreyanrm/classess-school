@@ -33,6 +33,14 @@ export default defineConfig({
     // The surface is a single-locale desktop app; pin it so text selectors hold.
     locale: 'en-US',
     timezoneId: 'UTC',
+    // Collapse the calm idle/entrance animations (the app honours reduced motion)
+    // so the Vidya orb and panels settle immediately and are clickable/stable.
+    reducedMotion: 'reduce',
+    // NB: we deliberately do NOT grant a fake microphone. Vidya is voice-first
+    // (opening the orb auto-starts listening), but a granted fake media stream
+    // stays live and deadlocks CDP input (keyboard/click) in headless. With no
+    // mic, getUserMedia rejects fast and the orb degrades to the typed composer —
+    // which is the realistic no-mic path and keeps input responsive.
   },
 
   projects: [

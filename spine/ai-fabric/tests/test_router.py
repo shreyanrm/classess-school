@@ -58,6 +58,43 @@ def test_unknown_default_to_mid():
     assert sel.tier is ModelTier.MID
 
 
+# -- cost + context signals (per-request routing) --------------------------
+
+def test_cost_sensitive_steps_down_a_rung():
+    r = ModelRouter(env={})
+    # An unmapped request defaults to mid; cost_sensitive steps it down to edge.
+    sel = r.select_tier(RouterSelectionInput(
+        "unknown.task", requires_verification=True, cost_sensitive=True))
+    assert sel.tier is ModelTier.EDGE
+    assert "cost_sensitive" in sel.rationale
+
+
+def test_cost_sensitive_never_undercuts_hard_reasoning():
+    r = ModelRouter(env={})
+    # High difficulty pins frontier; cost must NOT step a hard task down.
+    sel = r.select_tier(RouterSelectionInput(
+        "unknown.task", requires_verification=True, difficulty=0.95, cost_sensitive=True))
+    assert sel.tier is ModelTier.FRONTIER
+
+
+def test_large_context_lifts_unmapped_above_edge():
+    r = ModelRouter(env={})
+    # Latency-sensitive would pick edge, but a huge context needs capacity.
+    sel = r.select_tier(RouterSelectionInput(
+        "unknown.task", requires_verification=True,
+        latency_sensitive=True, context_tokens=50_000))
+    assert sel.tier is ModelTier.MID
+    assert "context" in sel.rationale
+
+
+def test_large_context_lifts_mapped_edge_class_to_mid():
+    r = ModelRouter(env={})
+    # A mapped EDGE class with a large context is lifted so it is not truncated.
+    sel = r.select_tier(RouterSelectionInput(
+        "conversation.companion-turn", requires_verification=True, context_tokens=50_000))
+    assert sel.tier is ModelTier.MID
+
+
 # -- track 1: env-by-name, no key => unavailable ---------------------------
 
 def test_track1_no_key_is_unavailable_not_fabricated():
