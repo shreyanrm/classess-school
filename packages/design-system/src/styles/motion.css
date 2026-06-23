@@ -78,6 +78,9 @@
 .c-spot { position: relative; overflow: hidden; transition: border-color var(--dur) var(--ease); --spot-color: var(--accent); }
 .c-spot::before {
   content: ""; position: absolute; inset: 0; opacity: 0;
+  /* CRITICAL: the overlay must never intercept clicks, or every button/link
+     inside the card becomes unclickable. */
+  pointer-events: none;
   transition: opacity var(--dur) var(--ease);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--spot-color) 12%, transparent), transparent 60%);
 }
