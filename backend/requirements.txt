@@ -1,0 +1,19 @@
+# Runtime dependencies for the Classess single deployable (backend/main.py).
+#
+# The spine services (identity, event-store, gateway) and the capability modules
+# are pure-python libraries that live in the repo tree; backend/loader.py makes
+# them importable in-process by path-based aliasing, so there is nothing to
+# "pip install" for them. Only their THIRD-PARTY runtime deps are listed here,
+# pinned to match the per-service spine requirements files.
+
+fastapi>=0.111,<0.120
+uvicorn[standard]>=0.30,<0.36
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+httpx>=0.27,<0.29
+# JWT verify (gateway/event-store) + mint (identity). [crypto] enables RS256.
+PyJWT[crypto]>=2.8,<3
+# Postgres client for the PII vault, canonical tables, event store and audit
+# sink. GUARDED import everywhere: with no CLSS_DATABASE_URL the services start
+# and degrade to clearly-labelled in-memory adapters (they never connect).
+asyncpg>=0.29,<0.31

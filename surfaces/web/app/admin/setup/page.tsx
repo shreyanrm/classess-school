@@ -8,6 +8,7 @@ import { useStore } from '@/lib/useStore';
 import { saveSchool, clearSchool, setSchoolLiveId, type GroupNode, type RosterMember } from '@/lib/store';
 import { draftStructure, draftRoster, countStructure, assembleSchool } from '@/lib/setupDraft';
 import { saveSchoolLive } from '@/lib/opData';
+import { sendEmail } from '@/lib/emailClient';
 
 /**
  * The blueprint wizard — a calm, multi-step flow that PERSISTS to lib/store.
@@ -25,6 +26,44 @@ export default function AdminSetupPage() {
   const [pacing, setPacing] = useState(school?.institution.pacing ?? 'Standard, by section');
   const [structure, setStructure] = useState<GroupNode[]>(school?.structure ?? []);
   const [roster, setRoster] = useState<RosterMember[]>(school?.roster ?? []);
+
+  // Teacher/roster invite — a real end-to-end trigger over /api/email. The route
+  // renders the branded invite and (when the Resend key is present) sends it;
+  // with no key it resolves { sent:false } and we show a calm "not sent" note.
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviting, setInviting] = useState(false);
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+
+  async function sendInvite() {
+    const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!EMAIL_RE.test(inviteEmail.trim())) {
+      setInviteStatus('Enter a valid email address to invite a teacher.');
+      return;
+    }
+    setInviting(true);
+    setInviteStatus(null);
+    const result = await sendEmail({
+      to: inviteEmail.trim(),
+      email: {
+        kind: 'roster-invite',
+        data: {
+          schoolName: name || 'Campus North',
+          roleLabel: 'teacher',
+          inviteUrl:
+            typeof window !== 'undefined' ? `${window.location.origin}/sign-up` : '/sign-up',
+        },
+      },
+      // An admin inviting a colleague into their own school has consent by design.
+      flags: { consent: true },
+    });
+    setInviting(false);
+    setInviteStatus(
+      result.sent
+        ? 'Invite sent. They will get a branded email with an accept link.'
+        : 'Saved. Sending is not switched on here yet, so no email went out.',
+    );
+  }
 
   const step = SETUP_STEPS[index]!;
   const isLast = index === SETUP_STEPS.length - 1;
@@ -181,6 +220,41 @@ export default function AdminSetupPage() {
                 </div>
               ) : (
                 <p className="caption quiet">No roster drafted yet.</p>
+              )}
+
+              <div className="divider" />
+              <p className="caption quiet" style={{ margin: 0 }}>
+                Invite a teacher by email. They receive a branded invite with an accept link.
+                Nothing is created until they accept.
+              </p>
+              {inviteOpen ? (
+                <div className="stack" style={{ gap: 'var(--space-3)' }}>
+                  <Input
+                    label="Teacher email"
+                    type="email"
+                    inputMode="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="teacher@example.com"
+                  />
+                  <div className="rec-actions">
+                    <Button variant="accent" size="sm" disabled={inviting} onClick={sendInvite} data-testid="roster-invite-send">
+                      {inviting ? 'Sending' : 'Send invite'}
+                    </Button>
+                  </div>
+                  {inviteStatus ? (
+                    <p className="caption muted" role="status" aria-live="polite">
+                      {inviteStatus}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="rec-actions">
+                  <Button variant="secondary" size="sm" onClick={() => setInviteOpen(true)} data-testid="roster-invite-open">
+                    <Icon name="send" size="sm" />
+                    Invite a teacher by email
+                  </Button>
+                </div>
               )}
             </div>
           ) : null}

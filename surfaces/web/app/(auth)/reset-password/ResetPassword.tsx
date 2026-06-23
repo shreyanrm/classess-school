@@ -17,11 +17,14 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Icon, Input } from '@classess/design-system';
 import { useRole } from '@/lib/RoleContext';
+import { useT } from '@/lib/i18n';
+import { Logo } from '@/app/_components/Logo';
 import { updatePassword } from '@/lib/auth';
 
 export function ResetPassword() {
   const router = useRouter();
   const { role } = useRole();
+  const { t } = useT();
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -49,23 +52,21 @@ export function ResetPassword() {
     <main className="auth-shell" data-surface={role}>
       <div className="auth-card">
         <div className="auth-head">
-          <span className="auth-mark" aria-hidden="true">
-            C
-          </span>
-          <h1 className="display-sm auth-title">Set a new password</h1>
+          <Logo width={110} className="auth-logo" />
+          <h1 className="display-sm auth-title">{t('auth.reset.title')}</h1>
           <p className="body-sm muted auth-sub">
-            Choose a new password to finish resetting your account.
+            {t('auth.reset.sub')}
           </p>
         </div>
 
         {done ? (
           <>
             <p className="body-sm" role="status" aria-live="polite">
-              Your password is set. You can sign in with it now.
+              {t('auth.reset.done')}
             </p>
             <div className="auth-personalise-actions">
               <Button variant="accent" onClick={() => router.replace('/sign-in')}>
-                Go to sign in
+                {t('auth.reset.goSignIn')}
                 <Icon name="arrow-right" size="sm" />
               </Button>
             </div>
@@ -74,7 +75,7 @@ export function ResetPassword() {
           <form className="auth-form" onSubmit={submit} noValidate>
             <div className="auth-password">
               <Input
-                label="New password"
+                label={t('auth.reset.newLabel')}
                 type={showPassword ? 'text' : 'password'}
                 autoComplete="new-password"
                 autoFocus
@@ -86,10 +87,10 @@ export function ResetPassword() {
                 type="button"
                 className="auth-password-toggle"
                 aria-pressed={showPassword}
-                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                aria-label={showPassword ? t('auth.password.hide') : t('auth.password.show')}
                 onClick={() => setShowPassword((v) => !v)}
               >
-                {showPassword ? 'Hide' : 'Show'}
+                {showPassword ? t('auth.password.hide') : t('auth.password.show')}
               </button>
             </div>
             {error ? (
@@ -98,14 +99,14 @@ export function ResetPassword() {
               </p>
             ) : null}
             <Button type="submit" variant="accent" disabled={busy}>
-              Set new password
+              {t('auth.reset.set')}
             </Button>
           </form>
         )}
 
         <p className="auth-switch">
           <Link href="/sign-in" className="auth-link">
-            Back to sign in
+            {t('auth.forgot.backToSignIn')}
           </Link>
         </p>
       </div>

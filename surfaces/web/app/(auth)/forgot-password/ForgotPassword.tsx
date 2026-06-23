@@ -13,10 +13,13 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Button, Input } from '@classess/design-system';
 import { useRole } from '@/lib/RoleContext';
+import { useT } from '@/lib/i18n';
+import { Logo } from '@/app/_components/Logo';
 import { requestPasswordReset } from '@/lib/auth';
 
 export function ForgotPassword() {
   const { role } = useRole();
+  const { t } = useT();
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
@@ -45,24 +48,21 @@ export function ForgotPassword() {
     <main className="auth-shell" data-surface={role}>
       <div className="auth-card">
         <div className="auth-head">
-          <span className="auth-mark" aria-hidden="true">
-            C
-          </span>
-          <h1 className="display-sm auth-title">Reset your password</h1>
+          <Logo width={110} className="auth-logo" />
+          <h1 className="display-sm auth-title">{t('auth.forgot.title')}</h1>
           <p className="body-sm muted auth-sub">
-            Enter your email and we will send a link to set a new password.
+            {t('auth.forgot.sub')}
           </p>
         </div>
 
         {sent ? (
           <p className="body-sm" role="status" aria-live="polite">
-            If an account exists for that email, a reset link is on its way. You can close this and
-            check your inbox.
+            {t('auth.forgot.sent')}
           </p>
         ) : (
           <form className="auth-form" onSubmit={submit} noValidate>
             <Input
-              label="Email"
+              label={t('auth.email.label')}
               type="email"
               autoComplete="email"
               inputMode="email"
@@ -76,14 +76,14 @@ export function ForgotPassword() {
               </p>
             ) : null}
             <Button type="submit" variant="accent" disabled={busy}>
-              Send reset link
+              {t('auth.forgot.send')}
             </Button>
           </form>
         )}
 
         <p className="auth-switch">
           <Link href="/sign-in" className="auth-link">
-            Back to sign in
+            {t('auth.forgot.backToSignIn')}
           </Link>
         </p>
       </div>

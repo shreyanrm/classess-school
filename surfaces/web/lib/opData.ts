@@ -36,6 +36,15 @@ export interface OpResult<Row = Record<string, unknown>> {
   id?: string;
   /** A non-sensitive reason on the degraded path (never a key, never a url). */
   reason?: string;
+  /** The child-safety verdict the messages route returns (real, not hard-coded).
+   *  flagged: held for a responsible adult. escalate: a crisis routed to a human
+   *  NOW (never silenced). category: the plain-language reason. support: a calm
+   *  line to show on a crisis. */
+  flagged?: boolean;
+  escalate?: boolean;
+  requiresHuman?: boolean;
+  category?: 'safe' | 'harassment' | 'crisis';
+  support?: string;
 }
 
 /** A drafted/confirmed school blueprint, in the shape the route persists. */
@@ -66,12 +75,23 @@ async function call<Row = Record<string, unknown>>(
   try {
     const res = await fetchImpl(route, init);
     const data = (await res.json().catch(() => ({}))) as Partial<OpResult<Row>>;
-    if (!res.ok) return { persisted: false, reason: data.reason ?? `http-${res.status}` };
+    const safety = {
+      flagged: typeof data.flagged === 'boolean' ? data.flagged : undefined,
+      escalate: typeof data.escalate === 'boolean' ? data.escalate : undefined,
+      requiresHuman: typeof data.requiresHuman === 'boolean' ? data.requiresHuman : undefined,
+      category:
+        data.category === 'safe' || data.category === 'harassment' || data.category === 'crisis'
+          ? data.category
+          : undefined,
+      support: typeof data.support === 'string' ? data.support : undefined,
+    };
+    if (!res.ok) return { persisted: false, reason: data.reason ?? `http-${res.status}`, ...safety };
     return {
       persisted: Boolean(data.persisted),
       rows: Array.isArray(data.rows) ? data.rows : undefined,
       id: typeof data.id === 'string' ? data.id : undefined,
       reason: typeof data.reason === 'string' ? data.reason : undefined,
+      ...safety,
     };
   } catch {
     return { persisted: false, reason: 'network' };

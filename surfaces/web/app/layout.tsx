@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { ThemeProvider } from '@classess/design-system';
 import { RoleProvider } from '@/lib/RoleContext';
+import { LocaleProvider } from '@/lib/i18n';
 import { AuthGate } from './_components/AuthGate';
 import { VidyaOrb } from './_components/VidyaOrb';
 import '@classess/design-system/styles.css';
@@ -23,11 +24,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" data-theme="light">
       <body>
         <ThemeProvider defaultTheme="light">
-          <RoleProvider>
-            <AuthGate>{children}</AuthGate>
-            {/* Vidya floats on every route, persisting across navigation. */}
-            <VidyaOrb />
-          </RoleProvider>
+          <LocaleProvider>
+            <RoleProvider>
+              <AuthGate>{children}</AuthGate>
+              {/* Vidya floats on every route, persisting across navigation. */}
+              <VidyaOrb />
+            </RoleProvider>
+          </LocaleProvider>
         </ThemeProvider>
       </body>
     </html>

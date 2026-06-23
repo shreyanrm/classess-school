@@ -6,7 +6,8 @@
   "workspaces": [
     "contracts",
     "packages/*",
-    "surfaces/*"
+    "surfaces/*",
+    "e2e"
   ],
   "scripts": {
     "build:contracts": "npm run build -w @classess/contracts",
@@ -18,6 +19,7 @@
     "test:watch": "vitest",
     "test:ts": "vitest run",
     "test:py": "bash scripts/test-python.sh",
+    "e2e": "npm run test -w @classess/e2e",
     "ci": "bash scripts/ci.sh"
   },
   "engines": {

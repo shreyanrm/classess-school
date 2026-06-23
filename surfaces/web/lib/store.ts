@@ -75,7 +75,7 @@ export interface Account {
   /** The chosen / inferred role for this account. */
   role: Role;
   /** The sign-in shape used (demo only — no real backend). */
-  method: 'phone-otp' | 'google' | 'apple';
+  method: 'phone-otp' | 'google' | 'apple' | 'microsoft';
   /**
    * A NON-identifying masked hint of the phone shape (e.g. "•••• ••12"). We
    * keep only this, the way a vault exposes a handle — the full number is never
@@ -233,6 +233,13 @@ export interface StoreState {
   consent: ConsentState | null;
   profile: PersonalizationProfile | null;
   school: SchoolSetup | null;
+  /**
+   * The persisted UI locale (multilingual-by-design law). Captured implicitly in
+   * onboarding/personalise and changeable in settings. A parent reads in their
+   * chosen language; subject terminology is never altered by translation.
+   * Undefined means "follow the default (English)".
+   */
+  locale?: string;
 }
 
 /** The empty initial state — the app is empty until onboarding. */
@@ -248,7 +255,13 @@ export function emptyState(): StoreState {
     consent: null,
     profile: null,
     school: null,
+    locale: undefined,
   };
+}
+
+/** Persist the chosen UI locale. Survives reload; read by the LocaleProvider. */
+export function setLocale(locale: string): void {
+  updateStore((s) => ({ ...s, locale }));
 }
 
 // ---------------------------------------------------------------------------

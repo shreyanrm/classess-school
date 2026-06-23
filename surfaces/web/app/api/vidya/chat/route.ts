@@ -14,6 +14,7 @@
 
 import type { VidyaAction } from '@/lib/vidya';
 import { KEY_ENV, runVidyaTurn, type GeminiContent } from '@/lib/vidyaServer';
+import { screenText, CRISIS_SUPPORT } from '@/lib/childSafetyServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,25 @@ export async function POST(req: Request): Promise<Response> {
   const turns = Array.isArray(payload.messages) ? payload.messages : [];
   if (turns.length === 0) return degraded('empty', 400);
   const viewerRole = payload.role ?? 'teacher';
+
+  // CHILD-SAFETY on the live free-text path. Screen the latest human turn BEFORE
+  // it reaches the tool loop. A crisis is never silenced: it short-circuits the
+  // model, escalates to a human, and returns a calm supportive response rather
+  // than a tutoring/navigation answer. The verdict is real, not hard-coded.
+  const latestHuman = [...turns].reverse().find((t) => t.role !== 'vidya' && typeof t.text === 'string' && t.text!.trim());
+  if (latestHuman?.text) {
+    const screened = await screenText(latestHuman.text);
+    if (screened.escalate) {
+      return Response.json(
+        {
+          text: screened.support ?? CRISIS_SUPPORT,
+          actions: [],
+          safety: { escalate: true, flagged: true, category: screened.category },
+        },
+        { headers: { 'cache-control': 'no-store' } },
+      );
+    }
+  }
 
   // Seed the conversation. Map our {user|vidya} turns to Gemini {user|model}.
   const contents: GeminiContent[] = turns

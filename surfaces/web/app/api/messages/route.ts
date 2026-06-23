@@ -17,6 +17,7 @@
 
 import { getPool, type PoolLike } from '@/lib/db';
 import { ok, degraded, isUuid, str } from '@/lib/opRoute';
+import { screenText, type SafetyVerdict } from '@/lib/childSafetyServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,10 +31,19 @@ interface Body {
   requiresHuman?: boolean;
 }
 
-async function appendMessage(pool: PoolLike, body: Body): Promise<string | null> {
-  const flagged = Boolean(body.flagged);
-  const requiresHuman = Boolean(body.requiresHuman);
-  const verdict = JSON.stringify({ flagged, requires_human: requiresHuman, screened: true });
+async function appendMessage(pool: PoolLike, body: Body, screened: SafetyVerdict): Promise<string | null> {
+  // The REAL verdict travels with the row — never a hard-coded flagged:false. A
+  // crisis or harassment is flagged and held for a human; nothing posts to an
+  // unmonitored channel (this store IS the monitored one).
+  const flagged = screened.flagged;
+  const requiresHuman = screened.escalate || screened.flagged;
+  const verdict = JSON.stringify({
+    flagged,
+    requires_human: requiresHuman,
+    escalate: screened.escalate,
+    category: screened.category,
+    screened: true,
+  });
   const res = await pool.query<{ message_id: string }>(
     `INSERT INTO operational.messages
        (institution_id, channel_id, sender_ref, body, safety_verdict, flagged, requires_human)
@@ -63,14 +73,46 @@ export async function POST(req: Request): Promise<Response> {
     return ok({ persisted: false, reason: 'invalid-input' }, 400);
   }
 
+  // CHILD-SAFETY runs on the server BEFORE anything persists. The real verdict
+  // (not a hard-coded flagged:false) decides whether the message holds for a
+  // responsible adult and whether a crisis routes/escalates to a human. A crisis
+  // is never silenced: it is held + escalated, and the verdict travels back so
+  // the surface shows a calm supportive response.
+  const screened = await screenText(str(body.body));
+
   const pool = getPool();
-  if (!pool) return degraded();
+  if (!pool) {
+    // No durable store: still return the safety verdict so the surface can hold,
+    // flag, and escalate locally — a crisis is never silenced by a missing db.
+    return degraded({
+      flagged: screened.flagged,
+      escalate: screened.escalate,
+      requiresHuman: screened.escalate || screened.flagged,
+      category: screened.category,
+      support: screened.support,
+    });
+  }
 
   try {
-    const id = await appendMessage(pool, body);
-    return ok({ persisted: Boolean(id), id: id ?? undefined });
+    const id = await appendMessage(pool, body, screened);
+    return ok({
+      persisted: Boolean(id),
+      id: id ?? undefined,
+      flagged: screened.flagged,
+      escalate: screened.escalate,
+      requiresHuman: screened.escalate || screened.flagged,
+      category: screened.category,
+      support: screened.support,
+    });
   } catch {
-    return ok({ persisted: false, reason: 'write-failed' });
+    return ok({
+      persisted: false,
+      reason: 'write-failed',
+      flagged: screened.flagged,
+      escalate: screened.escalate,
+      category: screened.category,
+      support: screened.support,
+    });
   }
 }
 

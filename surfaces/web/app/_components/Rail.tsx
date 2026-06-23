@@ -7,6 +7,7 @@ import { Icon, type IconName } from '@classess/design-system';
 import { useRole } from '@/lib/RoleContext';
 import type { Role } from '@/lib/mock';
 import { ROLE_LABELS } from '@/lib/mock';
+import { Logo } from './Logo';
 import { newVidyaConversation } from './VidyaOrb';
 
 interface RailItem {
@@ -117,8 +118,8 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
   return (
     <>
       <nav className="rail" aria-label="Primary" data-testid="rail">
-        <Link href={ROLE_HOME[role]} className="rail-mark" aria-label="Classess home" title="Classess">
-          C
+        <Link href={ROLE_HOME[role]} className="rail-mark rail-mark-logo" aria-label="Classess home" title="Classess">
+          <Logo width={40} />
         </Link>
 
         <Link

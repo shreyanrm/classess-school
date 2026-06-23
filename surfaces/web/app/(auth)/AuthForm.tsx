@@ -20,6 +20,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Button, Icon, Input } from '@classess/design-system';
 import { useRole } from '@/lib/RoleContext';
+import { useT } from '@/lib/i18n';
+import { Logo } from '@/app/_components/Logo';
 import { readStore } from '@/lib/store';
 import { ROLE_LABELS, type Role } from '@/lib/mock';
 import {
@@ -29,6 +31,7 @@ import {
   requestPhoneOtp,
   verifyPhoneOtp,
   authConfigured,
+  type OAuthProvider,
 } from '@/lib/auth';
 
 export type AuthMode = 'sign-in' | 'sign-up';
@@ -52,12 +55,24 @@ function AppleGlyph() {
     </svg>
   );
 }
+function MicrosoftGlyph() {
+  // The Microsoft four-square glyph, in its brand colours. Inline SVG only.
+  return (
+    <svg width={18} height={18} viewBox="0 0 18 18" aria-hidden="true">
+      <rect x={1} y={1} width={7.6} height={7.6} fill="#F25022" />
+      <rect x={9.4} y={1} width={7.6} height={7.6} fill="#7FBA00" />
+      <rect x={1} y={9.4} width={7.6} height={7.6} fill="#00A4EF" />
+      <rect x={9.4} y={9.4} width={7.6} height={7.6} fill="#FFB900" />
+    </svg>
+  );
+}
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function AuthForm({ mode }: { mode: AuthMode }) {
   const router = useRouter();
   const { role: ctxRole, setRole } = useRole();
+  const { t } = useT();
   const isSignUp = mode === 'sign-up';
   const configured = authConfigured();
 
@@ -138,7 +153,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     }
   }
 
-  async function oauth(provider: 'google' | 'apple') {
+  async function oauth(provider: OAuthProvider) {
     setError(null);
     setBusy(true);
     // Mode-aware: only a new account goes through personalise; a returning user
@@ -151,7 +166,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         : undefined;
     const r = await signInWithOAuth({ provider, role, redirectTo });
     setBusy(false);
-    if (!r.ok) return setError(r.error ?? 'Could not start that sign-in. Please try again.');
+    // Until a provider is enabled in Supabase, a click surfaces a calm message
+    // rather than crashing the surface.
+    if (!r.ok) return setError(r.error ?? 'This sign-in is not available yet. Please try another way.');
     if (r.session) landAfter(true);
   }
 
@@ -159,7 +176,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
     <main className="auth-shell" data-surface={role}>
       <div className="auth-card auth-stepped">
         <div className="auth-head">
-          <span className="auth-mark" aria-hidden="true">C</span>
+          <Logo width={110} className="auth-logo" />
           <div className="auth-progress" aria-hidden="true">
             {steps.map((s, i) => (
               <span key={s} className={`auth-dot${i === idx ? ' on' : ''}${i < idx ? ' done' : ''}`} />
@@ -172,9 +189,9 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
           <div className="auth-step" key={`${step}-${method}`} data-testid="auth-step" data-step={step}>
             {step === 'role' ? (
               <>
-                <h1 className="display-sm auth-title">Who are you here as</h1>
-                <p className="body-sm muted auth-sub">Classess shapes itself to you. You can change this later.</p>
-                <div className="auth-role-stack" role="radiogroup" aria-label="Choose your role">
+                <h1 className="display-sm auth-title">{t('auth.role.title')}</h1>
+                <p className="body-sm muted auth-sub">{t('auth.role.sub')}</p>
+                <div className="auth-role-stack" role="radiogroup" aria-label={t('auth.role.legend')}>
                   {ROLE_ORDER.map((r) => (
                     <button key={r} type="button" role="radio" aria-checked={role === r}
                       className={`auth-role-row${role === r ? ' selected' : ''}`} onClick={() => chooseRole(r)}>
@@ -189,16 +206,16 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             {step === 'identifier' ? (
               <>
                 <h1 className="display-sm auth-title">
-                  {isSignUp ? 'What is your email' : 'Welcome back'}
+                  {isSignUp ? t('auth.identifier.titleSignUp') : t('auth.identifier.titleSignIn')}
                 </h1>
                 <p className="body-sm muted auth-sub">
-                  {method === 'phone' ? 'We will text you a sign-in code.' : isSignUp ? 'You will use this to sign in.' : 'Sign in to pick up where you left off.'}
+                  {method === 'phone' ? t('auth.identifier.subPhone') : isSignUp ? t('auth.identifier.subSignUp') : t('auth.identifier.subSignIn')}
                 </p>
                 {method === 'password' ? (
-                  <Input label="Email" type="email" autoComplete="email" inputMode="email" autoFocus
+                  <Input label={t('auth.email.label')} type="email" autoComplete="email" inputMode="email" autoFocus
                     value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
                 ) : (
-                  <Input label="Phone number" type="tel" autoComplete="tel" inputMode="tel" autoFocus
+                  <Input label={t('auth.phone.label')} type="tel" autoComplete="tel" inputMode="tel" autoFocus
                     value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Your phone number" />
                 )}
               </>
@@ -207,28 +224,28 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             {step === 'secret' ? (
               <>
                 <h1 className="display-sm auth-title">
-                  {method === 'phone' ? 'Enter your code' : isSignUp ? 'Choose a password' : 'Your password'}
+                  {method === 'phone' ? t('auth.secret.titlePhone') : isSignUp ? t('auth.secret.titleSignUp') : t('auth.secret.titleSignIn')}
                 </h1>
                 <p className="body-sm muted auth-sub">
-                  {method === 'phone' ? `Sent to ${phone}` : isSignUp ? 'At least six characters.' : ''}
+                  {method === 'phone' ? `${t('auth.identifier.subPhone')}` : isSignUp ? t('auth.secret.subSignUp') : ''}
                 </p>
                 {method === 'phone' ? (
                   <Input label="Code" type="text" autoComplete="one-time-code" inputMode="numeric" autoFocus
                     value={otp} onChange={(e) => setOtp(e.target.value)} placeholder="6-digit code" />
                 ) : (
                   <div className="auth-password">
-                    <Input label="Password" type={showPassword ? 'text' : 'password'} autoFocus
+                    <Input label={t('auth.password.label')} type={showPassword ? 'text' : 'password'} autoFocus
                       autoComplete={isSignUp ? 'new-password' : 'current-password'}
                       value={password} onChange={(e) => setPassword(e.target.value)}
                       placeholder={isSignUp ? 'At least six characters' : 'Your password'} />
                     <button type="button" className="auth-password-toggle" aria-pressed={showPassword}
-                      aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((v) => !v)}>
-                      {showPassword ? 'Hide' : 'Show'}
+                      aria-label={showPassword ? t('auth.password.hide') : t('auth.password.show')} onClick={() => setShowPassword((v) => !v)}>
+                      {showPassword ? t('auth.password.hide') : t('auth.password.show')}
                     </button>
                   </div>
                 )}
                 {!isSignUp && method === 'password' ? (
-                  <div className="auth-row-end"><Link href="/forgot-password" className="auth-link">Forgot password</Link></div>
+                  <div className="auth-row-end"><Link href="/forgot-password" className="auth-link">{t('auth.forgot')}</Link></div>
                 ) : null}
               </>
             ) : null}
@@ -238,7 +255,7 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             {/* the advance control — hidden on the role step (choosing advances) */}
             {step !== 'role' ? (
               <Button type="submit" variant="accent" disabled={busy} className="auth-advance" data-testid="auth-continue">
-                {step === 'secret' ? (isSignUp ? 'Create account' : method === 'phone' ? 'Verify and continue' : 'Sign in') : 'Continue'}
+                {step === 'secret' ? (isSignUp ? t('auth.cta.createAccount') : method === 'phone' ? t('auth.cta.verify') : t('common.signIn')) : t('common.continue')}
                 <Icon name="arrow-right" size="sm" />
               </Button>
             ) : null}
@@ -250,18 +267,24 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             <button type="button" className="auth-link auth-back" data-testid="auth-back" onClick={() => go(idx - 1)}>
               <svg width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}
                 strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6" /></svg>
-              Back
+              {t('common.back')}
             </button>
           ) : <span />}
 
           {/* alternatives only on the first identifier view */}
           {step === 'identifier' ? (
             <div className="auth-alts">
-              <button type="button" className="auth-social-btn" onClick={() => oauth('google')} disabled={busy}>
+              <button type="button" className="auth-social-btn" data-testid="auth-social-google"
+                onClick={() => oauth('google')} disabled={busy}>
                 <GoogleGlyph /> Google
               </button>
-              <button type="button" className="auth-social-btn" onClick={() => oauth('apple')} disabled={busy}>
+              <button type="button" className="auth-social-btn" data-testid="auth-social-apple"
+                onClick={() => oauth('apple')} disabled={busy}>
                 <AppleGlyph /> Apple
+              </button>
+              <button type="button" className="auth-social-btn" data-testid="auth-social-microsoft"
+                onClick={() => oauth('microsoft')} disabled={busy}>
+                <MicrosoftGlyph /> Microsoft
               </button>
               <button type="button" className="auth-social-btn"
                 onClick={() => { setMethod((m) => (m === 'phone' ? 'password' : 'phone')); setOtpSent(false); setError(null); }} disabled={busy}>
@@ -272,15 +295,15 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
         </div>
 
         <p className="auth-switch">
-          {isSignUp ? 'Already have an account?' : 'New to Classess?'}{' '}
+          {isSignUp ? t('auth.switch.haveAccount') : t('auth.switch.newHere')}{' '}
           <Link href={isSignUp ? '/sign-in' : '/sign-up'} className="auth-link">
-            {isSignUp ? 'Sign in' : 'Create account'}
+            {isSignUp ? t('common.signIn') : t('common.createAccount')}
           </Link>
         </p>
 
         {!configured ? (
           <p className="caption quiet auth-note">
-            Running in demo mode — your session is kept locally on this device, with no personal details stored.
+            {t('auth.demoNote')}
           </p>
         ) : null}
       </div>

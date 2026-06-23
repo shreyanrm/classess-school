@@ -17,6 +17,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Icon, SpotlightCard, SuggestionChip } from '@classess/design-system';
 import { useRole } from '@/lib/RoleContext';
+import { useT, LOCALES, type Locale } from '@/lib/i18n';
+import { Logo } from '@/app/_components/Logo';
 import { INTENT_CHIPS, SUBJECT_CHOICES, GOAL_CHIPS, tierLabel } from '@/lib/onboarding';
 import {
   recordChoice,
@@ -31,6 +33,7 @@ import {
 export function PersonaliseFlow() {
   const router = useRouter();
   const { role } = useRole();
+  const { t, locale, setLocale } = useT();
 
   const [intent, setIntent] = useState<string | undefined>();
   const [subject, setSubject] = useState<string | undefined>();
@@ -68,17 +71,30 @@ export function PersonaliseFlow() {
     <main className="auth-shell" data-surface={role}>
       <div className="auth-card auth-card-wide">
         <div className="auth-head">
-          <span className="auth-mark" aria-hidden="true">
-            C
-          </span>
-          <h1 className="display-sm auth-title">A moment to shape your space</h1>
+          <Logo width={110} className="auth-logo" />
+          <h1 className="display-sm auth-title">{t('personalise.title')}</h1>
           <p className="body-sm muted auth-sub">
-            A couple of natural taps, never a form. You can change any of this later in Settings.
+            {t('personalise.sub')}
           </p>
         </div>
 
         <SpotlightCard>
-          <p className="overline">What brings you in today</p>
+          <p className="overline">{t('personalise.language')}</p>
+          <div className="auth-chip-row">
+            {LOCALES.map((l) => (
+              <SuggestionChip
+                key={l.code}
+                aria-pressed={locale === l.code}
+                onClick={() => setLocale(l.code as Locale)}
+              >
+                {l.label}
+              </SuggestionChip>
+            ))}
+          </div>
+        </SpotlightCard>
+
+        <SpotlightCard>
+          <p className="overline">{t('personalise.intent')}</p>
           <div className="auth-chip-row">
             {INTENT_CHIPS[role].map((c) => (
               <SuggestionChip key={c} spark aria-pressed={intent === c} onClick={() => setIntent(c)}>
@@ -90,7 +106,7 @@ export function PersonaliseFlow() {
 
         {showSubject ? (
           <SpotlightCard>
-            <p className="overline">Pick a subject that looks interesting</p>
+            <p className="overline">{t('personalise.subject')}</p>
             <div className="auth-chip-row">
               {SUBJECT_CHOICES.map((c) => (
                 <SuggestionChip key={c} aria-pressed={subject === c} onClick={() => setSubject(c)}>
@@ -102,7 +118,7 @@ export function PersonaliseFlow() {
         ) : null}
 
         <SpotlightCard>
-          <p className="overline">What would you like to get from this</p>
+          <p className="overline">{t('personalise.goal')}</p>
           <div className="auth-chip-row">
             {GOAL_CHIPS[role].map((c) => (
               <SuggestionChip key={c} aria-pressed={goal === c} onClick={() => setGoal(c)}>
@@ -114,16 +130,15 @@ export function PersonaliseFlow() {
 
         <div className="auth-personalise-actions">
           <Button variant="accent" disabled={!ready} onClick={() => finish(false)}>
-            Continue
+            {t('common.continue')}
             <Icon name="arrow-right" size="sm" />
           </Button>
           <Button variant="ghost" onClick={() => finish(true)}>
-            Skip for now
+            {t('common.skipForNow')}
           </Button>
         </div>
         <p className="caption quiet">
-          Each tap is a hint, not a form. I shape your space from these — you never have to describe
-          yourself.
+          {t('personalise.footnote')}
         </p>
       </div>
     </main>

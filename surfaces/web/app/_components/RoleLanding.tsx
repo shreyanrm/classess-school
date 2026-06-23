@@ -20,6 +20,7 @@ import { BriefingCard } from './BriefingCard';
 import { AdminBriefingCard } from './AdminBriefingCard';
 import { useOnline } from '@/lib/useOnline';
 import { useRole } from '@/lib/RoleContext';
+import { useT } from '@/lib/i18n';
 import {
   GREETING,
   HOME_CHIPS,
@@ -70,6 +71,7 @@ const QUICK_LINKS: Record<Role, QuickLink[]> = {
 export function RoleLanding() {
   const online = useOnline();
   const { role, setRole } = useRole();
+  const { t } = useT();
   const { profile } = useStore();
 
   const links = QUICK_LINKS[role];
@@ -82,14 +84,13 @@ export function RoleLanding() {
       <main className="app-main">
         {!online ? (
           <div className="offline-banner" role="status">
-            You are offline. The core flows still work; new conversations will sync when you
-            reconnect.
+            {t('landing.offline')}
           </div>
         ) : null}
 
         <div className="landing" data-testid="role-landing">
           <header className="landing-head reveal reveal-1">
-            <p className="overline">{ROLE_LABELS[role]} home</p>
+            <p className="overline">{ROLE_LABELS[role]} {t('landing.homeSuffix')}</p>
             <h1 className="display-sm" style={{ margin: '4px 0 0' }}>
               {GREETING[role]}
             </h1>
@@ -101,7 +102,7 @@ export function RoleLanding() {
           </header>
 
           <section className="landing-section reveal reveal-2">
-            <p className="overline">Try with Vidya</p>
+            <p className="overline">{t('landing.tryWithVidya')}</p>
             <div className="home-chips" style={{ justifyContent: 'flex-start' }}>
               {HOME_CHIPS[role].map((chip) => (
                 <SuggestionChip key={chip} spark onClick={() => openVidya(chip)}>
@@ -113,7 +114,7 @@ export function RoleLanding() {
 
           {showBriefings ? (
             <section className="landing-section reveal reveal-3">
-              <p className="overline">Your briefing</p>
+              <p className="overline">{t('landing.yourBriefing')}</p>
               <div className="landing-briefings">
                 {role === 'teacher'
                   ? BRIEFINGS.map((b) => <BriefingCard key={b.id} briefing={b} />)
@@ -123,7 +124,7 @@ export function RoleLanding() {
           ) : null}
 
           <section className="landing-section reveal reveal-4">
-            <p className="overline">Quick links</p>
+            <p className="overline">{t('landing.quickLinks')}</p>
             <div className="landing-links">
               {links.map((l) => (
                 <Link key={l.href} href={l.href} className="landing-link">

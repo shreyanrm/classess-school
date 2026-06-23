@@ -30,7 +30,7 @@ import {
 import { getSupabaseClient, isSupabaseConfigured } from './supabaseClient';
 
 /** The auth shapes the familiar sign-in / sign-up surface offers. */
-export type AuthMethod = 'password' | 'google' | 'apple' | 'phone-otp';
+export type AuthMethod = 'password' | 'google' | 'apple' | 'microsoft' | 'phone-otp';
 
 /** The single session shape the whole app reads, backend-agnostic. */
 export interface AuthSession {
@@ -80,6 +80,7 @@ export function maskEmail(email: string): string {
 function accountMethod(method: AuthMethod): Account['method'] {
   if (method === 'google') return 'google';
   if (method === 'apple') return 'apple';
+  if (method === 'microsoft') return 'microsoft';
   // password + phone-otp both persist as the phone-otp demo shape (opaque id +
   // optional masked hint); no password or number is ever stored.
   return 'phone-otp';
@@ -91,7 +92,14 @@ function sessionFromAccount(account: Account): AuthSession {
     userId: account.id,
     handle: account.contactHint ?? 'Demo account',
     source: 'local',
-    method: account.method === 'google' ? 'google' : account.method === 'apple' ? 'apple' : 'password',
+    method:
+      account.method === 'google'
+        ? 'google'
+        : account.method === 'apple'
+          ? 'apple'
+          : account.method === 'microsoft'
+            ? 'microsoft'
+            : 'password',
   };
 }
 
@@ -226,9 +234,26 @@ export async function signInWithPassword(input: {
   return { ok: true, session: localSignIn({ role: input.role, method: 'password', contact: input.email }) };
 }
 
+/** The social providers our auth surface offers. Microsoft is our label;
+ *  Supabase uses "azure" for the same provider — mapped at the boundary below. */
+export type OAuthProvider = 'google' | 'apple' | 'microsoft';
+
+/** The provider value Supabase's signInWithOAuth expects for each of ours. */
+const SUPABASE_PROVIDER: Record<OAuthProvider, 'google' | 'apple' | 'azure'> = {
+  google: 'google',
+  apple: 'apple',
+  microsoft: 'azure',
+};
+
+/** Map one of our provider labels onto Supabase's provider value. Exported so
+ *  the mapping is unit-testable (microsoft -> azure) without a live client. */
+export function supabaseProvider(provider: OAuthProvider): 'google' | 'apple' | 'azure' {
+  return SUPABASE_PROVIDER[provider];
+}
+
 /** Continue with an OAuth provider (or degrade to a local session). */
 export async function signInWithOAuth(input: {
-  provider: 'google' | 'apple';
+  provider: OAuthProvider;
   role: Role;
   redirectTo?: string;
 }): Promise<AuthResult> {
@@ -236,14 +261,15 @@ export async function signInWithOAuth(input: {
   if (supabase) {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: input.provider,
+        // Supabase uses "azure" for Microsoft; map our label at the boundary.
+        provider: supabaseProvider(input.provider),
         options: input.redirectTo ? { redirectTo: input.redirectTo } : undefined,
       });
       if (error) return { ok: false, error: error.message };
       // The browser is redirecting to the provider; the session lands on return.
       return { ok: true };
     } catch {
-      return { ok: false, error: 'Could not start that sign-in. Please try again.' };
+      return { ok: false, error: 'This sign-in is not available yet. Please try another way.' };
     }
   }
   return { ok: true, session: localSignIn({ role: input.role, method: input.provider }) };

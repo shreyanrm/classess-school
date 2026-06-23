@@ -39,6 +39,8 @@ interface Msg {
   mine?: boolean;
   /** A flagged free-text surface — child-safety caught something to review. */
   flagged?: boolean;
+  /** A crisis caught by the safety gate — routed/escalated to a human. */
+  escalated?: boolean;
 }
 
 const CHANNELS: Record<Role, Channel[]> = {
@@ -136,30 +138,60 @@ export default function MessagesPage() {
     };
   }, [activeId, role, selfRef, selfHandle]);
 
-  // Send: broadcast over Realtime + persist to the durable history (best-effort).
+  // The calm supportive line shown when the safety gate detects a crisis. A
+  // crisis is NEVER silenced — it is held, escalated to a human, and the surface
+  // shows this supportive response rather than a blank send.
+  const [crisisSupport, setCrisisSupport] = useState<string | null>(null);
+
+  // Send: SCREEN on the server first (child-safety), then react to the real
+  // verdict — broadcast + persist a safe message; hold + flag harassment; on a
+  // crisis route/escalate to a human and show a calm supportive response. The
+  // verdict is the server's, never a hard-coded flagged:false.
   const sendLive = useCallback(
-    (text: string) => {
-      const message: LiveMessage = {
-        id: mintId(),
+    async (text: string) => {
+      const messageId = mintId();
+      // Screen through the live messages route (the server-only safety gate). The
+      // route validates uuids; when a real institution is set it persists too. We
+      // always read the safety verdict back, and never silence a crisis.
+      const liveInstitution = school?.institution.liveId;
+      const screened = await saveMessageLive({
+        institutionId: liveInstitution ?? mintId(),
+        channelId: mintId(), // a stable per-conversation channel ref (demo)
         senderRef: selfRef,
         body: text,
-        flagged: false,
-        postedAt: new Date().toISOString(),
-      };
-      // Echo locally (broadcast self:false), then fan out + persist.
-      setLiveMsgs((prev) => [...prev, message]);
-      void channelRef.current?.send(message);
-      const liveInstitution = school?.institution.liveId;
-      // Persist only when both opaque ids are real uuids the route accepts.
-      if (liveInstitution) {
-        void saveMessageLive({
-          institutionId: liveInstitution,
-          channelId: mintId(), // a stable per-conversation channel ref (demo)
+      });
+
+      const escalated = screened.escalate === true;
+      const flagged = screened.flagged === true;
+
+      if (escalated) {
+        // A crisis: never silenced. Hold the message as flagged + escalated, show
+        // it routed to a responsible adult, and surface the calm supportive line.
+        const held: LiveMessage = {
+          id: messageId,
           senderRef: selfRef,
           body: text,
-          flagged: false,
-        });
+          flagged: true,
+          postedAt: new Date().toISOString(),
+        };
+        setLiveMsgs((prev) => [...prev, held]);
+        setCrisisSupport(screened.support ?? 'A person who can help has been notified and will reach out to you.');
+        // It is NOT broadcast to the channel — it is routed to a human, not to an
+        // unmonitored or peer channel.
+        return;
       }
+
+      const message: LiveMessage = {
+        id: messageId,
+        senderRef: selfRef,
+        body: text,
+        flagged,
+        postedAt: new Date().toISOString(),
+      };
+      // Echo locally, then fan out (flagged messages are held visibly for review,
+      // but still kept in the MONITORED channel — never an unmonitored one).
+      setLiveMsgs((prev) => [...prev, message]);
+      if (!flagged) void channelRef.current?.send(message);
     },
     [selfRef, school],
   );
@@ -195,6 +227,7 @@ export default function MessagesPage() {
                     setActiveId(c.id);
                     setPrepared(false);
                     setRouted(false);
+                    setCrisisSupport(null);
                   }}
                   aria-pressed={on}
                   style={{ textAlign: 'left', cursor: 'pointer', borderColor: on ? 'var(--accent)' : undefined }}
@@ -255,6 +288,25 @@ export default function MessagesPage() {
                 <div className="offline-banner" role="status" data-testid="message-toast">
                   {toast}
                 </div>
+              ) : null}
+
+              {crisisSupport ? (
+                <SpotlightCard padLg data-testid="crisis-support">
+                  <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'flex-start' }}>
+                    <Icon name="info" size="md" />
+                    <div>
+                      <p className="overline" style={{ margin: 0 }}>
+                        You are not alone
+                      </p>
+                      <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
+                        {crisisSupport}
+                      </p>
+                      <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
+                        This was routed to a responsible adult, never to an unmonitored channel.
+                      </p>
+                    </div>
+                  </div>
+                </SpotlightCard>
               ) : null}
 
               <div className="thread" aria-live="polite" style={{ minHeight: 120 }}>
@@ -344,7 +396,7 @@ export default function MessagesPage() {
                       size="sm"
                       onClick={() => {
                         const text = draft.trim();
-                        if (text) sendLive(text);
+                        if (text) void sendLive(text);
                         setPrepared(false);
                         setDraft('');
                       }}

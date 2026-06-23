@@ -7,6 +7,7 @@ import { SurfaceShell } from '../_components/SurfaceShell';
 import { useStore } from '@/lib/useStore';
 import { restartOnboarding } from '@/lib/store';
 import { signOut } from '@/lib/auth';
+import { useT, LOCALES, type Locale } from '@/lib/i18n';
 
 interface Toggle {
   key: string;
@@ -24,6 +25,7 @@ interface Toggle {
 export default function SettingsPage() {
   const router = useRouter();
   const { account, consent, profile } = useStore();
+  const { t, locale, setLocale } = useT();
 
   function reonboard() {
     restartOnboarding();
@@ -63,13 +65,33 @@ export default function SettingsPage() {
 
   return (
     <SurfaceShell
-      eyebrow="Your preferences"
-      title="Settings"
+      eyebrow={t('settings.eyebrow')}
+      title={t('settings.title')}
       dockIntro="These settings shape how Vidya helps you. Ask me to explain any of them."
       dockChips={['What does proactive mean', 'Who can see my reads', 'Turn off voice']}
     >
       <section className="stack">
-        <p className="overline">How Vidya helps and what it may read</p>
+        <p className="overline">{t('settings.language')}</p>
+        <p className="caption muted">{t('settings.languageHelp')}</p>
+        <div className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }} role="radiogroup" aria-label={t('settings.language')}>
+          {LOCALES.map((l) => (
+            <Button
+              key={l.code}
+              variant={locale === l.code ? 'primary' : 'ghost'}
+              size="sm"
+              role="radio"
+              aria-checked={locale === l.code}
+              data-testid="language-option"
+              onClick={() => setLocale(l.code as Locale)}
+            >
+              {l.label}
+            </Button>
+          ))}
+        </div>
+      </section>
+
+      <section className="stack">
+        <p className="overline">{t('settings.howVidya')}</p>
         <Matrix columns={1}>
           {toggles.map((t) => (
             <Cell key={t.key}>
@@ -95,14 +117,13 @@ export default function SettingsPage() {
           ))}
         </Matrix>
         <p className="caption quiet">
-          Behavioural data is tied to an opaque identity, not to your name. You decide what is
-          shared, and you can change it any time.
+          {t('settings.behaviouralNote')}
         </p>
       </section>
 
       {consent ? (
         <section className="stack">
-          <p className="overline">What I learned about how you like to work</p>
+          <p className="overline">{t('settings.learned')}</p>
           <p className="caption muted">
             Built from your choices, never from a form. Transparent and revocable — this is the
             consent tier you set, and you can change or clear it any time.
@@ -129,7 +150,7 @@ export default function SettingsPage() {
       ) : null}
 
       <section className="stack">
-        <p className="overline">Account</p>
+        <p className="overline">{t('settings.account')}</p>
         <div className="admin-list">
           <div className="admin-list-row">
             <div>
@@ -144,10 +165,10 @@ export default function SettingsPage() {
         <div className="rec-actions">
           <Button variant="secondary" size="sm" onClick={reonboard}>
             <Icon name="spark" size="sm" />
-            Re-run onboarding
+            {t('settings.reonboard')}
           </Button>
           <Button variant="ghost" size="sm" onClick={endSession}>
-            Sign out
+            {t('settings.signOut')}
           </Button>
         </div>
         <p className="caption quiet">

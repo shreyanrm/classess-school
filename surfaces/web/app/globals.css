@@ -210,6 +210,18 @@ a {
   line-height: 1;
 }
 
+/* The rail mark as the brand logo — the wordmark sits within the mark box. */
+.rail-mark-logo img {
+  width: 40px;
+  height: auto;
+  display: block;
+}
+
+/* The auth/personalise card logo — the wordmark, centred in the head. */
+.auth-logo {
+  margin-bottom: var(--space-2);
+}
+
 /* The search / history drawer launched from the rail. */
 .rail-drawer {
   position: fixed;

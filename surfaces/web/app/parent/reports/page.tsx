@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Icon, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ChildSwitcher } from '../../_components/ChildSwitcher';
 import { ConsentGated } from '../../_components/ConsentGated';
@@ -11,6 +11,8 @@ import {
   selectChildData,
   type ParentReport,
 } from '@/lib/parentData';
+import { sendEmail } from '@/lib/emailClient';
+import { useT } from '@/lib/i18n';
 
 /**
  * Assignments, exams and reports — with parent-specific feedback, celebration
@@ -22,16 +24,17 @@ export default function ParentReportsPage() {
   const [childId, setChildId] = useState(DEFAULT_CHILD_ID);
   const child = findChild(childId);
   const data = useMemo(() => selectChildData(childId), [childId]);
+  const { t } = useT();
 
   return (
     <SurfaceShell
-      eyebrow={child ? child.section : 'Reports'}
+      eyebrow={child ? child.section : t('parent.reports.eyebrow')}
       title={child ? `${child.label}'s reports and feedback` : 'Reports and feedback'}
       dockIntro="Ask what a report means in plain language, or how to act on a next step at home."
       dockChips={['What does this mean', 'What should we do next', 'Show the celebration points']}
     >
       <section className="stack">
-        <p className="overline">Whose reports</p>
+        <p className="overline">{t('parent.reports.whose')}</p>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
@@ -41,7 +44,7 @@ export default function ParentReportsPage() {
         <section className="stack">
           <div className="empty">
             <Icon name="book" size="lg" className="glyph" />
-            <h4 className="body">No reports shared yet</h4>
+            <h4 className="body">{t('parent.reports.noneTitle')}</h4>
             <p>
               When the school shares an assignment, exam or report for {child.label}, it will appear
               here with feedback you can act on.
@@ -51,20 +54,18 @@ export default function ParentReportsPage() {
       ) : (
         <>
           <section className="stack">
-            <p className="overline">Shared with you</p>
+            <p className="overline">{t('parent.reports.sharedWithYou')}</p>
             <p className="caption quiet">
-              Each report is written for you, in plain language. No raw marks — just what is going
-              well and the one next step that helps.
+              {t('parent.reports.plainNote')}
             </p>
             {data.reports.map((r) => (
-              <ReportCard key={r.id} report={r} />
+              <ReportCard key={r.id} report={r} childLabel={child.label} />
             ))}
           </section>
 
           <p className="caption quiet row" style={{ gap: 'var(--space-2)' }}>
             <Icon name="info" size="sm" />
-            Reports are released to you by a teacher — never automatically. You see only what the
-            school has chosen to share.
+            {t('parent.reports.releasedNote')}
           </p>
         </>
       )}
@@ -72,7 +73,52 @@ export default function ParentReportsPage() {
   );
 }
 
-function ReportCard({ report }: { report: ParentReport }) {
+function ReportCard({ report, childLabel }: { report: ParentReport; childLabel: string }) {
+  const { t } = useT();
+  // "Email this report" — a real end-to-end trigger over /api/email. The browser
+  // posts the typed { kind:'weekly-briefing', data } and the server route renders
+  // the branded HTML and (when the Resend key is present) sends it. With no key
+  // it resolves { sent:false } and we show a calm "saved, not sent" state.
+  const [emailing, setEmailing] = useState(false);
+  const [email, setEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  async function sendReport() {
+    if (!EMAIL_RE.test(email.trim())) {
+      setStatus('Enter a valid email address to send this report.');
+      return;
+    }
+    setBusy(true);
+    setStatus(null);
+    const result = await sendEmail({
+      to: email.trim(),
+      email: {
+        kind: 'weekly-briefing',
+        data: {
+          childLabel,
+          highlights: [
+            { title: 'How it is going.', detail: report.feedback },
+            { title: 'To celebrate.', detail: report.celebration },
+            { title: 'One next step.', detail: report.nextStep },
+          ],
+          reportUrl:
+            typeof window !== 'undefined' ? `${window.location.origin}/parent/reports` : '/parent/reports',
+        },
+      },
+      // The parent reading their own child's shared report has consent by design.
+      flags: { consent: true },
+    });
+    setBusy(false);
+    setStatus(
+      result.sent
+        ? 'Sent. Check the inbox in a moment.'
+        : 'Saved. Sending is not switched on here yet, so nothing was emailed.',
+    );
+  }
+
   return (
     <SpotlightCard padLg>
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
@@ -88,13 +134,13 @@ function ReportCard({ report }: { report: ParentReport }) {
 
       <div className="parent-report-points">
         <div className="parent-report-point">
-          <Tag tone="success">Celebrate</Tag>
+          <Tag tone="success">{t('parent.reports.celebrate')}</Tag>
           <p className="body-sm" style={{ margin: 0 }}>
             {report.celebration}
           </p>
         </div>
         <div className="parent-report-point">
-          <Tag tone="info">Next step</Tag>
+          <Tag tone="info">{t('parent.reports.nextStep')}</Tag>
           <p className="body-sm" style={{ margin: 0 }}>
             {report.nextStep}
           </p>
@@ -102,8 +148,43 @@ function ReportCard({ report }: { report: ParentReport }) {
       </div>
 
       <p className="caption muted" style={{ marginTop: 'var(--space-4)' }}>
-        Shared by {report.publishedBy}
+        {t('parent.reports.sharedBy')} {report.publishedBy}
       </p>
+
+      <div className="divider" />
+      {emailing ? (
+        <div className="stack" style={{ gap: 'var(--space-3)' }}>
+          <Input
+            label="Send to"
+            type="email"
+            inputMode="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@example.com"
+          />
+          <div className="rec-actions">
+            <Button variant="accent" size="sm" disabled={busy} onClick={sendReport} data-testid="report-email-send">
+              {busy ? 'Sending' : t('parent.reports.send')}
+            </Button>
+            <Button variant="ghost" size="sm" disabled={busy} onClick={() => { setEmailing(false); setStatus(null); }}>
+              Not now
+            </Button>
+          </div>
+          {status ? (
+            <p className="caption muted" role="status" aria-live="polite">
+              {status}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div className="rec-actions">
+          <Button variant="secondary" size="sm" onClick={() => setEmailing(true)} data-testid="report-email-open">
+            <Icon name="send" size="sm" />
+            {t('parent.reports.email')}
+          </Button>
+          <span className="caption muted">{t('parent.reports.emailHint')}</span>
+        </div>
+      )}
     </SpotlightCard>
   );
 }
