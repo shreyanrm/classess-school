@@ -17,6 +17,29 @@ import {
 
 type LoadState = 'loading' | 'ready' | 'error';
 
+/** A real, portable export of the record — plain language only, never a score. */
+function downloadRecord(timeline: MasteryMomentView[], credentials: CredentialView[]) {
+  const record = {
+    kind: 'classess.portfolio.record',
+    generated: new Date().toISOString(),
+    mastered: timeline.map((m) => ({
+      topic: m.topicName,
+      independent: m.independent,
+      summary: m.plainLanguage,
+    })),
+    credentials: credentials.map((c) => ({ title: c.title, state: c.stateLabel })),
+  };
+  const blob = new Blob([JSON.stringify(record, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'my-classess-record.json';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 /**
  * Learner portfolio and credentials (d14). A timeline of mastered topics, each
  * with its evidence and a shareable proof; achievements / credentials with an
@@ -50,7 +73,7 @@ export function StudentPortfolio() {
     >
       {/* Export / share the whole record. A deliberate learner action; never auto. */}
       <section className="stack">
-        <SpotlightCard padLg>
+        <SpotlightCard hero padLg>
           <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
             <div>
               <p className="overline" style={{ margin: 0 }}>
@@ -63,29 +86,32 @@ export function StudentPortfolio() {
             <Tag tone="info">Plain language</Tag>
           </div>
           <p className="body-sm muted" style={{ marginTop: 'var(--space-3)' }}>
-            Export or share your record with a school, a programme, or anyone you choose. It carries
-            what you can do and the evidence behind it — never a raw score.
+            Export your record with a school, a programme, or anyone you choose. It carries what you
+            can do and the evidence behind it — never a raw score.
           </p>
           <div className="rec-actions">
+            <Button
+              variant="primary"
+              size="sm"
+              disabled={load !== 'ready'}
+              onClick={() => {
+                downloadRecord(timeline, credentials);
+                setExporting(true);
+              }}
+            >
+              Download my record
+              <Icon name="send" size="sm" />
+            </Button>
             {exporting ? (
               <span className="row body-sm" style={{ gap: 'var(--space-2)', color: 'var(--text-secondary)' }}>
                 <Icon name="check" size="sm" />
-                Ready to export. Choose where to send it.
+                Downloaded. The file is yours to share wherever you choose.
               </span>
-            ) : (
-              <Button variant="primary" size="sm" onClick={() => setExporting(true)}>
-                Export or share record
-                <Icon name="send" size="sm" />
-              </Button>
-            )}
-            {exporting ? (
-              <Button variant="ghost" size="sm" onClick={() => setExporting(false)}>
-                Not now
-              </Button>
             ) : null}
           </div>
           <p className="caption quiet" style={{ marginTop: 'var(--space-3)' }}>
-            Nothing leaves this surface until you choose to share it.
+            Nothing leaves this surface until you choose to share it — the download stays on your
+            device.
           </p>
         </SpotlightCard>
       </section>
@@ -154,7 +180,7 @@ export function StudentPortfolio() {
           {timeline.find((m) => m.independent) ? (
             <section className="stack">
               <p className="overline">A proud moment to share</p>
-              <ProofArtifact proof={timeline.find((m) => m.independent)!.proof} />
+              <ProofArtifact proof={timeline.find((m) => m.independent)!.proof} voice="self" />
             </section>
           ) : null}
 

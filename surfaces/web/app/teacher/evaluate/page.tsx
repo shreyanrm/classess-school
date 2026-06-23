@@ -78,6 +78,7 @@ type RowDecision = 'pending' | 'confirmed' | 'adjusted';
 
 export default function EvaluatePage() {
   const [decisions, setDecisions] = useState<Record<string, RowDecision>>({});
+  const [returned, setReturned] = useState(false);
 
   const needingReview = useMemo(() => ROWS.filter((r) => r.band !== 'high'), []);
   const pendingReviewCount = needingReview.filter((r) => (decisions[r.id] ?? 'pending') === 'pending').length;
@@ -190,21 +191,32 @@ export default function EvaluatePage() {
       </section>
 
       <section>
-        <SpotlightCard>
+        <SpotlightCard hero>
           <div className="row-between">
             <div>
               <p className="overline" style={{ margin: 0 }}>
                 Return feedback
               </p>
               <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
-                {allReviewed
-                  ? 'All flagged responses are confirmed. Feedback is ready to return to the student.'
-                  : 'Review the flagged responses before feedback can be returned.'}
+                {returned
+                  ? `Feedback returned to ${CURRENT_STUDENT.label}. They will see it on their next visit.`
+                  : allReviewed
+                    ? 'All flagged responses are confirmed. Feedback is ready to return to the student.'
+                    : 'Review the flagged responses before feedback can be returned.'}
               </p>
             </div>
-            <Button variant="accent" size="sm" disabled={!allReviewed}>
-              Return feedback
-            </Button>
+            {returned ? (
+              <Tag tone="success">Returned</Tag>
+            ) : (
+              <Button
+                variant="accent"
+                size="sm"
+                disabled={!allReviewed}
+                onClick={() => setReturned(true)}
+              >
+                Return feedback
+              </Button>
+            )}
           </div>
         </SpotlightCard>
       </section>

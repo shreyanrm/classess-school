@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import {
   Button,
   ConfidenceBand,
@@ -107,6 +107,11 @@ export default function LoopPage() {
   // it stays on the local store and the affordance reads "kept on this device".
   const { saved, savedNote, emit } = useEmit();
 
+  // Guard against re-emitting the same demo attempt. Re-running the loop must
+  // not append duplicate real events to the immutable store; we emit once per
+  // run and clear the guard only on a full reset.
+  const emittedRef = useRef(false);
+
   const asof = SCENARIO_NOW;
 
   // The engine reads, recomputed on every event change. Deterministic.
@@ -126,6 +131,7 @@ export default function LoopPage() {
     setSupported(true);
     setDecision('pending');
     setReassessOutcome('unknown');
+    emittedRef.current = false;
   }
 
   // 1 -> 2: assign the check (no events yet; just advance).
@@ -141,17 +147,21 @@ export default function LoopPage() {
     const second = buildAttempt({ independent: !supported, correct: true, score: supported ? 0.85 : 1, daysAgo: 5 });
     setEvents((prev) => [...prev, first, second]);
     setStage('classify');
-    // Emit the real attempt to the live, immutable event store — best-effort.
-    void emit({
-      type: 'attempt.recorded',
-      purpose: EVENT_PURPOSE.learning,
-      canonicalUuid: SUBJECT,
-      payload: {
-        topic_id: LOOP_TOPIC_ID,
-        mode: supported ? 'supported' : 'independent',
-        attempts: 2,
-      },
-    });
+    // Emit the real attempt to the live, immutable event store — best-effort,
+    // and only once per run so re-running the demo never appends duplicates.
+    if (!emittedRef.current) {
+      emittedRef.current = true;
+      void emit({
+        type: 'attempt.recorded',
+        purpose: EVENT_PURPOSE.learning,
+        canonicalUuid: SUBJECT,
+        payload: {
+          topic_id: LOOP_TOPIC_ID,
+          mode: supported ? 'supported' : 'independent',
+          attempts: 2,
+        },
+      });
+    }
   }
 
   // 3: add one unaided attempt that exposes whether it transfers.

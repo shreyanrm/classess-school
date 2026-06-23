@@ -7,6 +7,13 @@ import { useSpotlight } from '../hooks/useSpotlight';
 export interface SpotlightCardProps extends HTMLAttributes<HTMLDivElement> {
   /** Larger padding (space-6 instead of space-5). */
   padLg?: boolean;
+  /**
+   * Opt in to THE signature cursor-tracking radial glow. Reserved for at most
+   * one or two genuine hero moments per surface. Without it, the card renders
+   * a calm, premium resting + hover state (hairline strengthen, faint surface
+   * raise) — NO radial wash. Per the v4 brand law: subtle, not on every card.
+   */
+  hero?: boolean;
   children?: ReactNode;
 }
 
@@ -30,7 +37,7 @@ export interface SpotlightCardProps extends HTMLAttributes<HTMLDivElement> {
  *   </SpotlightCard>
  */
 export const SpotlightCard = forwardRef<HTMLDivElement, SpotlightCardProps>(
-  function SpotlightCard({ padLg, className, children, ...rest }, ref) {
+  function SpotlightCard({ padLg, hero, className, children, ...rest }, ref) {
     const spot = useSpotlight<HTMLDivElement>();
     // Expose the internal node to a forwarded ref without losing the hook's.
     useImperativeHandle(ref, () => spot.ref.current as HTMLDivElement, [spot.ref]);
@@ -38,7 +45,7 @@ export const SpotlightCard = forwardRef<HTMLDivElement, SpotlightCardProps>(
     return (
       <div
         ref={spot.ref}
-        className={cx('card', 'c-spot', padLg && 'card-pad-lg', className)}
+        className={cx('card', 'c-spot', hero && 'c-spot--hero', padLg && 'card-pad-lg', className)}
         onPointerMove={spot.onPointerMove}
         onPointerLeave={spot.onPointerLeave}
         {...rest}

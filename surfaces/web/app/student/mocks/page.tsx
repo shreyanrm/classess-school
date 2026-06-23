@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
@@ -131,9 +132,12 @@ export default function MocksPage() {
                         {r.subject} · {r.why}
                       </p>
                     </div>
-                    <Button variant={r.urgent ? 'primary' : 'ghost'} size="sm">
+                    <Link
+                      href="/student/practice"
+                      className={`btn btn-${r.urgent ? 'primary' : 'ghost'} btn-sm`}
+                    >
                       <Icon name="arrow-right" size="sm" /> Revise
-                    </Button>
+                    </Link>
                   </div>
                 </SpotlightCard>
               ))}

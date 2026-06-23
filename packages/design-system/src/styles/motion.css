@@ -27,6 +27,7 @@
 /* signature line wipes across the top of a cell on hover — no shadow */
 .matrix .cell::after {
   content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px;
+  pointer-events: none;
   background: var(--accent); transform: scaleX(0); transform-origin: left;
   transition: transform var(--dur-slow) var(--ease);
 }
@@ -55,8 +56,8 @@
  *  Ultramarine signature, reserved for the mastery ignite + brand.   *
  * ----------------------------------------------------------------- */
 .ignite { position: relative; display: inline-block; width: 8px; height: 8px; flex: none; }
-.ignite::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: var(--signature); }
-.ignite::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 2px solid var(--signature); animation: ignitering 1.8s var(--ease) infinite; }
+.ignite::before { content: ""; position: absolute; inset: 0; pointer-events: none; border-radius: 50%; background: var(--signature); }
+.ignite::after { content: ""; position: absolute; inset: -5px; pointer-events: none; border-radius: 50%; border: 2px solid var(--signature); animation: ignitering 1.8s var(--ease) infinite; }
 @keyframes ignitering { 0% { transform: scale(.5); opacity: .85; } 100% { transform: scale(1.7); opacity: 0; } }
 
 /* ----------------------------------------------------------------- *
@@ -70,13 +71,22 @@
 /* TILT — 3D tilt; angle is driven by JS (useTilt) via transform. */
 .c-tilt { transition: transform .25s var(--ease); transform-style: preserve-3d; will-change: transform; }
 
-/* SPOTLIGHT — THE hero. A radial wash of the SURFACE ACCENT follows the
-   pointer via --mx/--my (set by useSpotlight). Border strengthens on hover.
-   The wash reads as the surface's accent (tiffany/cobalt/violet/amber), not
-   ambient ultramarine; override --spot-color per instance if needed.
-   Sharp corners preserved; the glow is clipped by overflow:hidden. */
-.c-spot { position: relative; overflow: hidden; transition: border-color var(--dur) var(--ease); --spot-color: var(--accent); }
-.c-spot::before {
+/* SPOTLIGHT — calm by default, hero on opt-in.
+   v4 brand law: "steel + one hit of pigment", subtle not flashy. The founder
+   asked that the cursor-tracking radial glow NOT appear on every card. So the
+   default .c-spot is a quiet, premium resting + hover state: a hairline that
+   strengthens and a barely-there surface raise — no radial wash, no lift.
+   The actual signature glow is reserved for one or two genuine hero moments
+   per surface, opted into explicitly via .c-spot--hero (SpotlightCard hero). */
+.c-spot { position: relative; overflow: hidden; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); --spot-color: var(--accent); }
+.c-spot:hover { border-color: var(--border-strong); background: var(--bg-raised); }
+
+/* HERO SPOTLIGHT — the reserved signature. A radial wash of the SURFACE ACCENT
+   follows the pointer via --mx/--my (set by useSpotlight). The wash reads as
+   the surface's accent (tiffany/cobalt/violet/amber), not ambient ultramarine;
+   override --spot-color per instance if needed. Sharp corners preserved; the
+   glow is clipped by overflow:hidden, so it never becomes a drop shadow. */
+.c-spot--hero::before {
   content: ""; position: absolute; inset: 0; opacity: 0;
   /* CRITICAL: the overlay must never intercept clicks, or every button/link
      inside the card becomes unclickable. */
@@ -84,12 +94,11 @@
   transition: opacity var(--dur) var(--ease);
   background: radial-gradient(180px circle at var(--mx, 50%) var(--my, 50%), color-mix(in srgb, var(--spot-color) 12%, transparent), transparent 60%);
 }
-.c-spot:hover { border-color: var(--border-strong); }
-.c-spot:hover::before { opacity: 1; }
+.c-spot--hero:hover::before { opacity: 1; }
 
 /* LINE — signature line wipes across the top; content nudges right. */
 .c-line { position: relative; transition: background var(--dur) var(--ease); }
-.c-line::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease); }
+.c-line::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; pointer-events: none; background: var(--accent); transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease); }
 .c-line > * { transition: transform .3s var(--ease); }
 .c-line:hover { background: var(--bg-raised); }
 .c-line:hover::after { transform: scaleX(1); }
@@ -113,7 +122,7 @@
 .run .r-clip { animation: clipup .6s var(--ease) both; }
 .run .r-blur { animation: blurin .6s var(--ease) both; }
 .run .r-mask { position: relative; overflow: hidden; }
-.run .r-mask::after { content: ""; position: absolute; inset: 0; background: var(--bg-canvas); animation: maskoff .6s var(--ease) both; }
+.run .r-mask::after { content: ""; position: absolute; inset: 0; pointer-events: none; background: var(--bg-canvas); animation: maskoff .6s var(--ease) both; }
 @keyframes clipup { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
 @keyframes blurin { from { filter: blur(12px); opacity: 0; } to { filter: blur(0); opacity: 1; } }
 @keyframes maskoff { from { transform: translateY(0); } to { transform: translateY(-101%); } }
@@ -149,17 +158,17 @@
  *  THE IGNITE — extended signature variants (motion lab).            *
  * ----------------------------------------------------------------- */
 .ig { position: relative; width: 12px; height: 12px; }
-.ig .core { position: absolute; inset: 0; border-radius: 50%; background: var(--signature); }
+.ig .core { position: absolute; inset: 0; pointer-events: none; border-radius: 50%; background: var(--signature); }
 .run .ig-a .core { animation: pop .4s var(--ease) both; }
-.run .ig-a::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--signature); animation: ring1 1s var(--ease) both; }
+.run .ig-a::after { content: ""; position: absolute; inset: -6px; pointer-events: none; border-radius: 50%; border: 2px solid var(--signature); animation: ring1 1s var(--ease) both; }
 .run .ig-b .core { animation: pop .4s var(--ease) both; }
-.run .ig-b::after, .run .ig-b::before { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 2px solid var(--signature); animation: ring1 1.1s var(--ease) both; }
+.run .ig-b::after, .run .ig-b::before { content: ""; position: absolute; inset: -6px; pointer-events: none; border-radius: 50%; border: 2px solid var(--signature); animation: ring1 1.1s var(--ease) both; }
 .run .ig-b::before { animation-delay: .18s; }
 .ig-c-cell { position: relative; overflow: hidden; }
-.ig-c-cell .flood { position: absolute; inset: 0; background: var(--signature); transform: scale(0); border-radius: 50%; opacity: .16; }
+.ig-c-cell .flood { position: absolute; inset: 0; pointer-events: none; background: var(--signature); transform: scale(0); border-radius: 50%; opacity: .16; }
 .run .ig-c-cell .flood { animation: flood 1.1s var(--ease) both; }
 .run .ig-d .core { animation: pop2 .5s cubic-bezier(.34, 1.56, .64, 1) both; }
-.run .ig-d::after { content: ""; position: absolute; inset: -5px; border-radius: 50%; border: 1.5px solid var(--signature); opacity: .5; animation: ring1 1.2s var(--ease) infinite; }
+.run .ig-d::after { content: ""; position: absolute; inset: -5px; pointer-events: none; border-radius: 50%; border: 1.5px solid var(--signature); opacity: .5; animation: ring1 1.2s var(--ease) infinite; }
 @keyframes pop { 0% { transform: scale(0); } 60% { transform: scale(1.25); } 100% { transform: scale(1); } }
 @keyframes pop2 { 0% { transform: scale(0); } 100% { transform: scale(1); } }
 @keyframes ring1 { 0% { transform: scale(.5); opacity: .85; } 100% { transform: scale(1.9); opacity: 0; } }

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Icon, type IconName } from '@classess/design-system';
@@ -102,17 +102,29 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
   const { role: ctxRole, setRole, cycleRole } = useRole();
   const role = roleProp ?? ctxRole;
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [switchedTo, setSwitchedTo] = useState<Role | null>(null);
   const items = ROLE_ITEMS[role];
 
+  // Clear the "you switched to X" confirmation after a calm beat.
+  useEffect(() => {
+    if (!switchedTo) return;
+    const id = setTimeout(() => setSwitchedTo(null), 2400);
+    return () => clearTimeout(id);
+  }, [switchedTo]);
+
   function nextRole() {
+    const order: Role[] = ['teacher', 'student', 'admin', 'parent'];
+    const next = order[(order.indexOf(role) + 1) % order.length] ?? 'teacher';
     if (onRoleChange) {
-      const order: Role[] = ['teacher', 'student', 'admin', 'parent'];
-      const next = order[(order.indexOf(role) + 1) % order.length] ?? 'teacher';
       onRoleChange(next);
       setRole(next);
     } else {
       cycleRole();
     }
+    // Surface a visible, announced confirmation — the switch re-shapes the whole
+    // workspace, so it must never feel like a silent accidental tap.
+    setSwitchedTo(next);
   }
 
   return (
@@ -208,9 +220,22 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
               <Icon name="close" size="sm" />
             </button>
           </div>
+          <div className="search" style={{ marginTop: 'var(--space-3)' }}>
+            <Icon name="search" size="sm" className="icon" />
+            <input
+              type="search"
+              className="input"
+              placeholder="Search your conversations"
+              aria-label="Search your conversations"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+          </div>
           <div className="empty">
             <Icon name="search" size="lg" className="glyph" />
-            <h4 className="body">No past conversations yet</h4>
+            <h4 className="body">
+              {search ? `No matches for “${search}”` : 'No past conversations yet'}
+            </h4>
             <p>
               Your threads will appear here. You do not need to return to old ones unless you want
               to.
@@ -218,6 +243,13 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
           </div>
         </aside>
       ) : null}
+
+      {/* Role switch confirmation — announced + visible; auto-dismisses. */}
+      <div className="rail-role-toast-region" role="status" aria-live="polite">
+        {switchedTo ? (
+          <div className="rail-role-toast">Switched to the {ROLE_LABELS[switchedTo]} workspace</div>
+        ) : null}
+      </div>
     </>
   );
 }

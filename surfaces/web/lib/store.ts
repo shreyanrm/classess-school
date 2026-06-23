@@ -240,6 +240,23 @@ export interface StoreState {
    * Undefined means "follow the default (English)".
    */
   locale?: string;
+  /**
+   * How Vidya helps you — calm, plain switches set in Settings. Persisted so the
+   * choice survives reload. Undefined fields follow their sensible defaults
+   * (voice + proactive on; sharing reads off).
+   */
+  preferences?: Preferences;
+}
+
+/** User-facing behaviour switches, all explicit and revocable. */
+export interface Preferences {
+  voice: boolean;
+  proactive: boolean;
+  shareReads: boolean;
+}
+
+export function defaultPreferences(): Preferences {
+  return { voice: true, proactive: true, shareReads: false };
 }
 
 /** The empty initial state — the app is empty until onboarding. */
@@ -256,7 +273,16 @@ export function emptyState(): StoreState {
     profile: null,
     school: null,
     locale: undefined,
+    preferences: undefined,
   };
+}
+
+/** Persist a behaviour preference. Survives reload; read in Settings + the orb. */
+export function setPreference(key: keyof Preferences, value: boolean): void {
+  updateStore((s) => ({
+    ...s,
+    preferences: { ...defaultPreferences(), ...s.preferences, [key]: value },
+  }));
 }
 
 /** Persist the chosen UI locale. Survives reload; read by the LocaleProvider. */

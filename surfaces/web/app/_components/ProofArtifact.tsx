@@ -11,6 +11,12 @@ export interface ProofArtifactProps {
    * — it never auto-fires. Defaults to true on the parent surface.
    */
   shareable?: boolean;
+  /**
+   * Whose voice the copy speaks in. 'parent' (default) reads third-person about
+   * the child; 'self' reads first-person for the learner's own portfolio, so a
+   * student never sees themselves described in the third person.
+   */
+  voice?: 'parent' | 'self';
 }
 
 /**
@@ -26,8 +32,21 @@ export interface ProofArtifactProps {
  *
  * v4: sharp corners, no shadow, calm and spacious, one vivid accent.
  */
-export function ProofArtifact({ proof, shareable = true }: ProofArtifactProps) {
+export function ProofArtifact({ proof, shareable = true, voice = 'parent' }: ProofArtifactProps) {
   const [shared, setShared] = useState(false);
+  const self = voice === 'self';
+
+  function shareMoment() {
+    const text = `“${proof.headline}” — ${proof.topic}. ${proof.whatChanged}`;
+    // A real share: the native share sheet where available, clipboard otherwise.
+    const nav = typeof navigator !== 'undefined' ? navigator : undefined;
+    if (nav?.share) {
+      void nav.share({ title: 'A proud moment', text }).catch(() => {});
+    } else if (nav?.clipboard?.writeText) {
+      void nav.clipboard.writeText(text).catch(() => {});
+    }
+    setShared(true);
+  }
 
   return (
     <SpotlightCard padLg className="proof-artifact" data-subject={proof.subject}>
@@ -46,7 +65,9 @@ export function ProofArtifact({ proof, shareable = true }: ProofArtifactProps) {
 
       <div className="row" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-4)' }}>
         <Tag tone="neutral">{proof.topic}</Tag>
-        {proof.independent ? <Tag tone="success">On their own</Tag> : null}
+        {proof.independent ? (
+          <Tag tone="success">{self ? 'On your own' : 'On their own'}</Tag>
+        ) : null}
       </div>
 
       <p className="body-sm" style={{ marginTop: 'var(--space-4)' }}>
@@ -62,24 +83,19 @@ export function ProofArtifact({ proof, shareable = true }: ProofArtifactProps) {
           {shared ? (
             <span className="row body-sm" style={{ gap: 'var(--space-2)', color: 'var(--text-secondary)' }}>
               <Icon name="check" size="sm" />
-              Ready to send. Choose where to share it.
+              Shared. The moment is ready to send wherever you choose.
             </span>
           ) : (
-            <Button variant="primary" size="sm" onClick={() => setShared(true)}>
+            <Button variant="primary" size="sm" onClick={shareMoment}>
               Share this moment
               <Icon name="send" size="sm" />
             </Button>
           )}
-          {shared ? (
-            <Button variant="ghost" size="sm" onClick={() => setShared(false)}>
-              Not now
-            </Button>
-          ) : null}
         </div>
       ) : null}
 
       <p className="caption quiet" style={{ marginTop: 'var(--space-3)' }}>
-        Drawn from {`their`} own learning. Nothing is shared until you choose to.
+        Drawn from {self ? 'your' : 'their'} own learning. Nothing is shared until you choose to.
       </p>
     </SpotlightCard>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Button, Cell, ConfidenceBand, Matrix, SpotlightCard, Stat, Tag, type Confidence } from '@classess/design-system';
+import { Cell, ConfidenceBand, Matrix, SpotlightCard, Stat, Tag, type Confidence } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { BriefingCard } from '../_components/BriefingCard';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
@@ -156,7 +156,7 @@ export default function TeacherDayPage() {
       </section>
 
       <section>
-        <SpotlightCard>
+        <SpotlightCard hero>
           <div className="row-between">
             <div>
               <p className="overline" style={{ margin: 0 }}>
@@ -167,9 +167,9 @@ export default function TeacherDayPage() {
                 lifts the third still leaning on prompts.
               </p>
             </div>
-            <Button variant="ghost" size="sm">
+            <Link href="/teacher/growth" className="btn btn-ghost btn-sm">
               See the suggestion
-            </Button>
+            </Link>
           </div>
         </SpotlightCard>
       </section>

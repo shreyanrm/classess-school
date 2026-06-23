@@ -87,7 +87,7 @@ export function StudentWork() {
           <div className="empty">
             <Icon name="check" size="lg" className="glyph" />
             <h4 className="body">Nothing assigned right now</h4>
-            <p>When your teacher assigns a check or homework, it will appear here. Until then, you can keep your streak going.</p>
+            <p>When your teacher assigns a check or homework, it will appear here. Until then, you can keep practising what you are working on.</p>
             <Button variant="secondary" size="sm" onClick={() => openVidya('What can I practise right now')}>
               <Icon name="spark" size="sm" /> Try with Vidya
             </Button>
@@ -101,7 +101,19 @@ export function StudentWork() {
         )
       ) : project ? (
         <GroupProjectView project={project} />
-      ) : null}
+      ) : (
+        <div className="empty">
+          <Icon name="user" size="lg" className="glyph" />
+          <h4 className="body">No group project right now</h4>
+          <p>
+            When you are part of a group project, you will see your team, your part, and the shared
+            milestones here.
+          </p>
+          <Button variant="secondary" size="sm" onClick={() => openVidya('What group work do I have')}>
+            <Icon name="spark" size="sm" /> Ask Vidya
+          </Button>
+        </div>
+      )}
     </SurfaceShell>
   );
 }

@@ -24,6 +24,19 @@ describe('SpotlightCard — the signature hover', () => {
     expect(el.classList.contains('c-spot')).toBe(true);
     expect(screen.getByText('Move your pointer')).toBeInTheDocument();
   });
+
+  it('is calm by default — the radial glow modifier is NOT applied', () => {
+    const { container } = render(<SpotlightCard>calm</SpotlightCard>);
+    const el = container.firstElementChild as HTMLElement;
+    expect(el.classList.contains('c-spot--hero')).toBe(false);
+  });
+
+  it('opts into the signature glow only when hero is set', () => {
+    const { container } = render(<SpotlightCard hero>focal</SpotlightCard>);
+    const el = container.firstElementChild as HTMLElement;
+    expect(el.classList.contains('c-spot')).toBe(true);
+    expect(el.classList.contains('c-spot--hero')).toBe(true);
+  });
 });
 
 describe('Tag', () => {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button, Icon, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
 import { SEED_ONTOLOGY } from '@classess/contracts';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
@@ -49,6 +49,7 @@ const BANDS = [
 export default function PlanPage() {
   const [subjectId, setSubjectId] = useState<string>(MATH_SUBJECT_ID);
   const [horizon, setHorizon] = useState<Horizon>('unit');
+  const [deliveredDays, setDeliveredDays] = useState<Set<string>>(() => new Set());
 
   const topics = topicsForSubject(subjectId);
   const subjectName = SUBJECTS.find((s) => s.id === subjectId)!.name;
@@ -155,10 +156,22 @@ export default function PlanPage() {
         </section>
       )}
 
+      {horizon === 'daily' && !focusTopic && (
+        <section className="stack">
+          <p className="overline">Tomorrow</p>
+          <SpotlightCard>
+            <p className="body-sm">No topic is scheduled for this subject yet.</p>
+            <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
+              Ask Vidya to draft a day, or switch to the Weekly horizon to see the outcomes in play.
+            </p>
+          </SpotlightCard>
+        </section>
+      )}
+
       {horizon === 'daily' && focusTopic && (
         <section className="stack">
           <p className="overline">Tomorrow — {focusTopic.name}</p>
-          <SpotlightCard padLg>
+          <SpotlightCard hero padLg>
             <div className="row-between" style={{ alignItems: 'flex-start' }}>
               <div>
                 <p className="overline" style={{ margin: 0 }}>
@@ -199,12 +212,42 @@ export default function PlanPage() {
 
             <div className="divider" />
             <div className="rec-actions">
-              <Button variant="accent" size="sm">
-                Mark delivered after class
-              </Button>
-              <span className="caption muted">
-                Delivering is your act. Marking it closes the planned-vs-delivered loop.
-              </span>
+              {deliveredDays.has(focusTopic.id) ? (
+                <>
+                  <Tag tone="success">Delivered</Tag>
+                  <span className="caption muted">
+                    Logged for {focusTopic.name}. The planned-vs-delivered read now reflects it.
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() =>
+                      setDeliveredDays((prev) => {
+                        const next = new Set(prev);
+                        next.delete(focusTopic.id);
+                        return next;
+                      })
+                    }
+                  >
+                    Undo
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="accent"
+                    size="sm"
+                    onClick={() =>
+                      setDeliveredDays((prev) => new Set(prev).add(focusTopic.id))
+                    }
+                  >
+                    Mark delivered after class
+                  </Button>
+                  <span className="caption muted">
+                    Delivering is your act. Marking it closes the planned-vs-delivered loop.
+                  </span>
+                </>
+              )}
             </div>
           </SpotlightCard>
         </section>

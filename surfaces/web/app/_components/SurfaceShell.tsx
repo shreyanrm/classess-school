@@ -84,7 +84,7 @@ export function SurfaceShell({ title, eyebrow, dockChips, dockIntro, children }:
             </div>
             <Link href="/" className="btn btn-ghost btn-sm row" style={{ gap: 'var(--space-2)' }}>
               <Icon name="home" size="sm" />
-              Back to the conversation
+              Back to home
             </Link>
           </div>
         </div>

@@ -55,6 +55,21 @@ export function ContentLibrary() {
   const [ingestOpen, setIngestOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
 
+  // The human verification surface for a not-yet-verified resource.
+  const [reviewing, setReviewing] = useState<ResourceView | null>(null);
+
+  /** A human approves a held-back resource, making it servable (INVARIANT 7). */
+  function approveResource(resource: ResourceView) {
+    setResources((prev) =>
+      prev.map((r) =>
+        r.id === resource.id
+          ? { ...r, verification: 'verified', servable: true }
+          : r,
+      ),
+    );
+    setReviewing(null);
+  }
+
   useEffect(() => {
     try {
       setResources(loadContent(state));
@@ -275,10 +290,49 @@ export function ContentLibrary() {
             · {stats.needsReview} need review · {stats.generated} generated
           </p>
           {filtered.map((r) => (
-            <LibraryItem key={r.id} resource={r} />
+            <LibraryItem key={r.id} resource={r} onReview={setReviewing} />
           ))}
         </section>
       )}
+
+      {reviewing ? (
+        <section className="stack">
+          <SpotlightCard hero padLg>
+            <div className="row-between" style={{ alignItems: 'flex-start' }}>
+              <div>
+                <p className="overline" style={{ margin: 0 }}>
+                  Human verification
+                </p>
+                <h3 className="body-lg" style={{ margin: '4px 0 0' }}>
+                  {reviewing.title}
+                </h3>
+                <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
+                  {reviewing.subjectName} · {reviewing.topicName}
+                </p>
+              </div>
+              <Tag tone="warning">Held back until verified</Tag>
+            </div>
+            <p className="body-sm muted" style={{ marginTop: 'var(--space-3)' }}>
+              {reviewing.summary}
+            </p>
+            <p className="caption quiet" style={{ marginTop: 'var(--space-2)' }}>
+              {reviewing.provenance} · Rights: {reviewing.licence}
+            </p>
+            <div className="divider" />
+            <div className="rec-actions">
+              <Button variant="accent" size="sm" onClick={() => approveResource(reviewing)}>
+                Approve and make servable
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setReviewing(null)}>
+                Cancel
+              </Button>
+              <span className="caption muted">
+                Approving is a human decision — only verified content reaches a learner.
+              </span>
+            </div>
+          </SpotlightCard>
+        </section>
+      ) : null}
     </SurfaceShell>
   );
 }

@@ -96,10 +96,38 @@ function LearnAlongsideCard({ activity }: { activity: LearnAlongside }) {
   );
 }
 
+function downloadMeetingIcs(ptm: PtmMeeting, childLabel: string) {
+  const stamp = new Date().toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+  const ics = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Classess//PTM//EN',
+    'BEGIN:VEVENT',
+    `UID:ptm-${childLabel.replace(/\s+/g, '-')}-${stamp}@classess`,
+    `DTSTAMP:${stamp}`,
+    `SUMMARY:Parent-teacher meeting — ${childLabel}`,
+    `DESCRIPTION:${(ptm.when ?? '').replace(/,/g, '\\,')} with ${ptm.with}`,
+    'END:VEVENT',
+    'END:VCALENDAR',
+  ].join('\r\n');
+  const blob = new Blob([ics], { type: 'text/calendar' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'parent-teacher-meeting.ics';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function PtmCard({ ptm, childLabel }: { ptm: PtmMeeting; childLabel: string }) {
+  const [requested, setRequested] = useState(false);
+  const [rescheduling, setRescheduling] = useState(false);
+
   if (!ptm.scheduled) {
     return (
-      <SpotlightCard padLg>
+      <SpotlightCard hero padLg>
         <div className="empty" style={{ padding: 'var(--space-4) 0' }}>
           <Icon name="calendar" size="lg" className="glyph" />
           <h4 className="body">No meeting scheduled yet</h4>
@@ -109,17 +137,26 @@ function PtmCard({ ptm, childLabel }: { ptm: PtmMeeting; childLabel: string }) {
           </p>
         </div>
         <div className="rec-actions">
-          <Button variant="primary" size="sm">
-            Request a meeting
-            <Icon name="arrow-right" size="sm" />
-          </Button>
+          {requested ? (
+            <>
+              <Tag tone="success">Request sent</Tag>
+              <span className="caption muted">
+                The teacher will propose a time. You will see it here, and a prep list will be ready.
+              </span>
+            </>
+          ) : (
+            <Button variant="primary" size="sm" onClick={() => setRequested(true)}>
+              Request a meeting
+              <Icon name="arrow-right" size="sm" />
+            </Button>
+          )}
         </div>
       </SpotlightCard>
     );
   }
 
   return (
-    <SpotlightCard padLg>
+    <SpotlightCard hero padLg>
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
         <div>
           <h3 className="body-lg" style={{ margin: 0 }}>
@@ -150,14 +187,24 @@ function PtmCard({ ptm, childLabel }: { ptm: PtmMeeting; childLabel: string }) {
       </ul>
 
       <div className="rec-actions" style={{ marginTop: 'var(--space-5)' }}>
-        <Button variant="primary" size="sm">
+        <Button
+          variant="primary"
+          size="sm"
+          onClick={() => downloadMeetingIcs(ptm, childLabel)}
+        >
           Add to your calendar
           <Icon name="arrow-right" size="sm" />
         </Button>
-        <Button variant="ghost" size="sm">
+        <Button variant="ghost" size="sm" onClick={() => setRescheduling((v) => !v)}>
           Reschedule
         </Button>
       </div>
+      {rescheduling ? (
+        <p className="caption muted" style={{ marginTop: 'var(--space-3)' }}>
+          A reschedule request has been noted. The teacher will propose a new time and it will
+          appear here.
+        </p>
+      ) : null}
     </SpotlightCard>
   );
 }

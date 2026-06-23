@@ -175,9 +175,15 @@ function ConnectorControl({
 
   if (connector.state === 'attention') {
     return (
-      <Button variant="secondary" size="sm" onClick={() => onState(connector.id, 'enabled')}>
-        Review held records
-      </Button>
+      <>
+        <span className="caption muted row" style={{ gap: 'var(--space-2)' }}>
+          <Icon name="warning" size="sm" />
+          Records are held — clearing them resumes the sync
+        </span>
+        <Button variant="secondary" size="sm" onClick={() => onState(connector.id, 'enabled')}>
+          Clear held records and resume
+        </Button>
+      </>
     );
   }
 

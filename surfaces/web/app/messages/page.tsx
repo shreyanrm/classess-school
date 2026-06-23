@@ -84,6 +84,8 @@ export default function MessagesPage() {
   const [draft, setDraft] = useState('');
   const [prepared, setPrepared] = useState(false);
   const [routed, setRouted] = useState(false);
+  const [taskOwner, setTaskOwner] = useState('Class teacher');
+  const [taskDue, setTaskDue] = useState('In two days');
 
   // Live messaging state (Supabase Realtime). Degrades to local when unwired.
   const [liveMsgs, setLiveMsgs] = useState<LiveMessage[]>([]);
@@ -425,16 +427,51 @@ export default function MessagesPage() {
                 </div>
                 <div className="divider" />
                 {routed ? (
-                  <p className="caption muted">
-                    Routed to the class teacher · due in two days · status open. It is now tracked, not
-                    lost in chat.
-                  </p>
-                ) : (
-                  <div className="rec-actions">
-                    <Button variant="secondary" size="sm" onClick={() => setRouted(true)}>
-                      <Icon name="arrow-right" size="sm" /> Route to a task
+                  <div className="row-between" style={{ alignItems: 'center' }}>
+                    <p className="caption muted" style={{ margin: 0 }}>
+                      Routed to {taskOwner.toLowerCase()} · due {taskDue.toLowerCase()} · status open.
+                      It is now tracked, not lost in chat.
+                    </p>
+                    <Button variant="ghost" size="sm" onClick={() => setRouted(false)}>
+                      Undo
                     </Button>
-                    <span className="caption muted">Owned, tracked, and closed — not left as a stray chat.</span>
+                  </div>
+                ) : (
+                  <div className="stack" style={{ gap: 'var(--space-3)' }}>
+                    <div className="row" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+                      <label className="stack" style={{ gap: 4 }}>
+                        <span className="caption muted">Owner</span>
+                        <select
+                          className="input"
+                          aria-label="Task owner"
+                          value={taskOwner}
+                          onChange={(e) => setTaskOwner(e.target.value)}
+                        >
+                          <option>Class teacher</option>
+                          <option>Subject teacher</option>
+                          <option>Year head</option>
+                        </select>
+                      </label>
+                      <label className="stack" style={{ gap: 4 }}>
+                        <span className="caption muted">Due</span>
+                        <select
+                          className="input"
+                          aria-label="Task due"
+                          value={taskDue}
+                          onChange={(e) => setTaskDue(e.target.value)}
+                        >
+                          <option>Today</option>
+                          <option>In two days</option>
+                          <option>This week</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="rec-actions">
+                      <Button variant="secondary" size="sm" onClick={() => setRouted(true)}>
+                        <Icon name="arrow-right" size="sm" /> Route to a task
+                      </Button>
+                      <span className="caption muted">Owned, tracked, and closed — not left as a stray chat.</span>
+                    </div>
                   </div>
                 )}
               </SpotlightCard>

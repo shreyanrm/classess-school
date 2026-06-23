@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button, Cell, Icon, Matrix, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { useStore } from '@/lib/useStore';
-import { restartOnboarding } from '@/lib/store';
+import { restartOnboarding, setPreference, defaultPreferences, type Preferences } from '@/lib/store';
 import { signOut, deleteAccount, confirmsDeletion } from '@/lib/auth';
 import { useT, LOCALES, type Locale } from '@/lib/i18n';
 
@@ -24,7 +24,8 @@ interface Toggle {
  */
 export default function SettingsPage() {
   const router = useRouter();
-  const { account, consent, profile } = useStore();
+  const { account, consent, profile, preferences } = useStore();
+  const prefs: Preferences = { ...defaultPreferences(), ...preferences };
   const { t, locale, setLocale } = useT();
 
   function reonboard() {
@@ -63,31 +64,32 @@ export default function SettingsPage() {
     });
   }
 
-  const [toggles, setToggles] = useState<Toggle[]>([
+  const toggles: Array<Toggle & { key: keyof Preferences }> = [
     {
       key: 'voice',
       title: 'Voice replies',
       detail: 'Let Vidya speak answers aloud. You can always keep typing instead.',
-      on: true,
+      on: prefs.voice,
     },
     {
       key: 'proactive',
       title: 'Proactive suggestions',
       detail:
         'Vidya may surface what to look at next. Nothing acts on its own — each suggestion waits for you.',
-      on: true,
+      on: prefs.proactive,
     },
     {
-      key: 'share',
+      key: 'shareReads',
       title: 'Share my reads with my mentor',
       detail:
         'Off by default. Reads are shown in plain language only — never raw scores, never personal details.',
-      on: false,
+      on: prefs.shareReads,
     },
-  ]);
+  ];
 
-  function flip(key: string) {
-    setToggles((prev) => prev.map((t) => (t.key === key ? { ...t, on: !t.on } : t)));
+  function flip(key: keyof Preferences, on: boolean) {
+    // Persist to the store so the choice survives reload and other surfaces read it.
+    setPreference(key, !on);
   }
 
   return (
@@ -135,7 +137,7 @@ export default function SettingsPage() {
                   variant={t.on ? 'primary' : 'ghost'}
                   size="sm"
                   aria-pressed={t.on}
-                  onClick={() => flip(t.key)}
+                  onClick={() => flip(t.key, t.on)}
                 >
                   {t.on ? 'On' : 'Off'}
                 </Button>

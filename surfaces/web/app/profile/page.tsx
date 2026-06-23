@@ -1,6 +1,7 @@
 'use client';
 
-import { Avatar, Cell, Matrix, Stat, Tag } from '@classess/design-system';
+import Link from 'next/link';
+import { Avatar, Cell, Icon, Matrix, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { useRole } from '@/lib/RoleContext';
 import { ROLE_LABELS } from '@/lib/mock';
@@ -20,7 +21,7 @@ export default function ProfilePage() {
       eyebrow="Your account"
       title="Profile"
       dockIntro="This is your profile in Classess. Ask me to change a preference or explain what is kept."
-      dockChips={['What does Classess keep', 'Change my role', 'Open settings']}
+      dockChips={['What does Classess keep', 'What is kept private', 'Explain my consent tier']}
     >
       <section className="stack">
         <div className="row" style={{ gap: 'var(--space-4)', alignItems: 'center' }}>
@@ -68,6 +69,20 @@ export default function ProfilePage() {
         <div className="row" style={{ gap: 'var(--space-2)' }}>
           <Tag tone="success">Consent-gated</Tag>
           <Tag tone="neutral">No personal data in reads</Tag>
+        </div>
+      </section>
+
+      <section className="stack">
+        <p className="overline">Account and settings</p>
+        <p className="caption muted">
+          Change how Vidya helps you, your language, or your role from settings. Switching role
+          re-shapes the whole workspace from the rail.
+        </p>
+        <div className="rec-actions">
+          <Link href="/settings" className="btn btn-secondary btn-sm">
+            <Icon name="arrow-right" size="sm" />
+            Open settings
+          </Link>
         </div>
       </section>
     </SurfaceShell>

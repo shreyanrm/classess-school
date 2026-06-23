@@ -49,6 +49,7 @@ export default function ClassroomPage() {
   // Device-free mode.
   const [deviceFree, setDeviceFree] = useState(false);
   const [scanned, setScanned] = useState(false);
+  const [scanConfirmed, setScanConfirmed] = useState(false);
 
   function point(e: ReactPointerEvent) {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -210,12 +211,26 @@ export default function ClassroomPage() {
                 <Button variant="accent" size="sm" onClick={() => setScanned(true)}>
                   <Icon name="grid" size="sm" /> Photograph the room
                 </Button>
-              ) : (
+              ) : scanConfirmed ? (
                 <div className="row-between">
+                  <span className="body-sm">
+                    Read confirmed for {ROSTER.length} cards and recorded for the class.
+                  </span>
+                  <Tag tone="success">Confirmed</Tag>
+                </div>
+              ) : (
+                <div className="row-between" style={{ alignItems: 'center' }}>
                   <span className="body-sm">
                     Proposed read for {ROSTER.length} cards — yours to confirm.
                   </span>
-                  <Tag tone="info">Awaiting your confirm</Tag>
+                  <div className="row" style={{ gap: 'var(--space-2)' }}>
+                    <Button variant="ghost" size="sm" onClick={() => setScanned(false)}>
+                      Re-photograph
+                    </Button>
+                    <Button variant="accent" size="sm" onClick={() => setScanConfirmed(true)}>
+                      Confirm the read
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>

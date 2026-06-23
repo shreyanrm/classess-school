@@ -49,8 +49,16 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   }, [exempt, loading, session, router, setRole]);
 
   // On a gated route, hold the paint until we know there is a session — so a
-  // signed-out user never flashes the app before the redirect.
-  if (!exempt && (loading || !session)) return null;
+  // signed-out user never flashes the app before the redirect. Show a calm
+  // loading affordance rather than a blank screen during the session read.
+  if (!exempt && (loading || !session)) {
+    return (
+      <div className="auth-gate-loading" role="status" aria-live="polite">
+        <span className="auth-gate-spinner" aria-hidden="true" />
+        <span className="caption muted">Signing you in…</span>
+      </div>
+    );
+  }
 
   return <>{children}</>;
 }

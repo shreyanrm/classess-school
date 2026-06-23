@@ -193,6 +193,7 @@ a {
   top: 9px;
   bottom: 9px;
   width: 2px;
+  pointer-events: none;
   border-radius: 2px;
   background: var(--accent);
 }
@@ -234,6 +235,28 @@ a {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+}
+
+/* Role-switch confirmation — a calm, brief toast above the rail. The switch
+   re-shapes the whole workspace, so it must be announced + visible, never silent. */
+.rail-role-toast-region {
+  position: fixed;
+  left: 76px;
+  bottom: var(--space-5);
+  z-index: 60;
+  pointer-events: none;
+}
+.rail-role-toast {
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-body-sm);
+  color: var(--text-primary);
+  animation: rise var(--dur-slow, 0.3s) var(--ease) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-role-toast { animation: none; }
 }
 
 /* A page surface (insights, proactive) — top bar + body + docked Vidya. */
@@ -467,6 +490,7 @@ a {
   content: "";
   position: absolute;
   inset: 0;
+  pointer-events: none;
   background: linear-gradient(
     90deg,
     transparent,
@@ -1281,6 +1305,7 @@ a {
 .vidya-orb-core {
   position: absolute;
   inset: 0;
+  pointer-events: none;
   border-radius: 999px;
   overflow: hidden;
   background: radial-gradient(circle at 30% 30%, var(--accent-tint), transparent 70%);
@@ -2138,5 +2163,34 @@ body {
 .surface-vidya-chips {
   /* Allow the reveal rise to play without clipping against the scroll edge. */
   will-change: opacity, transform;
+}
+
+/* ============================================================================
+   AUTH GATE — a calm loading affordance while the session resolves, instead of
+   a blank flash before the redirect. Steel hairline ring, one slow turn.
+   ============================================================================ */
+.auth-gate-loading {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  background: var(--bg-canvas);
+}
+.auth-gate-spinner {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  animation: auth-gate-spin 0.8s linear infinite;
+}
+@keyframes auth-gate-spin {
+  to { transform: rotate(360deg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-gate-spinner { animation: none; }
 }
 

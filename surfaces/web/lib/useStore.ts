@@ -43,6 +43,7 @@ export function useStore() {
     consent: state.consent,
     profile: state.profile,
     school: state.school,
+    preferences: state.preferences,
     firstRun: isFirstRun(state),
   };
 }
