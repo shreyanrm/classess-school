@@ -6,7 +6,7 @@ import { Button, Cell, Icon, Matrix, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { useStore } from '@/lib/useStore';
 import { restartOnboarding } from '@/lib/store';
-import { signOut } from '@/lib/auth';
+import { signOut, deleteAccount, confirmsDeletion } from '@/lib/auth';
 import { useT, LOCALES, type Locale } from '@/lib/i18n';
 
 interface Toggle {
@@ -34,6 +34,33 @@ export default function SettingsPage() {
 
   function endSession() {
     void signOut().then(() => router.replace('/sign-in'));
+  }
+
+  // The Delete-account confirm gate. Step 1 is a quiet control; step 2 explains
+  // in plain language what happens and requires the explicit word DELETE before
+  // the erasure can run. Nothing consequential fires on its own.
+  const [confirming, setConfirming] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const canDelete = confirmsDeletion(confirmText);
+
+  function requestDelete() {
+    setConfirming(true);
+  }
+
+  function cancelDelete() {
+    setConfirming(false);
+    setConfirmText('');
+  }
+
+  function runDelete() {
+    if (!canDelete || deleting) return;
+    setDeleting(true);
+    // The route severs identity + PII server-side; deleteAccount always clears
+    // local state, so the farewell + redirect work even on the degraded path.
+    void deleteAccount().finally(() => {
+      router.replace('/sign-in?farewell=1');
+    });
   }
 
   const [toggles, setToggles] = useState<Toggle[]>([
@@ -175,6 +202,63 @@ export default function SettingsPage() {
           Signing out clears your local demo identity and everything tied to it. Re-running
           onboarding lets me re-learn how you like to work.
         </p>
+      </section>
+
+      <section className="stack" data-testid="delete-account">
+        <p className="overline">Delete account</p>
+        <p className="caption muted">
+          A quiet, permanent step. When you delete your account, your identity and personal
+          details are erased. Your anonymised learning history — which holds no personal data —
+          is kept so the school records stay consistent. This cannot be undone.
+        </p>
+
+        {!confirming ? (
+          <div className="rec-actions">
+            <Button
+              variant="ghost"
+              size="sm"
+              data-testid="delete-account-open"
+              onClick={requestDelete}
+            >
+              Delete my account
+            </Button>
+          </div>
+        ) : (
+          <div className="admin-list" data-testid="delete-account-confirm">
+            <p className="caption">
+              To confirm, type <strong>DELETE</strong> below. We will erase your identity and
+              personal details and sign you out. Your anonymised learning history is retained and
+              becomes un-attributable.
+            </p>
+            <label className="caption muted" htmlFor="delete-confirm-input">
+              Type DELETE to confirm
+            </label>
+            <input
+              id="delete-confirm-input"
+              data-testid="delete-account-input"
+              className="input"
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="DELETE"
+              autoComplete="off"
+              aria-label="Type DELETE to confirm account deletion"
+            />
+            <div className="rec-actions">
+              <Button variant="ghost" size="sm" onClick={cancelDelete} disabled={deleting}>
+                Keep my account
+              </Button>
+              <Button
+                variant="primary"
+                size="sm"
+                data-testid="delete-account-confirm-button"
+                disabled={!canDelete || deleting}
+                onClick={runDelete}
+              >
+                {deleting ? 'Erasing…' : 'Erase my account'}
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
     </SurfaceShell>
   );

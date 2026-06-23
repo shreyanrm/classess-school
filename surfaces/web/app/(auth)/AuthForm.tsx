@@ -94,6 +94,14 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // A calm farewell after right-to-erasure routes here with ?farewell=1. Read
+  // from the URL on the client (no useSearchParams, so no Suspense boundary is
+  // required) — purely informational, dismissed by starting to sign in again.
+  const [farewell] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).get('farewell') === '1';
+  });
+
   function go(next: number) {
     setError(null);
     setIdx((i) => Math.max(0, Math.min(steps.length - 1, next)));
@@ -183,6 +191,13 @@ export function AuthForm({ mode }: { mode: AuthMode }) {
             ))}
           </div>
         </div>
+
+        {farewell && !isSignUp ? (
+          <p className="caption quiet auth-note" data-testid="auth-farewell" role="status">
+            Your account has been deleted. Your identity and personal details are erased; your
+            anonymised learning history is retained. You are welcome back any time.
+          </p>
+        ) : null}
 
         <form className="auth-steps" onSubmit={advance} noValidate>
           {/* one focused view per step; key re-mounts to replay the slide */}

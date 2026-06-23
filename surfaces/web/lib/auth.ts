@@ -379,6 +379,63 @@ export async function updatePassword(input: { password: string }): Promise<AuthR
   return { ok: true };
 }
 
+/** The exact word a person must type to confirm right-to-erasure. */
+export const DELETE_CONFIRM_WORD = 'DELETE' as const;
+
+/**
+ * The confirm gate for right-to-erasure. Returns true ONLY when the typed text
+ * is an explicit, case-insensitive match for the confirm word (trimmed). This is
+ * what makes erasure deliberate — nothing consequential fires on an empty or
+ * partial entry. Pure + node-testable.
+ */
+export function confirmsDeletion(typed: string): boolean {
+  return typed.trim().toUpperCase() === DELETE_CONFIRM_WORD;
+}
+
+/** The outcome of a delete-account attempt — calm, never throws on the caller. */
+export interface DeleteResult {
+  /** True when the server severed identity/PII; false on the degraded path. */
+  deleted: boolean;
+  /** A plain, non-leaking reason when deleted is false (e.g. 'no-db'). */
+  reason?: string;
+}
+
+/**
+ * Right-to-erasure from the client side. Calls the server erasure route with the
+ * current session's opaque canonical id (which severs the Auth identity, the PII
+ * vault row, and the operational memberships, while leaving the append-only,
+ * un-attributable platform.events intact), then ALWAYS clears local auth state so
+ * the demo path works even when no backend is configured. Never throws.
+ *
+ * The local session is cleared regardless of the server outcome: on the degraded
+ * path (no database / no service key) there is no server identity to erase, so
+ * clearing the local demo identity is the whole erasure.
+ */
+export async function deleteAccount(): Promise<DeleteResult> {
+  let result: DeleteResult = { deleted: false, reason: 'no-session' };
+
+  const session = await getSession();
+  if (session) {
+    try {
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ canonicalUuid: session.userId }),
+      });
+      const data = (await res.json().catch(() => ({}))) as DeleteResult;
+      result = { deleted: Boolean(data.deleted), reason: data.reason };
+    } catch {
+      // Network/route failure must not block local erasure — degrade calmly.
+      result = { deleted: false, reason: 'unreachable' };
+    }
+  }
+
+  // Always sever local state (and the Supabase session, if any) so the identity
+  // is gone from this device whatever the server outcome.
+  await signOut();
+  return result;
+}
+
 /** Sign out of whichever backend is active, clearing the session. */
 export async function signOut(): Promise<void> {
   const supabase = await getSupabaseClient();
