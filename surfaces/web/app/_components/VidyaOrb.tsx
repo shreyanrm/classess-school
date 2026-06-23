@@ -29,6 +29,8 @@ import { VoiceCapsule, type VoiceCapsuleHandle } from './VoiceCapsule';
 import { VidyaSteps } from './VidyaSteps';
 import { VidyaSpotlight } from './VidyaSpotlight';
 import { VidyaCanvas } from './VidyaCanvas';
+import { VidyaAttach } from './VidyaAttach';
+import type { VidyaAttachment } from '@/lib/vidya';
 import { useVidya } from '@/lib/useVidya';
 import { useRole } from '@/lib/RoleContext';
 import { useAuth } from '@/lib/useAuth';
@@ -105,6 +107,10 @@ export function VidyaOrb() {
   // When a starter prompt is sent (text) or there is no mic, it stays in text.
   const [voiceState, setVoiceState] = useState<string>('idle');
   const [textMode, setTextMode] = useState(false);
+  // Staged multimodal attachments (image / document / screen still) sent with
+  // the next turn, then cleared. Lives in the orb so the composer + voice path
+  // both read it.
+  const [attachments, setAttachments] = useState<VidyaAttachment[]>([]);
 
   // Open the orb (and optionally send a starter prompt) on the open event, so a
   // chip on the role landing routes straight into the conversation.
@@ -180,6 +186,7 @@ export function VidyaOrb() {
   function closeOrb() {
     setOpen(false);
     clearVisuals();
+    setAttachments([]);
     orbRef.current?.focus();
   }
 
@@ -255,7 +262,11 @@ export function VidyaOrb() {
 
           <div className="vidya-orb-body">
             {hasThread ? (
-              <MessageThread messages={messages} thinking={thinking} />
+              <MessageThread
+                messages={messages}
+                thinking={thinking}
+                onOpenHref={(href) => router.push(href)}
+              />
             ) : (
               <p className="body-sm muted vidya-orb-greeting">
                 {isListening ? 'Listening — speak when you are ready.' : GREETING[role]}
@@ -290,14 +301,35 @@ export function VidyaOrb() {
               data-testid="vidya-composer"
               hidden={!textMode}
             >
+              {/* Multimodal intake — attach an image/document or share the screen.
+                  Degrades gracefully when the environment lacks the APIs. */}
+              <VidyaAttach attachments={attachments} onChange={setAttachments} />
               <Composer
                 onSend={(t) => {
                   setTextMode(true);
-                  void send(t);
+                  const staged = attachments;
+                  setAttachments([]);
+                  void send(t, staged.length > 0 ? staged : undefined);
                 }}
                 placeholder="Ask Vidya, or describe what you need"
                 data-testid="vidya-composer-input"
               />
+              {/* An attachment can be sent without typed text — a calm send-now. */}
+              {attachments.length > 0 ? (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  data-testid="vidya-attach-send"
+                  onClick={() => {
+                    setTextMode(true);
+                    const staged = attachments;
+                    setAttachments([]);
+                    void send('', staged);
+                  }}
+                >
+                  Send attachment to Vidya
+                </button>
+              ) : null}
             </div>
           </div>
         </div>

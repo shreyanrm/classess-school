@@ -29,13 +29,14 @@
    so the surface is runnable now; the key still never crosses to the client.
    ============================================================================ */
 
-import type { VidyaAction } from '@/lib/vidya';
+import type { VidyaAction, Role } from '@/lib/vidya';
 import {
   KEY_ENV,
   runVidyaTurn,
   generateContent,
   type GeminiContent,
 } from '@/lib/vidyaServer';
+import { redactPII } from '@/lib/vidyaMemory';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -81,7 +82,13 @@ export async function POST(req: Request): Promise<Response> {
   const key = process.env[KEY_ENV];
   if (!key || key.trim().length < 16) return unavailable('key-unset');
 
-  let payload: { text?: string; audioBase64?: string; mimeType?: string; role?: string };
+  let payload: {
+    text?: string;
+    audioBase64?: string;
+    mimeType?: string;
+    role?: string;
+    memoryNote?: string;
+  };
   try {
     payload = await req.json();
   } catch {
@@ -97,7 +104,11 @@ export async function POST(req: Request): Promise<Response> {
         : null;
   if (!userPart) return unavailable('empty-turn', 400);
 
-  const viewerRole = payload.role ?? 'student';
+  const viewerRole = (payload.role ?? 'student') as Role;
+  const memoryNote =
+    typeof payload.memoryNote === 'string' && payload.memoryNote.trim()
+      ? redactPII(payload.memoryNote).slice(0, 600)
+      : '';
 
   // One Gemini user turn with a short framing instruction + the audio/text. The
   // shared orchestrator reasons, calls the same tools, and returns the reply +
@@ -111,8 +122,9 @@ export async function POST(req: Request): Promise<Response> {
   const turn = await runVidyaTurn(
     contents,
     key,
-    `The person you are helping is in the ${viewerRole} role. Keep the spoken reply under 60 words; let any rendered card carry the detail.`,
+    'Keep the spoken reply under 60 words; let any rendered card carry the detail.',
     220,
+    { role: viewerRole, memoryNote },
   );
 
   if (!turn.ok) {

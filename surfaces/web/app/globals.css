@@ -1301,6 +1301,20 @@ a {
   transform: scale(0.94);
 }
 
+/* When the panel is open, the orb is no longer the focus — settle it to a stable,
+   static state: stop the breathing pulse/aura and freeze the hover transform so
+   nothing under the cursor mutates between animation frames. This is what lets
+   automated input (and a calm human) land a real click on the open panel without
+   the element perpetually moving. The living aura returns when the orb closes. */
+.vidya-orb.is-open .vidya-orb-core,
+.vidya-orb.is-open::after {
+  animation: none;
+  opacity: 0;
+}
+.vidya-orb.is-open:hover {
+  transform: scale(0.94);
+}
+
 /* The living gradient core — a calm, slow breathing pulse in the surface accent. */
 .vidya-orb-core {
   position: absolute;
@@ -1595,6 +1609,212 @@ a {
   .vc-derivation-step,
   .vc-written-line { animation: none; }
 }
+
+/* --- Editable canvas: per-step annotation (human "Caveat" note) --- */
+.vc-note-add {
+  display: inline-block;
+  margin-left: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-tertiary, var(--text-secondary));
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.vc-note-add:hover { color: var(--accent); }
+.vc-note-add:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vc-note-input {
+  display: block;
+  margin-top: var(--space-2);
+  width: 100%;
+  border: var(--border-width) solid var(--border);
+  border-radius: 0;
+  padding: var(--space-2) var(--space-3);
+  font: inherit;
+  color: var(--text-primary);
+  background: var(--bg-surface);
+}
+.vc-note-input:focus-visible { outline: none; border-color: var(--accent); }
+.vc-annotation-note {
+  display: block;
+  margin-top: var(--space-2);
+  color: var(--text-primary);
+  font-family: 'Caveat', var(--font-script, cursive);
+  font-size: 1.05rem;
+}
+
+/* --- Canvas sources / evidence shown alongside the answer --- */
+.vidya-canvas-sources {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--border);
+}
+.vc-sources-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.vc-source { line-height: 1.5; }
+.vc-source-open {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent);
+  cursor: pointer;
+}
+.vc-source-open:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ============================================================================
+   Vidya operable surface — a real, interactive generative panel inside the orb
+   conversation (quiz-builder / class-view / plan-board / report-card). Calm v4:
+   per-surface accent, sharp corners, no shadows, plain language. The permission
+   ladder is visible: a consequential affordance only prepares + routes to review.
+   ============================================================================ */
+.vidya-surface {
+  margin-top: var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-4);
+  background: var(--bg-subtle, var(--bg-surface));
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.vidya-surface-head { display: flex; flex-direction: column; }
+.vidya-surface-items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.vidya-surface-item { display: flex; gap: var(--space-3); align-items: flex-start; }
+.vidya-surface-index {
+  flex: none;
+  width: 1.6em;
+  height: 1.6em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) solid var(--border);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.vidya-surface-item-body { flex: 1; min-width: 0; }
+.vidya-surface-options {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.vidya-surface-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.vidya-surface-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border);
+}
+.vidya-surface-row:last-child { border-bottom: none; }
+.vidya-surface-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--space-3);
+}
+.vidya-surface-col {
+  border: var(--border-width) solid var(--border);
+  padding: var(--space-3);
+}
+.vidya-surface-card {
+  border: var(--border-width) solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface);
+}
+.vidya-surface-card + .vidya-surface-card { margin-top: var(--space-2); }
+.vidya-surface-next { margin: 0; color: var(--text-primary); }
+.vidya-surface-foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+.vidya-surface-approval {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+/* ============================================================================
+   Vidya multimodal intake — calm attach affordances beneath the composer.
+   Degrades by hiding any affordance the environment cannot support.
+   ============================================================================ */
+.vidya-attach {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.vidya-attach-controls { display: inline-flex; gap: var(--space-2); }
+.vidya-attach-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: var(--border-width) solid var(--border);
+  border-radius: 0;
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.vidya-attach-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.vidya-attach-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.vidya-attach-btn:disabled { opacity: 0.4; cursor: default; }
+.vidya-attach-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.vidya-attach-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  border: var(--border-width) solid var(--border);
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-secondary);
+}
+.vidya-attach-remove {
+  display: inline-flex;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-tertiary, var(--text-secondary));
+  cursor: pointer;
+}
+.vidya-attach-remove:hover { color: var(--accent); }
+.vidya-attach-remove:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* ============================================================================
    Voice-first + speak-and-show — the type-instead affordance, the self-

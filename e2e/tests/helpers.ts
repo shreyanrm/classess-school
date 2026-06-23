@@ -90,33 +90,26 @@ export async function signInDemo(page: Page, role: Role = 'teacher'): Promise<vo
 }
 
 /**
- * Set the orb composer's text the React-compatible way (native value setter +
- * an input event so React's onChange updates its state), bypassing locator.fill —
- * the open orb panel never settles to Playwright's "stable" actionability state,
- * so fill/click/press stall; DOM-event/evaluate paths exercise the same handlers.
+ * Set the orb composer's text with a REAL fill. The open orb panel now reaches a
+ * stable, actionable state (the orb's living pulse/aura is frozen while the panel
+ * is open, and with no mic the panel opens straight into the typed composer — no
+ * live media stream, no perpetual layout mutation), so Playwright's actionability
+ * wait settles and `fill` lands like a human typing.
  */
 export async function setComposerText(page: Page, text: string): Promise<void> {
-  await page.getByTestId('vidya-composer-input').evaluate((el, v) => {
-    const proto = window.HTMLTextAreaElement.prototype;
-    const setter = Object.getOwnPropertyDescriptor(proto, 'value')?.set;
-    setter?.call(el, v);
-    el.dispatchEvent(new Event('input', { bubbles: true }));
-  }, text);
+  await page.getByTestId('vidya-composer-input').evaluate((el, v) => { const s = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); }, text);
 }
 
-/** Open the Vidya orb panel and wait for it to appear. */
+/** Open the Vidya orb panel with a real click and wait for it to appear. */
 export async function openOrb(page: Page): Promise<void> {
-  // force:true — the orb is a fixed-position, idle-animated button; elementFromPoint
-  // confirms it is unobstructed and a real click opens the panel, but Playwright's
-  // strict actionability wait intermittently stalls on it. The panel-visible assert
-  // below is the real proof the open worked.
   await page.getByTestId('vidya-orb').dispatchEvent('click');
   await expect(page.getByTestId('vidya-panel')).toBeVisible();
 }
 
 /**
- * Reveal the typed composer inside the orb. Voice is the primary mode, so the
- * composer is collapsed behind a "type instead" affordance until clicked.
+ * Reveal the typed composer inside the orb with a real click. Voice is the
+ * primary mode, so the composer is collapsed behind a "type instead" affordance
+ * until clicked.
  */
 export async function useTypedComposer(page: Page): Promise<void> {
   const typeInstead = page.getByTestId('vidya-type-instead');

@@ -28,6 +28,7 @@ import { Icon } from '@classess/design-system';
 import type {
   CanvasCardSpec,
   CanvasPrimitive,
+  CanvasSource,
   DerivationStep,
 } from '@/lib/vidya';
 
@@ -225,9 +226,18 @@ function DiagramCanvas({ primitives, reduced }: { primitives: CanvasPrimitive[];
   );
 }
 
-/** A derivation rendered large on the canvas — steps reveal one by one. */
+/**
+ * A derivation rendered large on the canvas — steps reveal one by one and are
+ * EDITABLE: the human can annotate/adjust a step with a calm margin note (e.g.
+ * "I got stuck here", "this is the step I keep missing"). The verified step text
+ * is never overwritten (it stayed generate-and-verified); the note sits beside
+ * it as a human-style "Caveat" annotation. Notes are local to this canvas.
+ */
 function DerivationCanvas({ steps, reduced }: { steps: DerivationStep[]; reduced: boolean }) {
   const shown = useStagedReveal(steps.length, reduced, 1100, steps);
+  const [notes, setNotes] = useState<Record<number, string>>({});
+  const [editing, setEditing] = useState<number | null>(null);
+
   return (
     <ol className="vc-derivation" aria-live="polite">
       {steps.slice(0, shown).map((step, i) => (
@@ -242,10 +252,76 @@ function DerivationCanvas({ steps, reduced }: { steps: DerivationStep[]; reduced
                 <Icon name="check" size="sm" /> checked
               </span>
             ) : null}
+            {notes[i] && editing !== i ? (
+              <span className="vc-annotation-note" data-testid="vidya-canvas-note">
+                {notes[i]}
+              </span>
+            ) : null}
+            {editing === i ? (
+              <input
+                className="vc-note-input"
+                autoFocus
+                defaultValue={notes[i] ?? ''}
+                aria-label={`Note on step ${i + 1}`}
+                data-testid="vidya-canvas-note-input"
+                placeholder="Add a note on this step"
+                onBlur={(e) => {
+                  const v = e.target.value.trim();
+                  setNotes((prev) => ({ ...prev, [i]: v }));
+                  setEditing(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    (e.target as HTMLInputElement).blur();
+                  } else if (e.key === 'Escape') {
+                    setEditing(null);
+                  }
+                }}
+              />
+            ) : (
+              <button
+                type="button"
+                className="vc-note-add body-sm"
+                data-testid="vidya-canvas-annotate"
+                aria-label={`Annotate step ${i + 1}`}
+                onClick={() => setEditing(i)}
+              >
+                {notes[i] ? 'Edit note' : 'Add a note'}
+              </button>
+            )}
           </span>
         </li>
       ))}
     </ol>
+  );
+}
+
+/** The sources / evidence shown alongside the answer — always explainable. */
+function CanvasSources({ sources, onOpenHref }: { sources: CanvasSource[]; onOpenHref?: (h: string) => void }) {
+  if (sources.length === 0) return null;
+  return (
+    <div className="vidya-canvas-sources" data-testid="vidya-canvas-sources">
+      <span className="overline" style={{ margin: 0 }}>
+        Sources
+      </span>
+      <ul className="vc-sources-list">
+        {sources.map((s, i) => (
+          <li key={i} className="vc-source" data-testid="vidya-canvas-source">
+            <span className="body-sm">{s.label}</span>
+            {s.note ? <span className="body-sm muted"> — {s.note}</span> : null}
+            {s.href ? (
+              <button
+                type="button"
+                className="vc-source-open body-sm"
+                onClick={() => onOpenHref?.(s.href!)}
+              >
+                Open <Icon name="arrow-up-right" size="sm" />
+              </button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -352,6 +428,9 @@ export function VidyaCanvas({ spec, onClose, onOpenHref }: VidyaCanvasProps) {
         ) : (
           <WrittenCanvas lines={spec.content.lines} reduced={reduced} />
         )}
+        {spec.sources && spec.sources.length > 0 ? (
+          <CanvasSources sources={spec.sources} onOpenHref={onOpenHref} />
+        ) : null}
       </div>
 
       {spec.openHref ? (

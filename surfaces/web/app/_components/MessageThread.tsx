@@ -2,15 +2,30 @@
 
 import { Icon } from '@classess/design-system';
 import { InlineResult, type InlineResultData } from './InlineResult';
+import { VidyaSurface } from './VidyaSurface';
+import type { SurfaceSpec } from '@/lib/vidya';
 
 export type ChatMessage =
   | { id: string; role: 'user'; text: string }
-  | { id: string; role: 'vidya'; text: string; inline?: InlineResultData };
+  | {
+      id: string;
+      role: 'vidya';
+      text: string;
+      inline?: InlineResultData;
+      /**
+       * An OPERABLE generative surface (quiz-builder / class-view / plan-board /
+       * report-card) Vidya composed for this turn. When present it renders as a
+       * real, interactive panel inline in the thread — not a flat card.
+       */
+      surface?: SurfaceSpec;
+    };
 
 export interface MessageThreadProps {
   messages: ChatMessage[];
   /** True while Vidya is composing the next turn — drives the loading state. */
   thinking?: boolean;
+  /** Follow a consequential surface's review route (router.push). */
+  onOpenHref?: (href: string) => void;
 }
 
 /**
@@ -19,7 +34,7 @@ export interface MessageThreadProps {
  * renders inline here; a big task surfaces an "open in its page" control on the
  * inline result, routing to a dedicated workspace.
  */
-export function MessageThread({ messages, thinking }: MessageThreadProps) {
+export function MessageThread({ messages, thinking, onOpenHref }: MessageThreadProps) {
   return (
     <div className="thread" aria-live="polite">
       {messages.map((m) =>
@@ -34,6 +49,7 @@ export function MessageThread({ messages, thinking }: MessageThreadProps) {
               Vidya
             </div>
             <div className="vidya-text body">{m.text}</div>
+            {m.surface ? <VidyaSurface spec={m.surface} onOpenHref={onOpenHref} /> : null}
             {m.inline ? <InlineResult data={m.inline} /> : null}
           </div>
         ),

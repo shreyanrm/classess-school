@@ -58,6 +58,7 @@ import type {
   DerivationStep,
   CanvasCardSpec,
   CanvasContent,
+  SurfaceSpec,
 } from './vidya';
 import {
   NAV_TARGETS,
@@ -67,7 +68,15 @@ import {
   verifyStep,
   sanitiseCanvas,
   canvasHasContent,
+  sanitiseSurface,
 } from './vidya';
+import {
+  personaForRole,
+  personaInstruction,
+  personaAllowsTool,
+  type VidyaPersona,
+} from './vidyaPersona';
+import type { Role } from './mock';
 
 export const KEY_ENV = 'CLSS_AIFABRIC_DEV_GEMINI_API_KEY';
 /** The INDEPENDENT second-model key (OpenAI). SERVER-ONLY: read here, never
@@ -134,6 +143,16 @@ export const SYSTEM = [
   'reveals one step at a time as you speak. Use highlight when you are pointing at',
   'something already on screen; use explain_steps when you are deriving or',
   'teaching a method. Keep it tasteful.',
+  '',
+  'GENERATIVE-UI. compose_surface summons and OPERATES a real, working surface',
+  'INLINE in the conversation instead of only describing it or routing away —',
+  '"make a quiz on photosynthesis" returns a working quiz-builder; "show 9-B"',
+  'returns a class-view; "plan a lesson as a board" returns a plan-board; "a',
+  'report for the parent" returns a report-card. The surface set is SMALL and',
+  'TYPED (no arbitrary HTML). Any consequential affordance inside it (publish a',
+  'quiz, adopt a plan) is permission-laddered: it prepares for a human to approve',
+  'and never fires from inside the surface. Prefer compose_surface when the',
+  'person wants to BUILD or SEE something interactive in place.',
   '',
   'THE CANVAS. show_on_canvas summons a calm floating canvas and DRAWS / DERIVES /',
   'SKETCHES there — open it ONLY when the answer needs to be SHOWN (a diagram, a',
@@ -479,6 +498,71 @@ export const TOOLS = [
         description:
           'Open the learner portfolio and credentials — the timeline of mastered topics with evidence, and verifiable credentials. Opens the page; issuing or sharing a credential is consequential and is the learner’s decision, never automatic.',
         parameters: { type: 'object', properties: {} },
+      },
+      {
+        name: 'compose_surface',
+        description:
+          'GENERATIVE-UI: summon and OPERATE a real, working surface INLINE in the conversation, instead of only describing it or navigating away. Use this when the person wants to BUILD or SEE something interactive in place: "make a quiz on photosynthesis" -> a working quiz-builder; "show 9-B" / "show me the class" -> a class-view; "plan a lesson on X as a board" -> a plan-board; "give the parent a report" -> a report-card. The surface is a SMALL, TYPED, closed set — never arbitrary HTML. Any consequential affordance inside it (publishing a quiz, adopting a plan) is permission-laddered: it returns requires_approval and only ever prepares — nothing publishes from inside the surface.',
+        parameters: {
+          type: 'object',
+          properties: {
+            kind: {
+              type: 'string',
+              enum: ['quiz-builder', 'class-view', 'plan-board', 'report-card'],
+              description: 'Which surface to compose.',
+            },
+            title: { type: 'string', description: 'A short title for the surface.' },
+            topic: { type: 'string', description: 'For quiz-builder / plan-board: the topic.' },
+            section: { type: 'string', description: 'For class-view: the section label (e.g. "9-B").' },
+            childLabel: { type: 'string', description: 'For report-card: a generic child label (never a real name).' },
+            summary: { type: 'string', description: 'For class-view: an optional plain-language summary line.' },
+            nextStep: { type: 'string', description: 'For report-card: an optional plain next step.' },
+            items: {
+              type: 'array',
+              description: 'For quiz-builder: the questions. Each has a prompt, optional options, and an optional teacher-facing answer.',
+              items: {
+                type: 'object',
+                properties: {
+                  prompt: { type: 'string' },
+                  options: { type: 'array', items: { type: 'string' } },
+                  answer: { type: 'string' },
+                },
+                required: ['prompt'],
+              },
+            },
+            rows: {
+              type: 'array',
+              description: 'For class-view: one row per learner — a generic label, a plain band, and an attention flag.',
+              items: {
+                type: 'object',
+                properties: {
+                  label: { type: 'string' },
+                  band: { type: 'string' },
+                  needsAttention: { type: 'boolean' },
+                },
+                required: ['label'],
+              },
+            },
+            columns: {
+              type: 'array',
+              description: 'For plan-board: one column per phase/day — a heading and plain cards.',
+              items: {
+                type: 'object',
+                properties: {
+                  heading: { type: 'string' },
+                  cards: { type: 'array', items: { type: 'string' } },
+                },
+                required: ['heading'],
+              },
+            },
+            highlights: {
+              type: 'array',
+              description: 'For report-card: plain-language lines a parent reads at a glance.',
+              items: { type: 'string' },
+            },
+          },
+          required: ['kind'],
+        },
       },
     ],
   },
@@ -982,6 +1066,41 @@ function toolCreateStudyPlan(args: Record<string, unknown>): ToolOutcome {
   };
 }
 
+/** GENERATIVE-UI: compose and OPERATE a working surface inline. The model emits
+ *  a typed surface; sanitiseSurface clamps it to the closed set, drops anything
+ *  unknown, and REBUILDS any consequential affordance with requiresApproval
+ *  forced true (the permission ladder cannot be overridden from inside the
+ *  surface). A surface that does not parse to a known kind is refused. */
+function toolComposeSurface(args: Record<string, unknown>): ToolOutcome {
+  const surface: SurfaceSpec | null = sanitiseSurface(args as Record<string, unknown>);
+  if (!surface) {
+    return {
+      result: {
+        composed: false,
+        note: 'That surface did not parse to a known, safe kind (or had no usable content). Choose quiz-builder, class-view, plan-board, or report-card and provide its content.',
+      },
+    };
+  }
+  // Report whether this surface carries a consequential affordance, so the model
+  // speaks accurately ("you can review and set it live") and never claims it is
+  // already published/adopted.
+  const consequential =
+    surface.kind === 'quiz-builder'
+      ? { affordance: 'publish', requires_approval: true as const }
+      : surface.kind === 'plan-board'
+        ? { affordance: 'adopt', requires_approval: true as const }
+        : { affordance: 'none' as const };
+  return {
+    result: {
+      composed: true,
+      kind: surface.kind,
+      ...consequential,
+      note: 'A working surface is shown inline. Any consequential action inside it is prepared for the human to approve; nothing fires from inside the surface.',
+    },
+    action: { type: 'render', spec: { kind: 'surface', surface } },
+  };
+}
+
 // ---------------------------------------------------------------------------
 // INDEPENDENT CROSS-CHECK — real generate-and-verify. The deterministic checks
 // (verifyStep) prove the arithmetic; this adds a genuinely INDEPENDENT second
@@ -1147,6 +1266,8 @@ export function runTool(name: string, args: Record<string, unknown>): ToolOutcom
       return toolAnnotateTarget(args);
     case 'create_study_plan':
       return toolCreateStudyPlan(args);
+    case 'compose_surface':
+      return toolComposeSurface(args);
     case 'show_mastery':
       return toolShowMastery(args);
     case 'detect_gaps':
@@ -1204,6 +1325,30 @@ export async function generateContent(
 
 export type GeminiContent = { role: 'user' | 'model'; parts: any[] };
 
+/**
+ * The tool set offered to a given persona — the SAME declarations, narrowed to
+ * the role's allowlist (lib/vidyaPersona). A parent is never offered
+ * take_attendance; a student is never offered message_compose. This shapes WHAT
+ * Vidya can even reach for per role; the permission ladder still holds for each
+ * tool. With no persona (legacy callers) the full set is offered.
+ */
+export function toolsForPersona(persona?: VidyaPersona): typeof TOOLS {
+  if (!persona) return TOOLS;
+  const decls = TOOLS[0]!.functionDeclarations.filter((d) => personaAllowsTool(persona, d.name));
+  return [{ functionDeclarations: decls }] as typeof TOOLS;
+}
+
+/** Options for one orchestrated turn — role shapes the persona + tool set;
+ *  memoryNote conditions the prompt on who Vidya is talking to across sessions. */
+export interface VidyaTurnOptions {
+  /** The viewer's role — selects the persona behaviour + tool allowlist. */
+  role?: Role;
+  /** A short, PII-free memory addendum (lib/vidyaMemory.memoryInstruction). */
+  memoryNote?: string;
+  maxOutputTokens?: number;
+  verifier?: IndependentVerifier;
+}
+
 /** The result of one orchestrated turn. `ok:false` means every model path
  *  failed transiently — the caller should degrade. */
 export type VidyaTurnResult =
@@ -1227,9 +1372,26 @@ export async function runVidyaTurn(
   key: string,
   systemExtra = '',
   maxOutputTokens = 700,
-  verifier: IndependentVerifier = makeIndependentVerifier(),
+  verifierOrOptions: IndependentVerifier | VidyaTurnOptions = makeIndependentVerifier(),
 ): Promise<VidyaTurnResult> {
-  const system = systemExtra ? `${SYSTEM} ${systemExtra}` : SYSTEM;
+  // Back-compat: the 5th arg used to be the verifier. It may now be an options
+  // bag carrying the role (persona + tool allowlist) and the memory addendum.
+  const opts: VidyaTurnOptions =
+    'check' in verifierOrOptions
+      ? { verifier: verifierOrOptions as IndependentVerifier }
+      : (verifierOrOptions as VidyaTurnOptions);
+  const verifier = opts.verifier ?? makeIndependentVerifier();
+  const persona: VidyaPersona | undefined = opts.role ? personaForRole(opts.role) : undefined;
+  const personaNote = opts.role ? personaInstruction(opts.role) : '';
+
+  // ONE identity, four behaviours: the shared SYSTEM + the role-shaped behaviour
+  // + the PII-free memory of who Vidya is talking to + the caller's modality note.
+  const system = [SYSTEM, personaNote, opts.memoryNote ?? '', systemExtra]
+    .filter((s) => s && s.trim())
+    .join(' ');
+  const tools = toolsForPersona(persona);
+  const tokens = opts.maxOutputTokens ?? maxOutputTokens;
+
   const actions: VidyaAction[] = [];
   let lastStatus = 502;
 
@@ -1239,8 +1401,8 @@ export async function runVidyaTurn(
       const body = {
         systemInstruction: { parts: [{ text: system }] },
         contents,
-        tools: TOOLS,
-        generationConfig: { temperature: 0.5, maxOutputTokens },
+        tools,
+        generationConfig: { temperature: 0.5, maxOutputTokens: tokens },
       };
       const out = await generateContent(model, body, key);
       if (!out.ok) {
@@ -1263,6 +1425,21 @@ export async function runVidyaTurn(
       for (const call of calls) {
         const name = String(call.name);
         const args = (call.args ?? {}) as Record<string, unknown>;
+        // Persona allowlist guard: even if the model asks for a tool outside this
+        // role's behaviour, it is refused here — the four behaviours hold on the
+        // server, not just in the prompt.
+        if (persona && !personaAllowsTool(persona, name)) {
+          responseParts.push({
+            functionResponse: {
+              name,
+              response: {
+                refused: true,
+                note: `That tool is not available in this role. Help within what this role can do.`,
+              },
+            },
+          });
+          continue;
+        }
         const outcome = runTool(name, args);
         if (outcome.action) {
           // GENERATE-AND-VERIFY: deterministic checks already ran in the tool;

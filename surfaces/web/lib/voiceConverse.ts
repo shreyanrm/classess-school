@@ -19,6 +19,12 @@ export interface ConverseInput {
   text?: string;
   /** The viewer role, so voice shapes its help and navigation like text does. */
   role?: Role;
+  /**
+   * The PII-free salient-memory addendum (lib/vidyaMemory.memoryInstruction), so
+   * the spoken path is conditioned on who Vidya is talking to, exactly like text.
+   * Empty when there is nothing to recall or consent is off.
+   */
+  memoryNote?: string;
 }
 
 export interface ConverseResult {

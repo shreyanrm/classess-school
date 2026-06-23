@@ -25,11 +25,28 @@ import {
   type HighlightRegion,
   type StepsCardSpec,
   type CanvasCardSpec,
+  type SurfaceSpec,
+  type VidyaAttachment,
 } from './vidya';
+import { readStore } from './store';
+import {
+  recallMemory,
+  rememberTurn,
+  rememberSalient,
+  persistMemory,
+  memoryInstruction,
+} from './vidyaMemory';
 
 /** A substantial derivation (this many verified steps or more) earns the canvas
  *  — a short result stays small inline in the orb. */
 const CANVAS_STEPS_THRESHOLD = 3;
+
+/** A calm, plain-language bubble for a turn that is just an attachment (no text). */
+function attachmentSummary(attachments: VidyaAttachment[]): string {
+  const kind = attachments[0]?.kind ?? 'document';
+  const noun = kind === 'image' ? 'an image' : kind === 'screen' ? 'my screen' : 'a document';
+  return attachments.length > 1 ? `Shared ${attachments.length} attachments` : `Shared ${noun}`;
+}
 
 /** A live highlight directive the orb spotlights on the page. */
 export interface ActiveHighlight {
@@ -46,7 +63,12 @@ export interface ActiveAnnotation {
 export interface UseVidyaResult {
   messages: ChatMessage[];
   thinking: boolean;
-  send: (text: string) => Promise<void>;
+  /**
+   * Send a typed turn, optionally with MULTIMODAL attachments (image / document /
+   * screen capture) bound to this turn. The orchestrator understands them and
+   * degrades cleanly when no multimodal key is configured.
+   */
+  send: (text: string, attachments?: VidyaAttachment[]) => Promise<void>;
   /** Append a Vidya line directly (e.g. a spoken voice reply). */
   appendVidya: (text: string) => void;
   /**
@@ -139,8 +161,21 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
         stepsSpec = null; // it lives on the canvas now, not the inline overlay
       }
 
+      // An OPERABLE surface (quiz-builder / class-view / plan-board / report-card)
+      // is rendered as a real interactive panel inline — not a flat card. It is
+      // attached to the message so MessageThread mounts <VidyaSurface>.
+      const surfaceAction = actions.find(
+        (a) => a.type === 'render' && a.spec.kind === 'surface',
+      );
+      const surface: SurfaceSpec | undefined =
+        surfaceAction && surfaceAction.type === 'render' && surfaceAction.spec.kind === 'surface'
+          ? surfaceAction.spec.surface
+          : undefined;
+
+      // Any OTHER render spec (mastery / gaps / draft / recommendation / explain)
+      // becomes the calm inline card. The surface and the steps are handled above.
       const renderAction = actions.find(
-        (a) => a.type === 'render' && a.spec.kind !== 'steps',
+        (a) => a.type === 'render' && a.spec.kind !== 'steps' && a.spec.kind !== 'surface',
       );
       const inline =
         renderAction && renderAction.type === 'render'
@@ -150,11 +185,11 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
       const replyText =
         text.trim().length > 0
           ? text
-          : inline || stepsSpec || canvasSpec
+          : inline || surface || stepsSpec || canvasSpec
             ? 'Here is what I found.'
             : emptyFallback;
 
-      setMessages((prev) => [...prev, { id: messageId(), role: 'vidya', text: replyText, inline }]);
+      setMessages((prev) => [...prev, { id: messageId(), role: 'vidya', text: replyText, inline, surface }]);
 
       setCanvas(canvasSpec);
 
@@ -180,7 +215,7 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
   );
 
   const send = useCallback(
-    async (text: string) => {
+    async (text: string, attachments?: VidyaAttachment[]) => {
       setMessages((prev) => {
         // Build the conversation the orchestrator sees, including this new turn.
         const history: VidyaTurn[] = prev.map((m) => ({
@@ -190,18 +225,53 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
         history.push({ role: 'user', text });
         // Fire the orchestrator with the freshest history.
         void run(history);
-        return [...prev, { id: messageId(), role: 'user', text }];
+        // A turn with an attachment but no typed text still shows a quiet bubble.
+        const userText =
+          text.trim().length > 0
+            ? text
+            : attachments && attachments.length > 0
+              ? attachmentSummary(attachments)
+              : text;
+        return [...prev, { id: messageId(), role: 'user', text: userText }];
       });
 
       async function run(history: VidyaTurn[]) {
         setThinking(true);
-        const result = await vidyaChat({ messages: history, role });
+
+        // PERSISTENT PER-USER MEMORY (web-native, PII-free, consent-gated): recall
+        // what Vidya already knows about this opaque account and distil it into a
+        // short note that conditions the orchestrator across sessions. With consent
+        // off, recall is empty and nothing is remembered.
+        const store = readStore();
+        const accountId = store.account?.id ?? '';
+        const consent = store.consent?.personalization === true;
+        const memory = recallMemory(accountId, consent);
+        const memoryNote = memoryInstruction(memory);
+
+        const result = await vidyaChat({
+          messages: history,
+          role,
+          memoryNote,
+          accountId: accountId || undefined,
+          memoryConsent: consent,
+          attachments: attachments && attachments.length > 0 ? attachments : undefined,
+        });
         setThinking(false);
 
         // Degraded (no key / provider failure / network): fall back locally.
         if (result.degraded) {
           fallback(text);
           return;
+        }
+
+        // Remember this exchange for next time: the bounded thread + the salient
+        // facts (the topic of the turn, the role's recurring intent). Persisted
+        // only when consent is on. PII is redacted inside the memory slice.
+        if (consent && accountId) {
+          let next = rememberTurn(memory, 'user', text);
+          if (result.text) next = rememberTurn(next, 'vidya', result.text);
+          next = rememberSalient(next, { lastIntent: text.slice(0, 80) });
+          persistMemory(next, consent);
         }
 
         applyTurn(

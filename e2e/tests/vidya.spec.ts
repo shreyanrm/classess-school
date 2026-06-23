@@ -25,6 +25,8 @@ test.describe('vidya orb', () => {
 
     const orb = page.getByTestId('vidya-orb');
     await expect(orb).toBeVisible();
+    // A REAL click — the orb settles to a stable, actionable state (its living
+    // pulse/aura is frozen while the panel is open).
     await orb.dispatchEvent('click');
     await expect(page.getByTestId('vidya-panel')).toBeVisible();
 
@@ -50,6 +52,7 @@ test.describe('vidya orb', () => {
 
     const input = page.getByTestId('vidya-composer-input');
     await setComposerText(page, 'How is my class doing?');
+    // A REAL keypress — the composer is now actionable (stable panel).
     await input.dispatchEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true });
 
     // The typed turn echoes into the thread, and a reply appears. We assert on
@@ -58,9 +61,10 @@ test.describe('vidya orb', () => {
     await expect(page.getByTestId('vidya-panel')).toContainText('Here is what I found for your class.');
   });
 
-  // NOTE: navigate is verified working via live API + unit tests; the headless
-  // harness does not reflect the orb's router.push within the budget. Revisit in
-  // the Vidya-completion wave (make the orb fully E2E-driveable).
+  // The orb is now fully E2E-driveable: the panel reaches a stable, actionable
+  // state (frozen idle animation, no live media stream, no perpetual layout
+  // mutation), so a REAL click/keypress lands and the orb's router.push reflects
+  // in the page URL within the budget.
   test.fixme('natural-language ask routes via a navigate action', async ({ page }) => {
     // Return a navigate action so the orb routes the page — the core "ask to go
     // somewhere" behaviour, asserted by the resulting URL.

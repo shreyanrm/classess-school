@@ -26,6 +26,7 @@
    ============================================================================ */
 
 import type { Role } from './mock';
+export type { Role } from './mock';
 
 export const VIDYA_CHAT_ROUTE = '/api/vidya/chat';
 
@@ -179,13 +180,128 @@ export interface StepsCardSpec {
   steps: DerivationStep[];
 }
 
+// ---------------------------------------------------------------------------
+// GENERATIVE-UI — the SURFACE spec set. Vidya can summon and OPERATE a real,
+// working surface INLINE in the conversation ("make a quiz on photosynthesis"
+// returns a working quiz-builder; "show 9-B" returns a class-view). The set is
+// SMALL, TYPED, and VERIFIED — never arbitrary HTML. Each surface is sanitised
+// at the boundary, and any CONSEQUENTIAL affordance inside it (publish a quiz,
+// adopt a plan, send a report) holds the permission ladder: it returns
+// requires_approval and never auto-fires from inside the surface.
+// ---------------------------------------------------------------------------
+
+/** The closed set of surfaces Vidya may compose. Unknown kinds are dropped. */
+export const SURFACE_KINDS = ['quiz-builder', 'class-view', 'plan-board', 'report-card'] as const;
+export type SurfaceKind = (typeof SURFACE_KINDS)[number];
+
+/**
+ * One editable item inside a quiz-builder surface. Plain text only; no HTML.
+ * `answer` is the teacher's private key — it is never shown to a learner.
+ */
+export interface QuizItem {
+  prompt: string;
+  /** Optional multiple-choice options (bounded, plain text). */
+  options?: string[];
+  /** The teacher-facing answer/key (never surfaced to a learner). */
+  answer?: string;
+}
+
+/**
+ * A WORKING quiz builder, operable inline. The teacher can read/edit the items
+ * in the conversation; PUBLISHING is consequential — `publish.requiresApproval`
+ * is always true and `publish.action` only ever PREPARES, routing the human to
+ * the review page. Nothing publishes from inside the surface.
+ */
+export interface QuizBuilderSurface {
+  kind: 'quiz-builder';
+  title: string;
+  topic: string;
+  items: QuizItem[];
+  /** The consequential affordance — always behind the approval control. */
+  publish: SurfaceAction;
+}
+
+/** One row in a read-only class view — a generic label + a plain mastery band. */
+export interface ClassViewRow {
+  label: string;
+  band: string;
+  /** A plain attention flag, not a score. */
+  needsAttention?: boolean;
+}
+
+/** A read-only class-view surface ("show 9-B"). No consequential affordance. */
+export interface ClassViewSurface {
+  kind: 'class-view';
+  title: string;
+  section: string;
+  rows: ClassViewRow[];
+  /** Optional plain-language summary line. */
+  summary?: string;
+}
+
+/** One column/day in a plan board. */
+export interface PlanColumn {
+  heading: string;
+  cards: string[];
+}
+
+/**
+ * A lesson-plan board, operable inline. ADOPTING the plan is consequential —
+ * `adopt.requiresApproval` is true and only PREPARES.
+ */
+export interface PlanBoardSurface {
+  kind: 'plan-board';
+  title: string;
+  topic: string;
+  columns: PlanColumn[];
+  adopt: SurfaceAction;
+}
+
+/** A read-only plain-language report card for a parent. No raw scores. */
+export interface ReportCardSurface {
+  kind: 'report-card';
+  title: string;
+  /** Generic child label, never a real name. */
+  childLabel: string;
+  /** Plain-language lines a parent can read at a glance. */
+  highlights: string[];
+  /** Optional next step in plain language. */
+  nextStep?: string;
+}
+
+/**
+ * A consequential affordance INSIDE a surface. The permission ladder holds:
+ * requiresApproval is always true and the action only PREPARES (routes the
+ * human to review). It NEVER carries an "execute now" capability.
+ */
+export interface SurfaceAction {
+  label: string;
+  /** Always true — a consequential surface affordance waits for a human. */
+  requiresApproval: true;
+  /** Where the human goes to review and act. The surface never acts itself. */
+  openHref: NavTarget;
+}
+
+export type SurfaceSpec =
+  | QuizBuilderSurface
+  | ClassViewSurface
+  | PlanBoardSurface
+  | ReportCardSurface;
+
+/** A composed-surface render: a typed, sanitised, operable surface inline. */
+export interface SurfaceCardSpec {
+  kind: 'surface';
+  surface: SurfaceSpec;
+}
+
 export type RenderSpec =
   | MasteryCardSpec
   | GapsCardSpec
   | DraftCardSpec
   | RecommendationCardSpec
   | ExplainCardSpec
-  | StepsCardSpec;
+  | StepsCardSpec
+  | SurfaceCardSpec;
 
 // ---------------------------------------------------------------------------
 // VIDYA CANVAS — the on-demand floating drawing surface Vidya summons ONLY when
@@ -297,6 +413,21 @@ export type CanvasContent =
   | { type: 'written'; lines: string[] };
 
 /**
+ * One source / piece of evidence shown ALONGSIDE the answer on the canvas. The
+ * verifier and the dossier require an answer to be evidence-led; this surfaces
+ * the provenance the model leaned on (a topic, an observation, a reference). It
+ * is plain text + an optional real in-app route — never an arbitrary URL.
+ */
+export interface CanvasSource {
+  /** A short, plain-language label, e.g. "Your last three attempts on fractions". */
+  label: string;
+  /** An optional one-line note on why this source is relevant. */
+  note?: string;
+  /** An optional real in-app route the source lives on (validated to NAV_TARGETS). */
+  href?: NavTarget;
+}
+
+/**
  * A floating-canvas spec — what Vidya wants SHOWN. It is a render kind so it
  * flows through the same action union, but the client routes it to the dedicated
  * VidyaCanvas surface (not an inline thread card).
@@ -308,6 +439,11 @@ export interface CanvasCardSpec {
   /** An optional real page the canvas content also lives on ("open in its page"). */
   openHref?: NavTarget;
   openLabel?: string;
+  /**
+   * The sources / evidence shown beside the answer. Surfaced so the answer is
+   * always explainable (evidence-led, per the dossier). Bounded + sanitised.
+   */
+  sources?: CanvasSource[];
 }
 
 // ---------------------------------------------------------------------------
@@ -406,9 +542,62 @@ export interface VidyaChatResult {
   reason?: string;
 }
 
+/**
+ * A MULTIMODAL attachment the orchestrator can understand: an image, a document,
+ * or a screen capture. The bytes are base64 (no data: prefix); mimeType names
+ * the kind. The orchestrator routes these to a multimodal model server-side and
+ * degrades cleanly when no key is configured. Bounded + validated at the route.
+ */
+export interface VidyaAttachment {
+  /** How the attachment was supplied — shapes the orchestrator's framing. */
+  kind: 'image' | 'document' | 'screen';
+  /** The IANA mime type, e.g. "image/png", "application/pdf". */
+  mimeType: string;
+  /** Base64-encoded bytes (NO data: prefix). */
+  dataBase64: string;
+  /** An optional, non-PII caption/filename hint. */
+  name?: string;
+}
+
+/** The accepted attachment mime prefixes — anything else is rejected server-side. */
+export const ATTACHMENT_MIME_PREFIXES = ['image/', 'application/pdf', 'text/'] as const;
+
+/** Validate a multimodal attachment shape (defensive, used on both sides). */
+export function isValidAttachment(value: unknown): value is VidyaAttachment {
+  if (!value || typeof value !== 'object') return false;
+  const a = value as Record<string, unknown>;
+  if (a.kind !== 'image' && a.kind !== 'document' && a.kind !== 'screen') return false;
+  if (typeof a.mimeType !== 'string') return false;
+  if (!ATTACHMENT_MIME_PREFIXES.some((p) => (a.mimeType as string).startsWith(p))) return false;
+  if (typeof a.dataBase64 !== 'string' || a.dataBase64.length === 0) return false;
+  return true;
+}
+
 export interface VidyaChatRequest {
   messages: VidyaTurn[];
   role: Role;
+  /**
+   * Optional MULTIMODAL inputs attached to the latest turn (image/doc/screen).
+   * The orchestrator understands them; with no multimodal key it degrades.
+   */
+  attachments?: VidyaAttachment[];
+  /**
+   * The OPAQUE account id (lib/store) — keys persistent per-user memory. Never
+   * real PII. Absent for an anonymous turn (memory then stays empty).
+   */
+  accountId?: string;
+  /**
+   * Whether the holder consented to personalization. Memory is only recalled and
+   * persisted when this is true (the consent gate, mirrored on the server).
+   */
+  memoryConsent?: boolean;
+  /**
+   * The PII-free salient-memory addendum the client distilled from the per-user
+   * memory slice (lib/vidyaMemory). The route redacts it again and feeds it to
+   * the orchestrator so Vidya is conditioned on who it is talking to. Empty when
+   * there is nothing to recall or consent is off.
+   */
+  memoryNote?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -416,7 +605,7 @@ export interface VidyaChatRequest {
 // client crash-proof against a malformed action (drops unknown targets/specs).
 // ---------------------------------------------------------------------------
 
-const RENDER_KINDS = new Set(['mastery', 'gaps', 'draft', 'recommendation', 'explain', 'steps']);
+const RENDER_KINDS = new Set(['mastery', 'gaps', 'draft', 'recommendation', 'explain', 'steps', 'surface']);
 
 export function parseActions(raw: unknown): VidyaAction[] {
   if (!Array.isArray(raw)) return [];
@@ -438,6 +627,11 @@ export function parseActions(raw: unknown): VidyaAction[] {
         // client never reveals an unverified teaching step.
         if (spec.kind === 'steps') {
           out.push({ type: 'render', spec: sanitiseSteps(spec) });
+        } else if (spec.kind === 'surface') {
+          // A composed surface is sanitised to the closed spec set; a malformed
+          // or unknown surface is dropped entirely (never arbitrary content).
+          const surface = sanitiseSurface(spec.surface);
+          if (surface) out.push({ type: 'render', spec: { kind: 'surface', surface } });
         } else {
           out.push({ type: 'render', spec: spec as unknown as RenderSpec });
         }
@@ -490,6 +684,124 @@ function sanitiseSteps(spec: Record<string, unknown>): StepsCardSpec {
     topic: typeof spec.topic === 'string' ? spec.topic : undefined,
     steps,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Surface sanitisation — the trust boundary for generative-UI. The model emits
+// a typed surface; this clamps it to the CLOSED spec set, trims/bounds every
+// field, drops anything unknown, and — crucially — REBUILDS any consequential
+// affordance from scratch so the permission ladder cannot be overridden by the
+// model: requiresApproval is forced true and openHref is validated against the
+// real route set. A surface that does not parse to a known kind is dropped.
+// ---------------------------------------------------------------------------
+
+/** Cap an array of strings: trim, drop empties, bound count + length. */
+function trimList(raw: unknown, maxItems: number, maxLen = 240): string[] {
+  if (!Array.isArray(raw)) return [];
+  const out: string[] = [];
+  for (const v of raw) {
+    const s = typeof v === 'string' ? v.trim().slice(0, maxLen) : '';
+    if (s) out.push(s);
+    if (out.length >= maxItems) break;
+  }
+  return out;
+}
+
+/**
+ * Build a consequential SurfaceAction from the model's suggestion, FORCING the
+ * permission ladder: requiresApproval is always true; openHref must be a real
+ * route (defaults to a safe fallback) — the surface can only ever route a human
+ * to review, never execute. The label is sanitised plain text.
+ */
+function buildSurfaceAction(raw: unknown, fallbackHref: NavTarget, fallbackLabel: string): SurfaceAction {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
+  const label = trimStr(r.label) ?? fallbackLabel;
+  const openHref = isNavTarget(r.openHref) ? r.openHref : fallbackHref;
+  return { label, requiresApproval: true, openHref };
+}
+
+/** Sanitise the composed-surface spec to the closed set; null if unrecognised. */
+export function sanitiseSurface(raw: unknown): SurfaceSpec | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const s = raw as Record<string, unknown>;
+  const kind = s.kind;
+  if (typeof kind !== 'string' || !(SURFACE_KINDS as readonly string[]).includes(kind)) return null;
+
+  switch (kind) {
+    case 'quiz-builder': {
+      const rawItems = Array.isArray(s.items) ? s.items : [];
+      const items: QuizItem[] = [];
+      for (const it of rawItems.slice(0, 12)) {
+        if (!it || typeof it !== 'object') continue;
+        const item = it as Record<string, unknown>;
+        const prompt = trimStr(item.prompt);
+        if (!prompt) continue;
+        items.push({
+          prompt,
+          options: item.options !== undefined ? trimList(item.options, 6, 160) : undefined,
+          answer: trimStr(item.answer),
+        });
+      }
+      if (items.length === 0) return null; // a quiz with nothing to ask is dropped
+      return {
+        kind: 'quiz-builder',
+        title: trimStr(s.title) ?? 'Quick check',
+        topic: trimStr(s.topic) ?? 'this topic',
+        items,
+        publish: buildSurfaceAction(s.publish, '/teacher/assign', 'Review and set live'),
+      };
+    }
+    case 'class-view': {
+      const rawRows = Array.isArray(s.rows) ? s.rows : [];
+      const rows: ClassViewRow[] = [];
+      for (const rw of rawRows.slice(0, 60)) {
+        if (!rw || typeof rw !== 'object') continue;
+        const row = rw as Record<string, unknown>;
+        const label = trimStr(row.label);
+        if (!label) continue;
+        rows.push({ label, band: trimStr(row.band) ?? 'no read yet', needsAttention: row.needsAttention === true });
+      }
+      return {
+        kind: 'class-view',
+        title: trimStr(s.title) ?? 'Class view',
+        section: trimStr(s.section) ?? 'this class',
+        rows,
+        summary: trimStr(s.summary),
+      };
+    }
+    case 'plan-board': {
+      const rawCols = Array.isArray(s.columns) ? s.columns : [];
+      const columns: PlanColumn[] = [];
+      for (const cl of rawCols.slice(0, 8)) {
+        if (!cl || typeof cl !== 'object') continue;
+        const col = cl as Record<string, unknown>;
+        const heading = trimStr(col.heading);
+        if (!heading) continue;
+        columns.push({ heading, cards: trimList(col.cards, 10) });
+      }
+      if (columns.length === 0) return null;
+      return {
+        kind: 'plan-board',
+        title: trimStr(s.title) ?? 'Lesson plan',
+        topic: trimStr(s.topic) ?? 'this topic',
+        columns,
+        adopt: buildSurfaceAction(s.adopt, '/teacher/plan', 'Review and adopt'),
+      };
+    }
+    case 'report-card': {
+      const highlights = trimList(s.highlights, 8);
+      if (highlights.length === 0) return null;
+      return {
+        kind: 'report-card',
+        title: trimStr(s.title) ?? 'How your child is doing',
+        childLabel: trimStr(s.childLabel) ?? 'your child',
+        highlights,
+        nextStep: trimStr(s.nextStep),
+      };
+    }
+    default:
+      return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -624,15 +936,35 @@ function sanitiseCanvasContent(raw: unknown): CanvasContent | null {
   return null;
 }
 
+/** Sanitise the canvas sources/evidence — bounded, plain text, real routes only. */
+function sanitiseCanvasSources(raw: unknown): CanvasSource[] {
+  if (!Array.isArray(raw)) return [];
+  const out: CanvasSource[] = [];
+  for (const r of raw.slice(0, 8)) {
+    if (!r || typeof r !== 'object') continue;
+    const s = r as Record<string, unknown>;
+    const label = trimStr(s.label);
+    if (!label) continue;
+    out.push({
+      label: label.slice(0, 160),
+      note: trimStr(s.note)?.slice(0, 240),
+      href: isNavTarget(s.href) ? s.href : undefined,
+    });
+  }
+  return out;
+}
+
 /** Sanitise a full canvas spec at the trust boundary. */
 export function sanitiseCanvas(spec: Record<string, unknown>): CanvasCardSpec {
   const content = sanitiseCanvasContent(spec.content) ?? { type: 'written', lines: [] };
+  const sources = sanitiseCanvasSources(spec.sources);
   return {
     kind: 'canvas',
     title: typeof spec.title === 'string' && spec.title.trim() ? spec.title.trim() : 'On the canvas',
     content,
     openHref: isNavTarget(spec.openHref) ? spec.openHref : undefined,
     openLabel: trimStr(spec.openLabel),
+    sources: sources.length > 0 ? sources : undefined,
   };
 }
 
@@ -837,8 +1169,53 @@ export function specToInline(spec: RenderSpec): InlineCard | null {
         items: spec.steps.map((s) => s.text),
         confidence: 'high',
       };
+    case 'surface':
+      return surfaceToInline(spec.surface);
     default:
       return null;
+  }
+}
+
+/**
+ * Map a composed surface to the calm inline card the thread renders. This is
+ * the conservative text projection (the live operable surface is rendered by
+ * the dedicated client component); the card always shows the consequential
+ * affordance behind the approval control so the permission ladder reads true.
+ */
+export function surfaceToInline(surface: SurfaceSpec): InlineCard {
+  switch (surface.kind) {
+    case 'quiz-builder':
+      return {
+        title: surface.title,
+        body: `A working quick check on ${surface.topic}. Edit it here; setting it live needs your approval.`,
+        items: surface.items.map((it, i) => `${i + 1}. ${it.prompt}`),
+        confidence: 'middle',
+        openHref: surface.publish.openHref,
+        openLabel: surface.publish.label,
+      };
+    case 'class-view':
+      return {
+        title: surface.title,
+        body: surface.summary ?? `Where ${surface.section} stands, in plain language.`,
+        items: surface.rows.map(
+          (r) => `${r.label} — ${r.band}${r.needsAttention ? ' (worth a look)' : ''}`,
+        ),
+      };
+    case 'plan-board':
+      return {
+        title: surface.title,
+        body: `A draft plan for ${surface.topic}. Adopting it needs your approval.`,
+        items: surface.columns.map((c) => `${c.heading}: ${c.cards.join(' · ')}`),
+        confidence: 'middle',
+        openHref: surface.adopt.openHref,
+        openLabel: surface.adopt.label,
+      };
+    case 'report-card':
+      return {
+        title: surface.title,
+        body: `How ${surface.childLabel} is doing, in plain language.`,
+        items: [...surface.highlights, ...(surface.nextStep ? [`Next: ${surface.nextStep}`] : [])],
+      };
   }
 }
 
