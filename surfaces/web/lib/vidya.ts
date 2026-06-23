@@ -188,6 +188,129 @@ export type RenderSpec =
   | StepsCardSpec;
 
 // ---------------------------------------------------------------------------
+// VIDYA CANVAS — the on-demand floating drawing surface Vidya summons ONLY when
+// it needs to SHOW something (draw a diagram, work a derivation, sketch an
+// explanation). Content is a small, BOUNDED set of structured primitives the
+// client renders as self-assembling SVG — never free-arbitrary HTML. The model
+// emits the structure; the client draws it. Stroke-draw paths animate in; with
+// prefers-reduced-motion everything appears at once.
+// ---------------------------------------------------------------------------
+
+/** A straight ink stroke between two points (canvas coordinate space 0..100). */
+export interface CanvasLine {
+  kind: 'line';
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  /** Optional plain label pinned at the midpoint. */
+  label?: string;
+}
+
+/** An arc / curve (e.g. an angle mark or a smooth bend) drawn as an SVG arc. */
+export interface CanvasArc {
+  kind: 'arc';
+  cx: number;
+  cy: number;
+  r: number;
+  /** Start and end angle in degrees (0 = east, counter-clockwise positive). */
+  startDeg: number;
+  endDeg: number;
+  label?: string;
+}
+
+/** An arrow (a line with a head) — for vectors, mappings, "this leads to". */
+export interface CanvasArrow {
+  kind: 'arrow';
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  label?: string;
+}
+
+/** A free-standing plain-language label placed on the canvas. */
+export interface CanvasLabel {
+  kind: 'label';
+  x: number;
+  y: number;
+  text: string;
+  /** A human-note "Caveat" annotation (script feel) vs a plain ink label. */
+  annotation?: boolean;
+}
+
+/** A simple shape outline (rectangle, circle, triangle) by its bounding box. */
+export interface CanvasShape {
+  kind: 'shape';
+  shape: 'rect' | 'circle' | 'triangle';
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  label?: string;
+}
+
+/** A number line from `from` to `to` with optional ticked points. */
+export interface CanvasNumberLine {
+  kind: 'numberline';
+  from: number;
+  to: number;
+  /** Marked points, each value within [from, to], with a short label. */
+  points?: Array<{ value: number; label?: string }>;
+}
+
+/** A simple line graph of plotted points in the canvas coordinate space. */
+export interface CanvasGraph {
+  kind: 'graph';
+  /** Ordered points (x,y in 0..100) drawn as a stroked polyline. */
+  points: Array<{ x: number; y: number }>;
+  xLabel?: string;
+  yLabel?: string;
+}
+
+export type CanvasPrimitive =
+  | CanvasLine
+  | CanvasArc
+  | CanvasArrow
+  | CanvasLabel
+  | CanvasShape
+  | CanvasNumberLine
+  | CanvasGraph;
+
+export const CANVAS_PRIMITIVE_KINDS = new Set([
+  'line',
+  'arc',
+  'arrow',
+  'label',
+  'shape',
+  'numberline',
+  'graph',
+]);
+
+/** The bounded content kinds the canvas can render. */
+export type CanvasContent =
+  /** A self-assembling, verified derivation rendered large on the canvas. */
+  | { type: 'derivation'; steps: DerivationStep[] }
+  /** A drawing built from a small set of SVG primitives. */
+  | { type: 'diagram'; primitives: CanvasPrimitive[] }
+  /** A written explanation that "writes on" — plain lines, handwriting feel. */
+  | { type: 'written'; lines: string[] };
+
+/**
+ * A floating-canvas spec — what Vidya wants SHOWN. It is a render kind so it
+ * flows through the same action union, but the client routes it to the dedicated
+ * VidyaCanvas surface (not an inline thread card).
+ */
+export interface CanvasCardSpec {
+  kind: 'canvas';
+  title: string;
+  content: CanvasContent;
+  /** An optional real page the canvas content also lives on ("open in its page"). */
+  openHref?: NavTarget;
+  openLabel?: string;
+}
+
+// ---------------------------------------------------------------------------
 // Client actions — the directives the route returns alongside Vidya's text.
 // ---------------------------------------------------------------------------
 
@@ -201,6 +324,16 @@ export interface NavigateAction {
 export interface RenderAction {
   type: 'render';
   spec: RenderSpec;
+}
+
+/**
+ * Open the floating canvas and render structured content on it. This is the
+ * "show it" action — Vidya summons the canvas only when the answer needs to be
+ * DRAWN/DERIVED/SKETCHED, not for a simple spoken or short reply.
+ */
+export interface CanvasAction {
+  type: 'canvas';
+  spec: CanvasCardSpec;
 }
 
 // ---------------------------------------------------------------------------
@@ -260,6 +393,7 @@ export interface AnnotateAction {
 export type VidyaAction =
   | NavigateAction
   | RenderAction
+  | CanvasAction
   | HighlightAction
   | AnnotateAction;
 
@@ -308,6 +442,10 @@ export function parseActions(raw: unknown): VidyaAction[] {
           out.push({ type: 'render', spec: spec as unknown as RenderSpec });
         }
       }
+    } else if (action.type === 'canvas' && action.spec && typeof action.spec === 'object') {
+      const spec = sanitiseCanvas(action.spec as Record<string, unknown>);
+      // Only push a canvas that has something real to show after sanitisation.
+      if (canvasHasContent(spec)) out.push({ type: 'canvas', spec });
     } else if (action.type === 'highlight' && isHighlightRegion(action.region)) {
       out.push({
         type: 'highlight',
@@ -352,6 +490,159 @@ function sanitiseSteps(spec: Record<string, unknown>): StepsCardSpec {
     topic: typeof spec.topic === 'string' ? spec.topic : undefined,
     steps,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Canvas sanitisation — the model emits structured canvas content; this is the
+// boundary that keeps it BOUNDED and safe: unknown content/primitive kinds are
+// dropped, coordinates are clamped to the 0..100 canvas space, text is trimmed,
+// and a derivation reuses the SAME generate-and-verify gate as inline steps (a
+// step whose deterministic check fails is dropped — never shown or drawn).
+// ---------------------------------------------------------------------------
+
+/** Clamp a numeric field into [min,max]; non-finite -> the lower bound. */
+function clampNum(v: unknown, min = 0, max = 100): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+function trimStr(v: unknown): string | undefined {
+  return typeof v === 'string' && v.trim().length > 0 ? v.trim() : undefined;
+}
+
+/** Sanitise one canvas primitive; returns null if it is not a known/usable shape. */
+function sanitisePrimitive(raw: unknown): CanvasPrimitive | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const p = raw as Record<string, unknown>;
+  const kind = p.kind;
+  if (typeof kind !== 'string' || !CANVAS_PRIMITIVE_KINDS.has(kind)) return null;
+  switch (kind) {
+    case 'line':
+      return {
+        kind: 'line',
+        x1: clampNum(p.x1),
+        y1: clampNum(p.y1),
+        x2: clampNum(p.x2),
+        y2: clampNum(p.y2),
+        label: trimStr(p.label),
+      };
+    case 'arrow':
+      return {
+        kind: 'arrow',
+        x1: clampNum(p.x1),
+        y1: clampNum(p.y1),
+        x2: clampNum(p.x2),
+        y2: clampNum(p.y2),
+        label: trimStr(p.label),
+      };
+    case 'arc':
+      return {
+        kind: 'arc',
+        cx: clampNum(p.cx),
+        cy: clampNum(p.cy),
+        r: clampNum(p.r, 0, 100),
+        startDeg: clampNum(p.startDeg, -360, 360),
+        endDeg: clampNum(p.endDeg, -360, 360),
+        label: trimStr(p.label),
+      };
+    case 'label': {
+      const text = trimStr(p.text);
+      if (!text) return null;
+      return {
+        kind: 'label',
+        x: clampNum(p.x),
+        y: clampNum(p.y),
+        text,
+        annotation: p.annotation === true,
+      };
+    }
+    case 'shape': {
+      const shape = p.shape;
+      if (shape !== 'rect' && shape !== 'circle' && shape !== 'triangle') return null;
+      return {
+        kind: 'shape',
+        shape,
+        x: clampNum(p.x),
+        y: clampNum(p.y),
+        w: clampNum(p.w, 0, 100),
+        h: clampNum(p.h, 0, 100),
+        label: trimStr(p.label),
+      };
+    }
+    case 'numberline': {
+      const from = clampNum(p.from, -1e6, 1e6);
+      const to = clampNum(p.to, -1e6, 1e6);
+      const rawPts = Array.isArray(p.points) ? p.points : [];
+      const points = rawPts
+        .filter((pt): pt is Record<string, unknown> => !!pt && typeof pt === 'object')
+        .map((pt) => ({ value: Number(pt.value), label: trimStr(pt.label) }))
+        .filter((pt) => Number.isFinite(pt.value))
+        .slice(0, 12);
+      return { kind: 'numberline', from, to, points };
+    }
+    case 'graph': {
+      const rawPts = Array.isArray(p.points) ? p.points : [];
+      const points = rawPts
+        .filter((pt): pt is Record<string, unknown> => !!pt && typeof pt === 'object')
+        .map((pt) => ({ x: clampNum(pt.x), y: clampNum(pt.y) }))
+        .slice(0, 64);
+      if (points.length < 2) return null;
+      return { kind: 'graph', points, xLabel: trimStr(p.xLabel), yLabel: trimStr(p.yLabel) };
+    }
+    default:
+      return null;
+  }
+}
+
+/** Sanitise the canvas content union — bounded, with the verify gate on steps. */
+function sanitiseCanvasContent(raw: unknown): CanvasContent | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const c = raw as Record<string, unknown>;
+  if (c.type === 'derivation') {
+    // Reuse the SAME verify gate as inline steps: drop any unverified step.
+    const steps = sanitiseSteps({ steps: c.steps, title: 'derivation' }).steps;
+    return { type: 'derivation', steps };
+  }
+  if (c.type === 'diagram') {
+    const rawPrims = Array.isArray(c.primitives) ? c.primitives : [];
+    const primitives: CanvasPrimitive[] = [];
+    for (const r of rawPrims.slice(0, 48)) {
+      const prim = sanitisePrimitive(r);
+      if (prim) primitives.push(prim);
+    }
+    return { type: 'diagram', primitives };
+  }
+  if (c.type === 'written') {
+    const rawLines = Array.isArray(c.lines) ? c.lines : [];
+    const lines = rawLines
+      .map((l) => (typeof l === 'string' ? l.trim() : ''))
+      .filter((l) => l.length > 0)
+      .slice(0, 24);
+    return { type: 'written', lines };
+  }
+  return null;
+}
+
+/** Sanitise a full canvas spec at the trust boundary. */
+export function sanitiseCanvas(spec: Record<string, unknown>): CanvasCardSpec {
+  const content = sanitiseCanvasContent(spec.content) ?? { type: 'written', lines: [] };
+  return {
+    kind: 'canvas',
+    title: typeof spec.title === 'string' && spec.title.trim() ? spec.title.trim() : 'On the canvas',
+    content,
+    openHref: isNavTarget(spec.openHref) ? spec.openHref : undefined,
+    openLabel: trimStr(spec.openLabel),
+  };
+}
+
+/** Whether a sanitised canvas spec has anything real to draw. */
+export function canvasHasContent(spec: CanvasCardSpec): boolean {
+  const c = spec.content;
+  if (c.type === 'derivation') return c.steps.length > 0;
+  if (c.type === 'diagram') return c.primitives.length > 0;
+  if (c.type === 'written') return c.lines.length > 0;
+  return false;
 }
 
 // ---------------------------------------------------------------------------

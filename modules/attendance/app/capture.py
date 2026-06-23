@@ -436,6 +436,105 @@ def confirm_roll(
 
 
 # ---------------------------------------------------------------------------
+# Post-finalisation locked-correction with audit.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class Correction:
+    """An append-only correction to ONE learner's mark on a LOCKED roll.
+
+    A finalised roll is immutable. When a genuine error must be fixed after
+    finalisation, we never overwrite the original mark — we record a separate,
+    append-only :class:`Correction` that supersedes it, carrying the full audit
+    trail (who authorised it, when, why, and the before/after status). Reading
+    a learner's effective status means applying the latest correction over the
+    finalised mark.
+    """
+
+    session_id: str
+    canonical_uuid: str
+    previous_status: Status
+    corrected_status: Status
+    corrected_by: str          # opaque human ref — REQUIRED
+    reason: str                # plain-language, PII-screened — REQUIRED
+    corrected_at: str
+    correction_id: str = field(default_factory=lambda: _new_id("corr"))
+
+
+def correct_finalised_roll(
+    roll: FinalisedRoll,
+    canonical_uuid: str,
+    corrected_status: "Status | str",
+    *,
+    corrected_by: str,
+    reason: str,
+) -> Correction:
+    """Correct a single mark on an already-finalised (locked) roll.
+
+    This is the ONLY sanctioned post-finalisation path. It does NOT mutate the
+    roll (attendance, once finalised, is immutable): it returns a new,
+    append-only :class:`Correction` that supersedes the mark for that learner.
+
+    REQUIRES an opaque authorising human ref and a non-empty reason (the audit
+    trail) — corrections to a locked record are consequential and never
+    anonymous. The reason is PII / child-safety screened before it is attached.
+    """
+
+    if not isinstance(roll, FinalisedRoll) and not getattr(roll, "is_final", False):
+        raise ValueError("only a finalised (locked) roll can be corrected.")
+    if not canonical_uuid:
+        raise ValueError("a learner ref is required to correct a mark.")
+    if not corrected_by or not corrected_by.strip():
+        raise ValueError(
+            "correcting a locked record requires an opaque authorising human ref."
+        )
+    if not reason or not reason.strip():
+        raise ValueError("a correction to a locked record requires a reason (audit).")
+
+    screen = screen_free_text(reason)
+    if not screen.ok:
+        raise ValueError("correction reason failed safety screen; route to review.")
+
+    new_status = _coerce_status(corrected_status)
+    previous = next(
+        (m.status for m in roll.marks if m.canonical_uuid == canonical_uuid),
+        Status.UNKNOWN,
+    )
+    return Correction(
+        session_id=roll.session_id,
+        canonical_uuid=canonical_uuid,
+        previous_status=previous,
+        corrected_status=new_status,
+        corrected_by=corrected_by,
+        reason=screen.sanitized,
+        corrected_at=_now(),
+    )
+
+
+def effective_status(
+    roll: FinalisedRoll,
+    canonical_uuid: str,
+    corrections: Sequence[Correction] = (),
+) -> Status:
+    """The learner's effective status: the latest correction wins, else the
+    finalised mark. The roll itself is never mutated."""
+
+    relevant = [
+        c
+        for c in corrections
+        if c.session_id == roll.session_id and c.canonical_uuid == canonical_uuid
+    ]
+    if relevant:
+        relevant.sort(key=lambda c: c.corrected_at)
+        return relevant[-1].corrected_status
+    return next(
+        (m.status for m in roll.marks if m.canonical_uuid == canonical_uuid),
+        Status.UNKNOWN,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Summary
 # ---------------------------------------------------------------------------
 

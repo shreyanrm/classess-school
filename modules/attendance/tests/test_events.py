@@ -6,9 +6,12 @@ import pytest
 
 from app.events import (
     EventType,
+    catchup_plan_proposed_event,
     collect_append_only,
     conflict_flagged_event,
+    correction_logged_event,
     mark_recorded_event,
+    parent_communication_requested_event,
     risk_flagged_event,
     roll_confirmed_event,
     staff_recorded_event,
@@ -82,3 +85,41 @@ def test_envelope_shape():
     for key in ("event_id", "event_type", "schema_version", "source",
                 "occurred_at", "payload"):
         assert key in env
+
+
+def test_correction_logged_event_carries_audit():
+    e = correction_logged_event(
+        "s", "uuid-a", "absent", "present", "head-uuid", "approved leave"
+    )
+    assert e.event_type == EventType.CORRECTION_LOGGED.value
+    assert e.previous_status == "absent"
+    assert e.corrected_status == "present"
+    assert e.corrected_by == "head-uuid"
+
+
+def test_parent_comm_request_requires_approval():
+    e = parent_communication_requested_event(
+        "uuid-a", "consecutive", "concern", "absent 4 days running"
+    )
+    assert e.event_type == EventType.PARENT_COMM_REQUESTED.value
+    # crosses into the communication domain by event name
+    assert e.event_type.startswith("communication.")
+    assert e.requires_approval is True
+
+
+def test_catchup_plan_event_requires_approval():
+    e = catchup_plan_proposed_event("uuid-a", 3, ["maths", "science"])
+    assert e.event_type == EventType.CATCHUP_PLAN_PROPOSED.value
+    assert e.requires_approval is True
+    assert e.missed_sessions == 3
+
+
+def test_pii_rejected_in_new_events():
+    with pytest.raises(ValueError):
+        correction_logged_event(
+            "s", "kid@example.com", "absent", "present", "h", "r"
+        )
+    with pytest.raises(ValueError):
+        parent_communication_requested_event(
+            "kid@example.com", "chronic", "urgent", "r"
+        )

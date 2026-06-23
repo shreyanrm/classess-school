@@ -40,6 +40,8 @@ from . import live_session as live  # noqa: F401
 from . import poll_engine as polls  # noqa: F401
 from . import device_free_check  # noqa: F401
 from . import attention  # noqa: F401
+from . import room_quiz  # noqa: F401
+from . import period_launch  # noqa: F401
 
 # Register the canonical names as real submodule paths so that
 # ``from app.board import X`` (and ``app.live`` / ``app.polls``) resolve to the
@@ -54,6 +56,8 @@ __all__ = [
     "polls",
     "device_free_check",
     "attention",
+    "room_quiz",
+    "period_launch",
     "events",
 ]
 

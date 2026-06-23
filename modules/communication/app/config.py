@@ -46,6 +46,21 @@ ENV_WORKFLOW_URL = "clss.communication.dev.workflow_url"
 # translation interface passes text through, tagged untranslated, never dropping
 # subject terminology.
 ENV_TRANSLATION_URL = "clss.communication.dev.translation_url"
+# The multi-channel delivery providers (the trigger layer). Each is named ONLY by
+# its env var; unset -> that channel degrades to a deterministic in-memory outbox
+# that records the send intent and transmits nothing externally.
+ENV_CHAT_PROVIDER_URL = "clss.communication.dev.chat_provider_url"
+ENV_PUSH_PROVIDER_URL = "clss.communication.dev.push_provider_url"
+ENV_EMAIL_PROVIDER_URL = "clss.communication.dev.email_provider_url"
+ENV_SMS_PROVIDER_URL = "clss.communication.dev.sms_provider_url"
+ENV_WHATSAPP_PROVIDER_URL = "clss.communication.dev.whatsapp_provider_url"
+# The persistent companion-memory store (consent-gated, PII-free). Unset -> the
+# companion memory runs in a deterministic in-process store (per-session only).
+ENV_COMPANION_MEMORY_URL = "clss.communication.dev.companion_memory_url"
+# The transcription provider for the in-meeting silent assistant. Unset -> the
+# assistant accepts only already-captured transcript segments (no live capture)
+# and runs its deterministic notes/key-point/action-item extraction on them.
+ENV_TRANSCRIPTION_URL = "clss.communication.dev.transcription_url"
 
 _ENV_PREFIX = "CLSS_COMMUNICATION_DEV_"
 
@@ -81,6 +96,13 @@ class CommunicationSettings:
     consent_url: str | None = None
     workflow_url: str | None = None
     translation_url: str | None = None
+    chat_provider_url: str | None = None
+    push_provider_url: str | None = None
+    email_provider_url: str | None = None
+    sms_provider_url: str | None = None
+    whatsapp_provider_url: str | None = None
+    companion_memory_url: str | None = None
+    transcription_url: str | None = None
 
     @property
     def has_gateway(self) -> bool:
@@ -113,6 +135,32 @@ class CommunicationSettings:
     def has_translation(self) -> bool:
         return bool(self.gateway_url and self.translation_url)
 
+    @property
+    def has_companion_memory_store(self) -> bool:
+        return bool(self.gateway_url and self.companion_memory_url)
+
+    @property
+    def has_transcription(self) -> bool:
+        return bool(self.gateway_url and self.transcription_url)
+
+    def configured_channels(self) -> list[str]:
+        """The delivery channels whose provider URL AND the gateway are set (so a
+        real send would go out). Names only; absence -> degraded outbox."""
+        ready: list[str] = []
+        if not self.gateway_url:
+            return ready
+        if self.chat_provider_url:
+            ready.append("chat")
+        if self.push_provider_url:
+            ready.append("push")
+        if self.email_provider_url:
+            ready.append("email")
+        if self.sms_provider_url:
+            ready.append("sms")
+        if self.whatsapp_provider_url:
+            ready.append("whatsapp_class")
+        return ready
+
     def degraded_reasons(self) -> list[str]:
         """Dotted NAMES (NEVER values) of env vars whose absence keeps the
         module in degraded (deterministic, in-memory) mode."""
@@ -133,6 +181,20 @@ class CommunicationSettings:
             missing.append(ENV_WORKFLOW_URL)
         if not self.translation_url:
             missing.append(ENV_TRANSLATION_URL)
+        if not self.chat_provider_url:
+            missing.append(ENV_CHAT_PROVIDER_URL)
+        if not self.push_provider_url:
+            missing.append(ENV_PUSH_PROVIDER_URL)
+        if not self.email_provider_url:
+            missing.append(ENV_EMAIL_PROVIDER_URL)
+        if not self.sms_provider_url:
+            missing.append(ENV_SMS_PROVIDER_URL)
+        if not self.whatsapp_provider_url:
+            missing.append(ENV_WHATSAPP_PROVIDER_URL)
+        if not self.companion_memory_url:
+            missing.append(ENV_COMPANION_MEMORY_URL)
+        if not self.transcription_url:
+            missing.append(ENV_TRANSCRIPTION_URL)
         return missing
 
 
@@ -167,5 +229,12 @@ def get_settings(*, refresh: bool = False) -> CommunicationSettings:
         consent_url=_read_env(ENV_CONSENT_URL),
         workflow_url=_read_env(ENV_WORKFLOW_URL),
         translation_url=_read_env(ENV_TRANSLATION_URL),
+        chat_provider_url=_read_env(ENV_CHAT_PROVIDER_URL),
+        push_provider_url=_read_env(ENV_PUSH_PROVIDER_URL),
+        email_provider_url=_read_env(ENV_EMAIL_PROVIDER_URL),
+        sms_provider_url=_read_env(ENV_SMS_PROVIDER_URL),
+        whatsapp_provider_url=_read_env(ENV_WHATSAPP_PROVIDER_URL),
+        companion_memory_url=_read_env(ENV_COMPANION_MEMORY_URL),
+        transcription_url=_read_env(ENV_TRANSCRIPTION_URL),
     )
     return _cached

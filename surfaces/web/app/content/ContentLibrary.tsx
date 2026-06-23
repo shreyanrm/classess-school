@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { LibraryItem } from '../_components/LibraryItem';
+import { openVidya } from '../_components/VidyaOrb';
 import { useStore } from '@/lib/useStore';
 import {
   RESOURCE_TYPE_LABEL,
@@ -248,9 +249,24 @@ export function ContentLibrary() {
           <Icon name="book" size="lg" className="glyph" />
           <h4 className="body">Nothing matches yet</h4>
           <p>
-            No resources match these filters. Clear a filter, or generate fresh material for the
+            No resources match these filters. Clear the filters, or generate fresh material for the
             topic with Vidya.
           </p>
+          <div className="row" style={{ gap: 'var(--space-3)', justifyContent: 'center' }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setType('all');
+                setQuery('');
+              }}
+            >
+              Clear filters
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => openVidya('Generate fresh material for this topic')}>
+              <Icon name="spark" size="sm" /> Try with Vidya
+            </Button>
+          </div>
         </div>
       ) : (
         <section className="stack">

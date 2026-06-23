@@ -43,6 +43,14 @@ ENV_PGVECTOR_URL = "clss.ontology.dev.pgvector_url"
 # the ingest interface would call THROUGH the gateway. Unset -> draft-only.
 ENV_DOC_UNDERSTANDING_KEY = "clss.ontology.dev.doc_understanding_key"
 
+# Gemini document-understanding API key. The REAL curriculum-extraction path
+# (app/gemini.py) reads this by NAME at the point of egress and calls Gemini
+# over HTTPS. It lives in the shared AI-fabric namespace (clss.aifabric.dev.*)
+# so the same provider key serves every Gemini-backed capability; it is NEVER a
+# literal here and is read for a VALUE only inside the egress client. Unset ->
+# the deterministic parser path. (NAME only.)
+ENV_GEMINI_API_KEY = "clss.aifabric.dev.gemini_api_key"
+
 # Embeddings model lanes — kept SEPARATE (Track 1 external vs Track 2 edge).
 # A router selects a lane; config never blends them.
 ENV_EMBEDDINGS_TRACK1_KEY = "clss.ontology.dev.embeddings_track1_key"  # external
@@ -82,6 +90,10 @@ class OntologySettings:
     pgvector_url: str | None = None
     # Document-understanding provider for curriculum extraction. Unset -> draft.
     doc_understanding_key: str | None = None
+    # The Gemini provider key for the REAL extraction path. Read by NAME from the
+    # shared AI-fabric namespace; absence -> the deterministic parser path. Never
+    # a literal; only the egress client (app/gemini.py) reads it for a value.
+    gemini_api_key: str | None = None
     # Embeddings lanes, kept separate (TRACK SEPARATION). Unset -> hashing
     # fallback embedder (deterministic, offline).
     embeddings_track1_key: str | None = None  # external
@@ -102,6 +114,16 @@ class OntologySettings:
     def has_doc_understanding(self) -> bool:
         """A live extraction provider needs the gateway AND a provider key."""
         return bool(self.gateway_url and self.doc_understanding_key)
+
+    @property
+    def has_gemini(self) -> bool:
+        """The REAL Gemini extraction path needs only the Gemini provider key.
+
+        Unlike the gateway-routed provider seam, the Gemini document-understanding
+        client makes a direct HTTPS egress and reads its own key by NAME — it does
+        not require the in-module gateway URL. Absence of the key -> the
+        deterministic parser path."""
+        return bool(self.gemini_api_key)
 
     @property
     def has_pgvector(self) -> bool:
@@ -162,6 +184,7 @@ def get_settings(*, refresh: bool = False) -> OntologySettings:
         database_url=_read_env(ENV_DATABASE_URL),
         pgvector_url=_read_env(ENV_PGVECTOR_URL),
         doc_understanding_key=_read_env(ENV_DOC_UNDERSTANDING_KEY),
+        gemini_api_key=_read_env(ENV_GEMINI_API_KEY),
         embeddings_track1_key=_read_env(ENV_EMBEDDINGS_TRACK1_KEY),
         embeddings_track2_key=_read_env(ENV_EMBEDDINGS_TRACK2_KEY),
     )

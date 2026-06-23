@@ -69,6 +69,13 @@ class EventKind(str, enum.Enum):
     BREAKOUT_CLOSED = "delivery.breakout_closed"
     BOARD_PAGE_ADDED = "delivery.board_page_added"
     BOARD_OBJECT_COMMITTED = "delivery.board_object_committed"
+    BOARD_THEME_CHANGED = "delivery.board_theme_changed"
+    BOARD_FRAME_FROZEN = "delivery.board_frame_frozen"
+    BOARD_FRAME_RESUMED = "delivery.board_frame_resumed"
+    BOARD_DOCUMENT_SHARED = "delivery.board_document_shared"
+    BOARD_CONTENT_VERIFIED = "delivery.board_content_verified"
+    BOARD_CONTENT_INTERACTED = "delivery.board_content_interacted"
+    PERIOD_LAUNCHED = "delivery.period_launched"
 
     # engagement (assistive, non-punitive, non-identity-graded)
     ENGAGEMENT_SIGNAL = "engagement.signal"
@@ -76,6 +83,10 @@ class EventKind(str, enum.Enum):
     POLL_RESPONSE = "engagement.poll_response"
     POLL_CLOSED = "engagement.poll_closed"
     DEVICE_FREE_CHECK = "engagement.device_free_check"
+    ROOM_PHOTO_CAPTURE = "engagement.room_photo_capture"
+    RAISED_HAND = "engagement.raised_hand"
+    NO_PERSON_PRESENT = "engagement.no_person_present"
+    ENGAGEMENT_PERFORMANCE_LINK = "engagement.performance_link"
 
     # grasp (learning evidence, never a verdict on a person)
     GRASP_OBSERVED = "grasp.observed"

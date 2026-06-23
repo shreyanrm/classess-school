@@ -1,11 +1,16 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Composer, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { useRole } from '@/lib/RoleContext';
 import type { Role } from '@/lib/mock';
+import { useStore } from '@/lib/useStore';
+import { mintId } from '@/lib/store';
+import { joinChannel, type ChannelHandle, type LiveMessage, type LivePresence } from '@/lib/realtime';
+import { saveMessageLive } from '@/lib/opData';
+import { openVidya } from '../_components/VidyaOrb';
 
 /**
  * d18 — The communication hub. Until now there was no messaging UI. This is the
@@ -71,14 +76,93 @@ const THREADS: Record<string, Msg[]> = {
 
 export default function MessagesPage() {
   const { role } = useRole();
+  const { account, school } = useStore();
   const channels = CHANNELS[role];
   const [activeId, setActiveId] = useState<string>(channels[0]?.id ?? 'c1');
   const [draft, setDraft] = useState('');
   const [prepared, setPrepared] = useState(false);
   const [routed, setRouted] = useState(false);
 
+  // Live messaging state (Supabase Realtime). Degrades to local when unwired.
+  const [liveMsgs, setLiveMsgs] = useState<LiveMessage[]>([]);
+  const [present, setPresent] = useState<LivePresence[]>([]);
+  const [toast, setToast] = useState<string | null>(null);
+  const channelRef = useRef<ChannelHandle | null>(null);
+
   const active = channels.find((c) => c.id === activeId) ?? channels[0];
-  const thread = useMemo(() => THREADS[activeId] ?? [], [activeId]);
+  // The seed thread plus any live messages received this session.
+  const baseThread = useMemo(() => THREADS[activeId] ?? [], [activeId]);
+
+  // This client's opaque ref + a non-identifying handle (a role label, no PII).
+  const selfRef = account?.id ?? 'anon';
+  const selfHandle = role.charAt(0).toUpperCase() + role.slice(1);
+
+  // Join a live channel for the active conversation. Two open clients on the
+  // same channel see each other's messages + presence; a remote message raises
+  // a calm toast. Tears down on channel change / unmount. No-op when unwired.
+  useEffect(() => {
+    let cancelled = false;
+    setLiveMsgs([]);
+    setPresent([]);
+    const topic = `msg:${role}:${activeId}`;
+    void joinChannel({
+      topic,
+      self: { ref: selfRef, handle: selfHandle },
+      onMessage: (m) => {
+        if (cancelled) return;
+        setLiveMsgs((prev) => (prev.some((p) => p.id === m.id) ? prev : [...prev, m]));
+      },
+      onPresence: (p) => {
+        if (!cancelled) setPresent(p);
+      },
+      onNotify: (line) => {
+        if (cancelled) return;
+        setToast(line);
+        window.setTimeout(() => setToast((t) => (t === line ? null : t)), 4000);
+      },
+    }).then((handle) => {
+      if (cancelled) {
+        void handle.leave();
+        return;
+      }
+      channelRef.current = handle;
+      setPresent(handle.presence());
+    });
+    return () => {
+      cancelled = true;
+      const h = channelRef.current;
+      channelRef.current = null;
+      if (h) void h.leave();
+    };
+  }, [activeId, role, selfRef, selfHandle]);
+
+  // Send: broadcast over Realtime + persist to the durable history (best-effort).
+  const sendLive = useCallback(
+    (text: string) => {
+      const message: LiveMessage = {
+        id: mintId(),
+        senderRef: selfRef,
+        body: text,
+        flagged: false,
+        postedAt: new Date().toISOString(),
+      };
+      // Echo locally (broadcast self:false), then fan out + persist.
+      setLiveMsgs((prev) => [...prev, message]);
+      void channelRef.current?.send(message);
+      const liveInstitution = school?.institution.liveId;
+      // Persist only when both opaque ids are real uuids the route accepts.
+      if (liveInstitution) {
+        void saveMessageLive({
+          institutionId: liveInstitution,
+          channelId: mintId(), // a stable per-conversation channel ref (demo)
+          senderRef: selfRef,
+          body: text,
+          flagged: false,
+        });
+      }
+    },
+    [selfRef, school],
+  );
 
   // A calm, illustrative quiet-hours read (after 9pm, before 7am locally).
   const hour = new Date().getHours();
@@ -149,33 +233,67 @@ export default function MessagesPage() {
                 <p className="overline" style={{ margin: 0 }}>
                   {active?.name}
                 </p>
-                {quietHours ? (
-                  <Tag tone="warning" dot>
-                    Quiet hours
-                  </Tag>
-                ) : (
-                  <Tag tone="success" dot>
-                    Within hours
-                  </Tag>
-                )}
+                <span className="row" style={{ gap: 'var(--space-2)' }}>
+                  {present.length > 0 ? (
+                    <Tag tone="success" dot data-testid="presence-indicator">
+                      {present.length} here now
+                    </Tag>
+                  ) : null}
+                  {quietHours ? (
+                    <Tag tone="warning" dot>
+                      Quiet hours
+                    </Tag>
+                  ) : (
+                    <Tag tone="success" dot>
+                      Within hours
+                    </Tag>
+                  )}
+                </span>
               </div>
 
+              {toast ? (
+                <div className="offline-banner" role="status" data-testid="message-toast">
+                  {toast}
+                </div>
+              ) : null}
+
               <div className="thread" aria-live="polite" style={{ minHeight: 120 }}>
-                {thread.length === 0 ? (
-                  <p className="muted body-sm">No messages yet. Start the conversation below.</p>
+                {baseThread.length === 0 && liveMsgs.length === 0 ? (
+                  <div className="empty">
+                    <Icon name="send" size="lg" className="glyph" />
+                    <h4 className="body">No messages yet</h4>
+                    <p>Start the conversation below. Vidya can draft a calm first message for you.</p>
+                    <Button variant="secondary" size="sm" onClick={() => openVidya('Draft a calm first message')}>
+                      <Icon name="spark" size="sm" /> Try with Vidya
+                    </Button>
+                  </div>
                 ) : (
-                  thread.map((m) => (
-                    <div key={m.id} className={`msg ${m.mine ? 'msg-user' : 'msg-vidya'}`}>
-                      <div className="bubble body-sm">
-                        {m.text}
-                        {m.flagged ? (
-                          <div style={{ marginTop: 6 }}>
-                            <Tag tone="danger">Flagged for a responsible adult</Tag>
-                          </div>
-                        ) : null}
+                  <>
+                    {baseThread.map((m) => (
+                      <div key={m.id} className={`msg ${m.mine ? 'msg-user' : 'msg-vidya'}`}>
+                        <div className="bubble body-sm">
+                          {m.text}
+                          {m.flagged ? (
+                            <div style={{ marginTop: 6 }}>
+                              <Tag tone="danger">Flagged for a responsible adult</Tag>
+                            </div>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))}
+                    {liveMsgs.map((m) => (
+                      <div key={m.id} className={`msg ${m.senderRef === selfRef ? 'msg-user' : 'msg-vidya'}`} data-testid="live-message">
+                        <div className="bubble body-sm">
+                          {m.body}
+                          {m.flagged ? (
+                            <div style={{ marginTop: 6 }}>
+                              <Tag tone="danger">Flagged for a responsible adult</Tag>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </>
                 )}
               </div>
 
@@ -221,7 +339,16 @@ export default function MessagesPage() {
                   />
                   <div className="divider" />
                   <div className="rec-actions">
-                    <Button variant="accent" size="sm" onClick={() => { setPrepared(false); setDraft(''); }}>
+                    <Button
+                      variant="accent"
+                      size="sm"
+                      onClick={() => {
+                        const text = draft.trim();
+                        if (text) sendLive(text);
+                        setPrepared(false);
+                        setDraft('');
+                      }}
+                    >
                       {quietHours ? 'Approve — send when hours open' : 'Approve and send'}
                     </Button>
                     <Button variant="ghost" size="sm" onClick={() => setPrepared(false)}>

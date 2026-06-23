@@ -22,12 +22,13 @@
    ============================================================================ */
 
 import { useEffect, useRef, useState } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Composer, Icon } from '@classess/design-system';
 import { MessageThread } from './MessageThread';
 import { VoiceCapsule, type VoiceCapsuleHandle } from './VoiceCapsule';
 import { VidyaSteps } from './VidyaSteps';
 import { VidyaSpotlight } from './VidyaSpotlight';
+import { VidyaCanvas } from './VidyaCanvas';
 import { useVidya } from '@/lib/useVidya';
 import { useRole } from '@/lib/RoleContext';
 import { useAuth } from '@/lib/useAuth';
@@ -73,6 +74,7 @@ function surfaceFromPath(pathname: string, role: Role): Role {
 
 export function VidyaOrb() {
   const pathname = usePathname() ?? '/';
+  const router = useRouter();
   const { role } = useRole();
   const { session } = useAuth();
   const surface = surfaceFromPath(pathname, role);
@@ -80,8 +82,19 @@ export function VidyaOrb() {
 
   // The ONE Vidya send path, shared with the home/landing via useVidya. Because
   // the orb is mounted in the root layout, this thread persists across routes.
-  const { messages, thinking, send, applyVoiceTurn, reset, highlight, annotation, steps, clearVisuals } =
-    useVidya();
+  const {
+    messages,
+    thinking,
+    send,
+    applyVoiceTurn,
+    reset,
+    highlight,
+    annotation,
+    steps,
+    canvas,
+    closeCanvas,
+    clearVisuals,
+  } = useVidya();
 
   const panelRef = useRef<HTMLDivElement | null>(null);
   const orbRef = useRef<HTMLButtonElement | null>(null);
@@ -173,6 +186,18 @@ export function VidyaOrb() {
       ) : null}
       {annotation && (!highlight || annotation.region !== highlight.region) ? (
         <VidyaSpotlight region={annotation.region} note={annotation.note} onDismiss={clearVisuals} />
+      ) : null}
+
+      {/* The on-demand floating canvas — Vidya summons it ONLY when the answer
+          needs to be SHOWN (drawn / derived / sketched). It renders at the page
+          level so it is the centrepiece even when the orb panel is collapsed,
+          and it is always dismissible. */}
+      {canvas ? (
+        <VidyaCanvas
+          spec={canvas}
+          onClose={closeCanvas}
+          onOpenHref={(href) => router.push(href)}
+        />
       ) : null}
 
       {open ? (

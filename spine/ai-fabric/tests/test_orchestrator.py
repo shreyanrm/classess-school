@@ -177,3 +177,42 @@ def test_tracer_noops_without_backend():
     with t.span("x") as s:
         s.record_cost(10)
     # No backend, no raise — the span just closes.
+
+
+class _TokenfulMathProvider:
+    """A wired provider that also reports token usage for the span."""
+
+    def generate(self, *, capability, route, payload):
+        from app.verify import MathItem
+        return Candidate(
+            content={"answer": 144},
+            confidence=0.99,
+            math_item=MathItem(expression="12 * 12", claimed_answer=144),
+            prompt_tokens=21,
+            completion_tokens=4,
+        )
+
+
+def test_span_records_model_and_tokens_when_available():
+    from app.router import ModelRouter, Track1Config, env_var_name
+
+    # Provide a Track 1 key so the route resolves a model label to record.
+    key_env = env_var_name(Track1Config().provider_key_env)
+    router = ModelRouter(env={key_env: "present"})
+    sink = BufferingTraceSink()
+    orch = Orchestrator(
+        provider=_TokenfulMathProvider(),
+        second_model=_AgreeingSecondModel(),
+        router=router,
+        tracer=Tracer(sink=sink),
+    )
+    orch.handle(Intent(
+        request_id=_rid(), capability="content.generate-practice-item",
+        purpose="practice_item_generation",
+    ))
+    span = sink.spans[0]
+    assert span.attributes.get("model") == "mid-external"
+    assert span.attributes.get("tokens.prompt") == 21
+    assert span.attributes.get("tokens.completion") == 4
+    assert span.attributes.get("tokens.total") == 25
+    assert span.attributes.get("quality.served") is True

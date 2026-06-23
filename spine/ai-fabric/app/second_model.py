@@ -4,32 +4,42 @@ The generate-and-verify confidence gate (see :mod:`app.verify`) serves content
 ONLY when an INDEPENDENT second model agrees. This module supplies that second
 model for real:
 
-  - :class:`LiveSecondModel` asks an independent provider model to CONFIRM or
+  - :class:`LiveSecondModel` asks an INDEPENDENT provider model to CONFIRM or
     REFUTE generated content and returns ``(agrees, confidence)``. It is a
     Track 1 capability (external LLM routing) — kept SEPARATE from Track 2.
+  - :class:`OpenAICrossCheckProvider` is the REAL provider seam: it calls the
+    OpenAI Chat Completions API over HTTPS via ``httpx``, reading the key by env
+    NAME (``clss.aifabric.dev.crosscheck_model_key`` ->
+    ``CLSS_AIFABRIC_DEV_CROSSCHECK_MODEL_KEY``). OpenAI is deliberately a
+    DIFFERENT provider than the Track-1 GENERATOR (Gemini), so the cross-check is
+    truly independent — a second opinion from another model family, not the same
+    model grading itself.
   - :func:`make_second_model` is the FACTORY the verify pipeline wires as its
-    default: it picks LIVE when the cross-check provider key is present in the
-    environment (by NAME only — secret ``clss.aifabric.dev.crosscheck_model_key``,
-    read via :mod:`app.config`), and falls back to the existing
+    default: it picks LIVE (with the OpenAI provider) when the cross-check key is
+    present in the environment (by NAME only), and falls back to the existing
     :class:`~app.verify.AbstainingSecondModel` when no key is set, so the gate
     stays CLOSED rather than passing unverified content.
 
 INVARIANT 4 — SECRETS ARE ENV-ONLY, READ BY NAME, NEVER HARDCODED. The raw key
-is read by NAME from settings only at the moment the provider is called. It is
-NEVER returned, NEVER logged, and NEVER placed in any result object — the
-cross-check returns only ``(agrees, confidence)``.
+is read by NAME from settings only at the moment the provider is called and is
+sent ONLY in the OpenAI ``Authorization`` header. It is NEVER returned, NEVER
+logged, and NEVER placed in any result object — the cross-check returns only
+``(agrees, confidence)``.
 
 INVARIANT 11 — TWO TRACKS ARE NEVER CONFLATED. The cross-check is Track 1
-(external LLM routing). It uses Track 1's own named secret and never borrows
-Track 2's endpoint key.
+(external LLM routing). It uses Track 1's own named cross-check secret and never
+borrows Track 2's endpoint key. It is also a DIFFERENT provider than the Track-1
+generator, so generate-and-verify is two distinct providers, not one.
 
-DEGRADES GRACEFULLY — when the key is unset OR no provider seam is wired, the
-factory returns the abstaining model, which never agrees (gate stays closed).
-No network is required to import or test this module.
+DEGRADES GRACEFULLY — when the key is unset, the factory returns the abstaining
+model, which never agrees (gate stays closed). A network/parse/refusal error in
+the live provider also fails CLOSED. No network is required to import or test
+this module: the httpx transport is injectable, so tests run fully offline.
 """
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
 from typing import Protocol
 
@@ -47,9 +57,21 @@ CROSSCHECK_KEY_ENV_VAR = ENV_PREFIX + "CROSSCHECK_MODEL_KEY"  # CLSS_AIFABRIC_DE
 # This cross-check is Track 1 (external LLM routing) — never conflated with Track 2.
 TRACK_ID = 1
 
-# The independent model label routed on Track 1. A label only; the call is made
-# by the provider seam when present.
-CROSSCHECK_MODEL_LABEL = "crosscheck-independent"
+# The independent model label routed on Track 1. The cross-check model is OpenAI
+# — a DIFFERENT provider family than the Track-1 generator (Gemini) — so the
+# second opinion is genuinely independent.
+CROSSCHECK_MODEL_LABEL = "openai:gpt-4o-mini"
+
+# The OpenAI provider family for the independent cross-check. Named here so a
+# test (and an auditor) can assert the cross-check is NOT the generator provider.
+CROSSCHECK_PROVIDER = "openai"
+# The Track-1 GENERATOR provider family (Gemini). The cross-check provider MUST
+# differ from this — generate-and-verify uses two distinct providers.
+GENERATOR_PROVIDER = "gemini"
+
+# The OpenAI Chat Completions endpoint (a public URL, not a secret).
+OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions"
+OPENAI_DEFAULT_MODEL = "gpt-4o-mini"
 
 
 # ---------------------------------------------------------------------------
@@ -88,15 +110,134 @@ class CrossCheckProvider(Protocol):
         ...
 
 
-def _load_crosscheck_provider() -> CrossCheckProvider | None:
-    """Locate a wired cross-check provider if available; else ``None``.
+# ---------------------------------------------------------------------------
+# The HTTP transport seam (real httpx by default; injectable for offline tests)
+# ---------------------------------------------------------------------------
 
-    No verified live wiring ships here: this returns ``None`` so the factory
-    degrades to the abstaining model rather than fabricating a provider. A real
-    deployment swaps in a concrete :class:`CrossCheckProvider` or injects one via
-    :func:`make_second_model` / :class:`LiveSecondModel`.
+class HttpTransport(Protocol):
+    """The HTTP seam the OpenAI provider posts through.
+
+    A real implementation wraps httpx; injected in tests so the provider is
+    exercised entirely OFFLINE (no live calls in tests). Returns the parsed JSON
+    response body. Raises on transport / non-2xx so the live model fails closed.
     """
-    return None
+
+    def post_json(
+        self, *, url: str, headers: dict[str, str], json_body: dict, timeout: float
+    ) -> dict:
+        ...
+
+
+@dataclass
+class HttpxTransport:
+    """A real httpx-backed transport. Imported lazily to stay import-safe."""
+
+    def post_json(
+        self, *, url: str, headers: dict[str, str], json_body: dict, timeout: float
+    ) -> dict:
+        import httpx  # local import: module stays import-safe / tests stay offline
+
+        with httpx.Client(timeout=timeout) as client:
+            resp = client.post(url, headers=headers, json=json_body)
+            resp.raise_for_status()
+            return resp.json()
+
+
+# ---------------------------------------------------------------------------
+# The REAL OpenAI cross-check provider (a DIFFERENT provider than the generator)
+# ---------------------------------------------------------------------------
+
+@dataclass
+class OpenAICrossCheckProvider:
+    """An independent cross-check via OpenAI Chat Completions over HTTPS (httpx).
+
+    The Track-1 GENERATOR is Gemini; this second opinion is OpenAI — a different
+    provider family, so the verification is genuinely independent. The provider
+    asks the model to CONFIRM or REFUTE the generated content and to report its
+    own confidence; it parses a strict JSON verdict and returns only
+    :class:`CrossCheckVerdict` (``agrees``, ``confidence``).
+
+    INVARIANT 4 — the raw key arrives only at call time and is placed ONLY in the
+    ``Authorization`` header; it is never stored on the instance, never logged,
+    and never returned. Any transport / parse error raises, and the LIVE model
+    above turns that into a fail-closed ``(False, 0.0)``.
+    """
+
+    transport: HttpTransport = field(default_factory=HttpxTransport)
+    url: str = OPENAI_CHAT_COMPLETIONS_URL
+    model: str = OPENAI_DEFAULT_MODEL
+    timeout_seconds: float = 20.0
+    provider: str = CROSSCHECK_PROVIDER
+
+    def cross_check(
+        self,
+        *,
+        raw_key: str,
+        model_label: str,
+        task_class: str,
+        content: object,
+    ) -> CrossCheckVerdict:
+        system = (
+            "You are an INDEPENDENT verifier from a different model provider than "
+            "the generator. Decide whether the generated content is correct and "
+            "appropriate for its task. Reply with STRICT JSON only: "
+            '{"agrees": <true|false>, "confidence": <number 0..1>}. '
+            "Set agrees=false if you cannot confirm it; never explain."
+        )
+        user = (
+            f"Task class: {task_class}\n"
+            f"Generated content to verify:\n{content!r}\n\n"
+            "Return the JSON verdict now."
+        )
+        body = {
+            "model": self.model,
+            "temperature": 0,
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
+            "response_format": {"type": "json_object"},
+        }
+        # The raw key rides ONLY in the Authorization header, at call time.
+        headers = {
+            "Authorization": f"Bearer {raw_key}",
+            "Content-Type": "application/json",
+        }
+        data = self.transport.post_json(
+            url=self.url, headers=headers, json_body=body, timeout=self.timeout_seconds
+        )
+        return self._parse_verdict(data)
+
+    @staticmethod
+    def _parse_verdict(data: dict) -> CrossCheckVerdict:
+        """Parse the OpenAI response into a verdict; malformed => fail closed."""
+        try:
+            text = data["choices"][0]["message"]["content"]
+        except (KeyError, IndexError, TypeError):
+            return CrossCheckVerdict(agrees=False, confidence=0.0)
+        try:
+            parsed = json.loads(text) if isinstance(text, str) else text
+        except (json.JSONDecodeError, TypeError):
+            return CrossCheckVerdict(agrees=False, confidence=0.0)
+        if not isinstance(parsed, dict):
+            return CrossCheckVerdict(agrees=False, confidence=0.0)
+        agrees = bool(parsed.get("agrees", False))
+        try:
+            confidence = float(parsed.get("confidence", 0.0))
+        except (TypeError, ValueError):
+            confidence = 0.0
+        return CrossCheckVerdict(agrees=agrees, confidence=confidence)
+
+
+def _load_crosscheck_provider() -> CrossCheckProvider | None:
+    """The default cross-check provider: the REAL OpenAI verifier (httpx).
+
+    Returns an :class:`OpenAICrossCheckProvider` so that whenever the cross-check
+    key is present, the factory wires a LIVE, INDEPENDENT second model (OpenAI) —
+    a different provider than the Track-1 generator. With no key the factory
+    never calls it (it abstains), so importing this module makes no live call.
+    """
+    return OpenAICrossCheckProvider()
 
 
 # ---------------------------------------------------------------------------
@@ -214,3 +355,12 @@ def make_second_model(
     if live.has_provider():
         return live
     return AbstainingSecondModel()
+
+
+def crosscheck_is_independent_of_generator() -> bool:
+    """True when the cross-check provider differs from the Track-1 generator.
+
+    Generate-and-verify must use TWO distinct providers: the generator (Gemini)
+    and an independent verifier (OpenAI). This guards that invariant.
+    """
+    return CROSSCHECK_PROVIDER != GENERATOR_PROVIDER

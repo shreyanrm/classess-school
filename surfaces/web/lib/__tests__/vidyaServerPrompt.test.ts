@@ -64,6 +64,14 @@ describe('Vidya tool surface — the new capabilities are declared', () => {
       expect(names).toContain(t);
     }
   });
+  it('exposes the floating-canvas tool (show_on_canvas) and the prompt explains it', () => {
+    expect(toolNames()).toContain('show_on_canvas');
+    const s = SYSTEM.toLowerCase();
+    expect(s).toContain('canvas');
+    expect(s).toContain('show_on_canvas');
+    // The canvas is summoned only to SHOW, never as a chat surface.
+    expect(s).toContain('only when the answer needs to be shown');
+  });
   it('highlight_target enum matches the closed region map', () => {
     const decls = TOOLS[0]!.functionDeclarations;
     const hl = decls.find((d) => d.name === 'highlight_target');

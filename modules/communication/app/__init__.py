@@ -20,6 +20,22 @@ multilingual + code-switching translation interface. The package surface:
                              detection, escalation to qualified humans, and NO
                              unmonitored channels. Runs on every free-text
                              surface. Fail-safe deterministic fallback.
+  - ``companion_memory``   — persistent, consent-gated, PII-free per-user
+                             companion memory (thread + salient facts). Stateless
+                             without consent; revocation purges.
+  - ``delivery``           — multi-channel delivery adapters (chat / push / email
+                             / SMS / a WhatsApp-class channel) over one trigger
+                             layer. Only SCREENED messages route; real sends need
+                             approval; degrades to an in-memory outbox.
+  - ``parent_feedback``    — parent-specific celebration/growth/next-step feedback
+                             generated FROM real signals via generate-and-verify
+                             (grounded + confidence-gated; never canned).
+  - ``meeting_assistant``  — the in-meeting SILENT, CONSENTED assistant:
+                             transcription, notes, key-point extraction, and
+                             prepared (never auto-fired) action items.
+  - ``today``              — the "what do I need to do today" synthesis from role
+                             + timetable + tasks + permissions + progress;
+                             permission-aware, approval-aware, explainable.
   - ``translation``        — the multilingual + code-switching interface that
                              preserves subject terminology. Degrades to a
                              pass-through that never drops content.
@@ -38,21 +54,31 @@ from __future__ import annotations
 
 from . import (  # noqa: F401
     companion,
+    companion_memory,
     config,
+    delivery,
     events,
     hub,
+    meeting_assistant,
+    parent_feedback,
     parent_partnership,
     safeguarding,
+    today,
     translation,
 )
 
 __all__ = [
     "companion",
+    "companion_memory",
     "config",
+    "delivery",
     "events",
     "hub",
+    "meeting_assistant",
+    "parent_feedback",
     "parent_partnership",
     "safeguarding",
+    "today",
     "translation",
 ]
 

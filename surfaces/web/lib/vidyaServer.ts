@@ -56,6 +56,8 @@ import type {
   RecommendationCardSpec,
   StepsCardSpec,
   DerivationStep,
+  CanvasCardSpec,
+  CanvasContent,
 } from './vidya';
 import {
   NAV_TARGETS,
@@ -63,9 +65,15 @@ import {
   HIGHLIGHT_REGIONS,
   isHighlightRegion,
   verifyStep,
+  sanitiseCanvas,
+  canvasHasContent,
 } from './vidya';
 
 export const KEY_ENV = 'CLSS_AIFABRIC_DEV_GEMINI_API_KEY';
+/** The INDEPENDENT second-model key (OpenAI). SERVER-ONLY: read here, never
+ *  returned, logged, or exposed as a NEXT_PUBLIC var. With it unset the gate
+ *  falls back to the existing deterministic-only behaviour (conservative). */
+export const CROSSCHECK_KEY_ENV = 'CLSS_AIFABRIC_DEV_CROSSCHECK_MODEL_KEY';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 const MODELS = ['gemini-2.5-flash', 'gemini-flash-latest', 'gemini-2.0-flash'];
 const TRANSIENT = new Set([404, 408, 425, 429, 500, 502, 503, 504]);
@@ -101,7 +109,10 @@ export const SYSTEM = [
   '  "open the learn page" / "go to learn", never for "teach me / I don\'t get X".)',
   '- EXPLAIN: "explain X", "show me how X works", "derive X", "walk me through X".',
   '  Use explain_steps to build a step-by-step derivation. Each arithmetic step',
-  '  carries a deterministic check and is verified before it is shown.',
+  '  carries a deterministic check and is verified before it is shown. When the',
+  '  derivation is SUBSTANTIAL, or the answer needs to be DRAWN or SKETCHED (a',
+  '  diagram, a graph, a number line, a figure), call show_on_canvas instead so',
+  '  it renders large on the floating canvas and self-assembles as you speak.',
   '- CREATE: "draft a quick check", "make an assignment", "build a blueprint',
   '  paper", "a revision plan". Use draft_quick_check / draft_plan / create_study_plan.',
   '  Everything created is returned for a human to approve, never auto-published.',
@@ -123,6 +134,12 @@ export const SYSTEM = [
   'reveals one step at a time as you speak. Use highlight when you are pointing at',
   'something already on screen; use explain_steps when you are deriving or',
   'teaching a method. Keep it tasteful.',
+  '',
+  'THE CANVAS. show_on_canvas summons a calm floating canvas and DRAWS / DERIVES /',
+  'SKETCHES there — open it ONLY when the answer needs to be SHOWN (a diagram, a',
+  'graph, a number line, a figure, or a substantial worked derivation). Do NOT',
+  'open the canvas for a simple spoken or short answer; the orb carries those.',
+  'There is no chat surface on the canvas — it is a drawing surface only.',
   '',
   'NAVIGATION IS A FIRST-CLASS ACTION. When the intent is actionable — when the',
   'person wants to go somewhere, do something, or see a specific view — call the',
@@ -301,6 +318,59 @@ export const TOOLS = [
             },
           },
           required: ['topic', 'steps'],
+        },
+      },
+      {
+        name: 'show_on_canvas',
+        description:
+          'SHOW IT ON THE CANVAS. Summon Vidya\'s floating canvas and DRAW / DERIVE / SKETCH there. Use this ONLY when the answer needs to be SHOWN — a diagram, a worked derivation, or a sketched explanation that does not fit a spoken line. Do NOT open the canvas for a simple spoken or short answer. Content is one of: a DERIVATION (ordered steps, each arithmetic step carries a deterministic check { lhs, rhs } that is VERIFIED before it is drawn — only verified steps appear), a DIAGRAM (a small set of primitives: line, arrow, arc, label, shape, numberline, graph in a 0..100 coordinate space, y upward), or a WRITTEN explanation (plain lines that write on). Plain language; never a bare formula to a learner.',
+        parameters: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'A short title for the canvas.' },
+            content: {
+              type: 'object',
+              description: 'The structured content to render. Set type and the matching field.',
+              properties: {
+                type: {
+                  type: 'string',
+                  enum: ['derivation', 'diagram', 'written'],
+                  description: 'derivation | diagram | written.',
+                },
+                steps: {
+                  type: 'array',
+                  description: 'For type=derivation. Ordered steps; each has text and an optional deterministic check.',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      text: { type: 'string', description: 'Plain-language line for this step.' },
+                      check: {
+                        type: 'object',
+                        description: 'Optional deterministic arithmetic check; lhs must equal rhs exactly.',
+                        properties: {
+                          lhs: { type: 'string' },
+                          rhs: { type: 'string' },
+                        },
+                      },
+                    },
+                    required: ['text'],
+                  },
+                },
+                primitives: {
+                  type: 'array',
+                  description: 'For type=diagram. Each item has a kind (line|arrow|arc|label|shape|numberline|graph) and its fields. Coordinates are 0..100, y grows upward.',
+                  items: { type: 'object' },
+                },
+                lines: {
+                  type: 'array',
+                  description: 'For type=written. Plain-language lines that write on one at a time.',
+                  items: { type: 'string' },
+                },
+              },
+              required: ['type'],
+            },
+          },
+          required: ['title', 'content'],
         },
       },
       {
@@ -826,6 +896,32 @@ function toolExplainSteps(args: Record<string, unknown>): ToolOutcome {
   };
 }
 
+/** SHOW IT: build a sanitised, verified floating-canvas spec. A derivation's
+ *  steps go through the SAME generate-and-verify gate (unverified steps dropped);
+ *  diagram primitives and written lines are bounded by the shared sanitiser. */
+function toolShowOnCanvas(args: Record<string, unknown>): ToolOutcome {
+  const spec: CanvasCardSpec = sanitiseCanvas(args as Record<string, unknown>);
+  if (!canvasHasContent(spec)) {
+    return {
+      result: {
+        shown: false,
+        note: 'Nothing passed the canvas checks (an arithmetic step may have failed, or the content was empty). Re-derive with correct arithmetic, or show fewer, valid primitives.',
+      },
+    };
+  }
+  const c: CanvasContent = spec.content;
+  const summary =
+    c.type === 'derivation'
+      ? { type: c.type, stepCount: c.steps.length }
+      : c.type === 'diagram'
+        ? { type: c.type, primitiveCount: c.primitives.length }
+        : { type: c.type, lineCount: c.lines.length };
+  return {
+    result: { shown: true, title: spec.title, ...summary },
+    action: { type: 'canvas', spec },
+  };
+}
+
 /** SPEAK AND SHOW: ring an on-screen region. Visual only; always safe. */
 function toolHighlightTarget(args: Record<string, unknown>): ToolOutcome {
   if (!isHighlightRegion(args.region)) {
@@ -886,6 +982,155 @@ function toolCreateStudyPlan(args: Record<string, unknown>): ToolOutcome {
   };
 }
 
+// ---------------------------------------------------------------------------
+// INDEPENDENT CROSS-CHECK — real generate-and-verify. The deterministic checks
+// (verifyStep) prove the arithmetic; this adds a genuinely INDEPENDENT second
+// model (OpenAI) that must AGREE before a derivation / canvas / explanation is
+// shown. It reads CROSSCHECK_KEY_ENV (OpenAI) SERVER-ONLY — never returned,
+// never logged. With no key the factory returns an abstaining verifier and the
+// gate falls back to the existing behaviour (deterministic-only, conservative).
+//
+// Gate decision (used by runVidyaTurn for derivation/canvas content):
+//   show  iff  deterministic checks pass  AND  (no independent model available
+//             OR the independent model AGREES with confidence >= threshold)
+// The independent model can only WITHHOLD content; it can never invent or alter
+// what is shown. When it actively REFUTES, the content is withheld.
+// ---------------------------------------------------------------------------
+
+const OPENAI_URL = 'https://api.openai.com/v1/chat/completions';
+const DEFAULT_CROSSCHECK_MODEL = 'gpt-4o-mini';
+/** Confidence the independent model must clear for content to be shown. */
+export const CROSSCHECK_CONFIDENCE_THRESHOLD = 0.6;
+
+export interface CrosscheckVerdict {
+  /** Whether the independent model affirmatively agreed the content is correct. */
+  agree: boolean;
+  /** The model's stated confidence in [0,1]. */
+  confidence: number;
+  /** True when no independent model ran (no key / transport fail) — abstained. */
+  abstained: boolean;
+}
+
+export interface IndependentVerifier {
+  /** True when a real independent model backs this verifier. */
+  available: boolean;
+  /** Ask the independent model to confirm/refute the claims. Never throws. */
+  check: (claims: string[], context: string) => Promise<CrosscheckVerdict>;
+}
+
+/** An abstaining verifier — used when no cross-check key is configured. It never
+ *  affirms and never refutes; the gate then relies on deterministic checks. */
+const ABSTAIN_VERIFIER: IndependentVerifier = {
+  available: false,
+  check: async () => ({ agree: false, confidence: 0, abstained: true }),
+};
+
+/** Default OpenAI transport for the cross-check — isolated so tests can inject. */
+async function openaiCrosscheck(
+  key: string,
+  model: string,
+  claims: string[],
+  context: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<CrosscheckVerdict> {
+  try {
+    const sys =
+      'You are an independent verifier. You are given a set of teaching claims (the steps of a worked derivation or the labels of a sketched explanation) and the context they were produced for. Judge ONLY whether they are mathematically and factually correct and coherent as a teaching artefact. Do not rewrite them. Respond with strict JSON: {"agree": boolean, "confidence": number between 0 and 1}. agree=true only if every claim is correct.';
+    const user = `Context: ${context}\nClaims:\n${claims.map((c, i) => `${i + 1}. ${c}`).join('\n')}`;
+    const res = await fetchImpl(OPENAI_URL, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${key}`, 'content-type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        temperature: 0,
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: user },
+        ],
+      }),
+    });
+    if (!res.ok) return { agree: false, confidence: 0, abstained: true };
+    const json: any = await res.json().catch(() => null);
+    const content = json?.choices?.[0]?.message?.content;
+    if (typeof content !== 'string') return { agree: false, confidence: 0, abstained: true };
+    let parsed: any;
+    try {
+      parsed = JSON.parse(content);
+    } catch {
+      return { agree: false, confidence: 0, abstained: true };
+    }
+    const agree = parsed?.agree === true;
+    const confidence = Math.max(0, Math.min(1, Number(parsed?.confidence) || 0));
+    return { agree, confidence, abstained: false };
+  } catch {
+    // Never leak a key or stack; abstain so the gate stays conservative.
+    return { agree: false, confidence: 0, abstained: true };
+  }
+}
+
+/**
+ * Build the independent verifier. Picks the OpenAI cross-check WHEN the key is
+ * present; otherwise returns the abstaining verifier (the gate then falls back
+ * to the existing deterministic-only behaviour). The key is read here and never
+ * returned or logged.
+ *
+ * @param env         the environment to read the key from (defaults to process.env).
+ * @param fetchImpl   injectable transport for tests.
+ */
+export function makeIndependentVerifier(
+  env: Record<string, string | undefined> = process.env,
+  fetchImpl: typeof fetch = fetch,
+): IndependentVerifier {
+  const key = env[CROSSCHECK_KEY_ENV];
+  if (!key || key.trim().length < 16) return ABSTAIN_VERIFIER;
+  const model = env.CLSS_AIFABRIC_DEV_CROSSCHECK_MODEL || DEFAULT_CROSSCHECK_MODEL;
+  return {
+    available: true,
+    check: (claims, context) => openaiCrosscheck(key, model, claims, context, fetchImpl),
+  };
+}
+
+/** Extract the human-readable claims from a derivation/canvas/steps action so
+ *  the independent model can judge them. Returns null for an action that needs
+ *  no cross-check (navigate, highlight, annotate, non-steps render). */
+export function claimsForAction(action: VidyaAction): { context: string; claims: string[] } | null {
+  if (action.type === 'render' && action.spec.kind === 'steps') {
+    return { context: action.spec.title, claims: action.spec.steps.map((s) => s.text) };
+  }
+  if (action.type === 'canvas') {
+    const c = action.spec.content;
+    if (c.type === 'derivation') return { context: action.spec.title, claims: c.steps.map((s) => s.text) };
+    if (c.type === 'diagram') {
+      const labels = c.primitives
+        .map((p) => ('label' in p ? p.label : 'text' in p ? p.text : undefined))
+        .filter((l): l is string => !!l);
+      return labels.length ? { context: action.spec.title, claims: labels } : null;
+    }
+    if (c.type === 'written') return { context: action.spec.title, claims: c.lines };
+  }
+  return null;
+}
+
+/**
+ * The generate-and-verify gate for ONE action. Deterministic checks already ran
+ * upstream (verifyStep drops unverified steps). Here the INDEPENDENT model must
+ * also agree (with confidence >= threshold) for derivation/canvas/explanation
+ * content to be shown. If the verifier abstains (no key / transport fail) the
+ * content is allowed through on the deterministic checks alone (conservative
+ * fallback). If the model actively REFUTES (ran, did not agree), it is withheld.
+ */
+export async function gateAction(
+  action: VidyaAction,
+  verifier: IndependentVerifier,
+): Promise<boolean> {
+  const claimable = claimsForAction(action);
+  if (!claimable || claimable.claims.length === 0) return true; // nothing to cross-check
+  const verdict = await verifier.check(claimable.claims, claimable.context);
+  if (verdict.abstained) return true; // fall back to deterministic-only
+  return verdict.agree && verdict.confidence >= CROSSCHECK_CONFIDENCE_THRESHOLD;
+}
+
 export function runTool(name: string, args: Record<string, unknown>): ToolOutcome {
   switch (name) {
     case 'navigate':
@@ -894,6 +1139,8 @@ export function runTool(name: string, args: Record<string, unknown>): ToolOutcom
       return toolTutorStep(args);
     case 'explain_steps':
       return toolExplainSteps(args);
+    case 'show_on_canvas':
+      return toolShowOnCanvas(args);
     case 'highlight_target':
       return toolHighlightTarget(args);
     case 'annotate_target':
@@ -980,6 +1227,7 @@ export async function runVidyaTurn(
   key: string,
   systemExtra = '',
   maxOutputTokens = 700,
+  verifier: IndependentVerifier = makeIndependentVerifier(),
 ): Promise<VidyaTurnResult> {
   const system = systemExtra ? `${SYSTEM} ${systemExtra}` : SYSTEM;
   const actions: VidyaAction[] = [];
@@ -1016,7 +1264,19 @@ export async function runVidyaTurn(
         const name = String(call.name);
         const args = (call.args ?? {}) as Record<string, unknown>;
         const outcome = runTool(name, args);
-        if (outcome.action) actions.push(outcome.action);
+        if (outcome.action) {
+          // GENERATE-AND-VERIFY: deterministic checks already ran in the tool;
+          // an independent model must also agree before teaching content is
+          // shown. Anything with no claims to cross-check passes straight through.
+          const allowed = await gateAction(outcome.action, verifier);
+          if (allowed) {
+            actions.push(outcome.action);
+          } else {
+            // Withheld: tell the model so it does not claim it is shown.
+            (outcome.result as Record<string, unknown>).independent_check =
+              'withheld: the independent verifier did not confirm this content, so it was not shown. Re-derive more carefully or answer plainly without it.';
+          }
+        }
         responseParts.push({ functionResponse: { name, response: outcome.result } });
       }
       contents.push({ role: 'user', parts: responseParts });

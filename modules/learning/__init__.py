@@ -12,13 +12,23 @@ the opaque ``canonical_uuid`` only, behind the contract shapes.
 
 Public surface:
 
-  - ``learn``      : the pose -> struggle -> reveal flow controller.
-  - ``practice``   : adaptive next-item selection by mastery + gaps.
-  - ``ladder``     : the assistance-ladder controller (fades support; always
-                     declares helping-vs-evaluating).
-  - ``revision``   : spaced-retrieval scheduler against the forgetting curve.
-  - ``readiness``  : exam-readiness forecasting from mastery + coverage.
-  - ``events``     : emit attempt/practice/mastery-evidence events.
+  - ``learn``        : the pose -> struggle -> reveal flow controller.
+  - ``interactions`` : the four named build-interaction types as first-class
+                       objects (predict-then-check, assemble-the-proof,
+                       fill-the-missing-step, teach-it-back) + verification.
+  - ``explanation``  : multiple selectable explanation styles for the reveal.
+  - ``practice``     : adaptive next-item selection by mastery + gaps; practice
+                       FORMATS incl. topic quizzes; the per-student aptitude score.
+  - ``ladder``       : the assistance-ladder controller (fades support; always
+                       declares helping-vs-evaluating).
+  - ``misconception``: misconception detonation — pose a counterexample, never lecture.
+  - ``revision``     : spaced-retrieval scheduler against the forgetting curve.
+  - ``readiness``    : exam-readiness forecasting from mastery + coverage.
+  - ``planner``      : the d13 exam-date revision planner (workload distribution,
+                       auto re-plan on missed sessions, time-left achievability).
+  - ``regrade``      : the "I think I am right" re-grade/dispute path, confidence
+                       check-ins, and reflection prompts.
+  - ``events``       : emit attempt/practice/mastery-evidence events.
 
 Import-safe: importing this package performs no I/O, opens no connection, and
 reads no secret value. The pydantic-backed intelligence engine and event
@@ -37,10 +47,15 @@ __all__ = [
     # than eagerly here, so a missing optional dependency in one path never
     # breaks importing another. Listed for discoverability.
     "learn",
+    "interactions",
+    "explanation",
     "practice",
     "ladder",
+    "misconception",
     "revision",
     "readiness",
+    "planner",
+    "regrade",
     "events",
 ]
 

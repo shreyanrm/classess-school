@@ -43,7 +43,11 @@ class EventType(str, Enum):
     RISK_FLAGGED = "attendance.risk.flagged"
     CONFLICT_FLAGGED = "attendance.reconciliation.conflict_flagged"
     STAFF_RECORDED = "attendance.staff.recorded"
+    CORRECTION_LOGGED = "attendance.correction.logged"
     SUBSTITUTION_NEEDED = "scheduling.substitution.needed"
+    # Response workflow — requests a human-owned action; never auto-fires it.
+    PARENT_COMM_REQUESTED = "communication.parent.requested"
+    CATCHUP_PLAN_PROPOSED = "attendance.catchup_plan.proposed"
 
 
 def _now() -> str:
@@ -93,7 +97,7 @@ class MarkRecordedEvent(_BaseEvent):
 @dataclass(frozen=True)
 class RiskFlaggedEvent(_BaseEvent):
     canonical_uuid: str = ""
-    risk_kind: str = ""  # consecutive | chronic | pattern
+    risk_kind: str = ""  # consecutive | chronic | pattern | exam_shortage
     severity: str = ""  # watch | concern | urgent
     explanation: str = ""  # plain-language, PII-free
     window_days: int = 0
@@ -129,6 +133,54 @@ class SubstitutionNeededEvent(_BaseEvent):
     date: str = ""
     session_ids: Sequence[str] = field(default_factory=tuple)
     reason: str = "staff_absent"
+
+
+@dataclass(frozen=True)
+class CorrectionLoggedEvent(_BaseEvent):
+    """A post-finalisation correction to an already-locked roll.
+
+    Emitted by the locked-correction flow. The correction itself is a NEW,
+    append-only record (the original finalised mark is never overwritten); this
+    event carries the audit trail — who, when, why, and the before/after status.
+    """
+
+    session_id: str = ""
+    canonical_uuid: str = ""
+    previous_status: str = ""
+    corrected_status: str = ""
+    corrected_by: str = ""  # canonical_uuid of the authorising human
+    reason: str = ""        # plain-language, PII-screened
+
+
+@dataclass(frozen=True)
+class ParentCommunicationRequestedEvent(_BaseEvent):
+    """Asks the communication module to reach a guardian about absence.
+
+    A REQUEST, never a sent message: communication owns delivery, consent/
+    language, and the human-approval gate. This only signals that repeated
+    absence warrants contact. PII-free — the guardian is resolved downstream
+    from the opaque learner ref under consent.
+    """
+
+    canonical_uuid: str = ""
+    risk_kind: str = ""
+    severity: str = ""
+    reason: str = ""  # plain-language, PII-free
+    requires_approval: bool = True
+
+
+@dataclass(frozen=True)
+class CatchupPlanProposedEvent(_BaseEvent):
+    """A proposed catch-up plan after repeated absence.
+
+    A proposal a human reviews and owns; missed sessions/topics are listed so a
+    teacher can confirm the recovery steps. Never auto-assigned.
+    """
+
+    canonical_uuid: str = ""
+    missed_sessions: int = 0
+    subjects: Sequence[str] = field(default_factory=tuple)
+    requires_approval: bool = True
 
 
 # --- builders --------------------------------------------------------------
@@ -252,6 +304,71 @@ def substitution_needed_event(
         date=date,
         session_ids=tuple(session_ids),
         reason=reason,
+    )
+
+
+def correction_logged_event(
+    session_id: str,
+    canonical_uuid: str,
+    previous_status: str,
+    corrected_status: str,
+    corrected_by: str,
+    reason: str,
+) -> CorrectionLoggedEvent:
+    """Audit event for a post-finalisation locked correction."""
+
+    assert_no_pii_identifier(canonical_uuid)
+    assert_no_pii_identifier(corrected_by)
+    return CorrectionLoggedEvent(
+        event_id=_event_id(),
+        event_type=EventType.CORRECTION_LOGGED.value,
+        occurred_at=_now(),
+        session_id=session_id,
+        canonical_uuid=canonical_uuid,
+        previous_status=previous_status,
+        corrected_status=corrected_status,
+        corrected_by=corrected_by,
+        reason=reason,
+    )
+
+
+def parent_communication_requested_event(
+    canonical_uuid: str,
+    risk_kind: str,
+    severity: str,
+    reason: str,
+) -> ParentCommunicationRequestedEvent:
+    """Request guardian contact about absence. requires_approval is always True."""
+
+    assert_no_pii_identifier(canonical_uuid)
+    return ParentCommunicationRequestedEvent(
+        event_id=_event_id(),
+        event_type=EventType.PARENT_COMM_REQUESTED.value,
+        occurred_at=_now(),
+        canonical_uuid=canonical_uuid,
+        risk_kind=risk_kind,
+        severity=severity,
+        reason=reason,
+        requires_approval=True,
+    )
+
+
+def catchup_plan_proposed_event(
+    canonical_uuid: str,
+    missed_sessions: int,
+    subjects: Sequence[str],
+) -> CatchupPlanProposedEvent:
+    """Propose a catch-up plan. requires_approval is always True."""
+
+    assert_no_pii_identifier(canonical_uuid)
+    return CatchupPlanProposedEvent(
+        event_id=_event_id(),
+        event_type=EventType.CATCHUP_PLAN_PROPOSED.value,
+        occurred_at=_now(),
+        canonical_uuid=canonical_uuid,
+        missed_sessions=int(missed_sessions),
+        subjects=tuple(subjects),
+        requires_approval=True,
     )
 
 

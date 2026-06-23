@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Icon, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { InboxItem } from '../../_components/InboxItem';
+import { openVidya } from '../../_components/VidyaOrb';
 import { useStore } from '@/lib/useStore';
 import {
   MILESTONE_LABEL,
@@ -86,7 +87,10 @@ export function StudentWork() {
           <div className="empty">
             <Icon name="check" size="lg" className="glyph" />
             <h4 className="body">Nothing assigned right now</h4>
-            <p>When your teacher assigns a check or homework, it will appear here.</p>
+            <p>When your teacher assigns a check or homework, it will appear here. Until then, you can keep your streak going.</p>
+            <Button variant="secondary" size="sm" onClick={() => openVidya('What can I practise right now')}>
+              <Icon name="spark" size="sm" /> Try with Vidya
+            </Button>
           </div>
         ) : (
           <section className="stack">

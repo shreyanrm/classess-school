@@ -4,10 +4,12 @@ import pytest
 
 from app.events import SubstitutionNeededEvent
 from app.staff import (
+    CaptureMethod,
     StaffStatus,
     build_substitution_request,
     confirm_staff,
     daily_summary,
+    record_kiosk,
     record_staff,
 )
 
@@ -82,3 +84,60 @@ def test_daily_summary():
     assert summary["present"] == 1
     assert summary["needs_substitution"] == 1
     assert summary["draft"] == 1
+
+
+# --- kiosk capture method --------------------------------------------------
+
+
+def test_kiosk_capture_is_draft_with_method():
+    rec = record_kiosk("staff-1", "2026-06-22", StaffStatus.PRESENT, ["sess-1"])
+    assert rec.capture_method is CaptureMethod.KIOSK
+    assert rec.state == "draft"
+    assert rec.is_confirmed is False
+
+
+def test_kiosk_tap_never_auto_fires_substitution():
+    rec = record_kiosk("staff-1", "2026-06-22", StaffStatus.ABSENT, ["sess-1"])
+    # a kiosk tap is still only a draft -> no request until a human confirms
+    assert build_substitution_request(rec) is None
+
+
+# --- early departure -------------------------------------------------------
+
+
+def test_early_departure_covers_only_remaining_sessions():
+    rec = record_staff(
+        "staff-1",
+        "2026-06-22",
+        StaffStatus.EARLY_DEPARTURE,
+        ["sess-1", "sess-2", "sess-3"],
+        uncovered_session_ids=["sess-2", "sess-3"],
+    )
+    confirmed = confirm_staff(rec, confirmed_by="head-uuid")
+    event = build_substitution_request(confirmed)
+    assert isinstance(event, SubstitutionNeededEvent)
+    assert event.session_ids == ("sess-2", "sess-3")
+    assert event.reason == "staff_early_departure"
+
+
+def test_early_departure_with_no_remaining_sessions_no_substitution():
+    rec = record_staff(
+        "staff-1",
+        "2026-06-22",
+        StaffStatus.EARLY_DEPARTURE,
+        ["sess-1"],
+        uncovered_session_ids=[],
+    )
+    confirmed = confirm_staff(rec, confirmed_by="head-uuid")
+    assert build_substitution_request(confirmed) is None
+
+
+def test_uncovered_must_be_subset_of_assigned():
+    with pytest.raises(ValueError):
+        record_staff(
+            "staff-1",
+            "2026-06-22",
+            StaffStatus.EARLY_DEPARTURE,
+            ["sess-1"],
+            uncovered_session_ids=["sess-9"],
+        )

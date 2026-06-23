@@ -5,8 +5,9 @@ import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { SETUP_STEPS } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
-import { saveSchool, clearSchool, type GroupNode, type RosterMember } from '@/lib/store';
+import { saveSchool, clearSchool, setSchoolLiveId, type GroupNode, type RosterMember } from '@/lib/store';
 import { draftStructure, draftRoster, countStructure, assembleSchool } from '@/lib/setupDraft';
+import { saveSchoolLive } from '@/lib/opData';
 
 /**
  * The blueprint wizard — a calm, multi-step flow that PERSISTS to lib/store.
@@ -44,6 +45,20 @@ export default function AdminSetupPage() {
     const blueprint = assembleSchool({ name: name || 'Campus North', board, pacing, structure, roster });
     saveSchool(blueprint);
     setIndex(SETUP_STEPS.length - 1);
+    // Persist live to Supabase (best-effort). When a live database is wired the
+    // returned institution_id is stamped onto the blueprint so it reloads from
+    // the operational plane and survives a refresh; when unwired this resolves
+    // to { persisted:false } and the blueprint simply stays on the local store.
+    void saveSchoolLive({
+      institutionId: blueprint.institution.liveId,
+      name: blueprint.institution.name,
+      board: blueprint.institution.board,
+      pacing: blueprint.institution.pacing,
+      structure: blueprint.structure,
+      roster: blueprint.roster,
+    }).then((res) => {
+      if (res.persisted && res.id) setSchoolLiveId(res.id);
+    });
   }
 
   function startOver() {

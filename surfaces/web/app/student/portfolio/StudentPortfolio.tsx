@@ -6,6 +6,7 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ProofArtifact } from '../../_components/ProofArtifact';
 import { CredentialItem } from '../../_components/CredentialItem';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { openVidya } from '../../_components/VidyaOrb';
 import { useStore } from '@/lib/useStore';
 import {
   loadCredentials,
@@ -110,6 +111,9 @@ export function StudentPortfolio() {
                 <Icon name="spark" size="lg" className="glyph" />
                 <h4 className="body">Your timeline is just beginning</h4>
                 <p>As you master topics, each moment will appear here with the evidence behind it.</p>
+                <Button variant="secondary" size="sm" onClick={() => openVidya('Help me start my first topic')}>
+                  <Icon name="spark" size="sm" /> Start your first topic
+                </Button>
               </div>
             ) : (
               <div className="parent-timeline">

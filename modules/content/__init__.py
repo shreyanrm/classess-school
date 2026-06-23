@@ -39,6 +39,18 @@ from .generate import (
     MaterialKind,
     MaterialRequest,
 )
+from .hyperlocalize import (
+    Hyperlocalizer,
+    HyperlocalizationOutcome,
+    LocaleContext,
+    LocalizationProvider,
+)
+from .gemini_localization import (
+    GeminiLocalizationProvider,
+    make_localization_provider,
+    GEMINI_KEY_ENV_VAR,
+    GEMINI_KEY_SECRET_NAME,
+)
 from .ingest import (
     DocumentUnderstanding,
     IngestInterface,
@@ -76,6 +88,15 @@ __all__ = [
     "GenerationOutcome",
     "MaterialKind",
     "MaterialRequest",
+    # hyperlocalization
+    "Hyperlocalizer",
+    "HyperlocalizationOutcome",
+    "LocaleContext",
+    "LocalizationProvider",
+    "GeminiLocalizationProvider",
+    "make_localization_provider",
+    "GEMINI_KEY_ENV_VAR",
+    "GEMINI_KEY_SECRET_NAME",
     # ingest
     "DocumentUnderstanding",
     "IngestInterface",

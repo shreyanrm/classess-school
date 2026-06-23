@@ -5,9 +5,14 @@ Turns attendance from a record into an early-warning SIGNAL. Detects:
   - CONSECUTIVE absence — N school days absent in a row.
   - CHRONIC-absence risk — absence rate over a window crosses a threshold
     (the chronic-absenteeism definition is configurable per board/institution).
-  - PATTERN risk — same-weekday / period-of-day patterns: a learner who is
-    repeatedly absent on a particular weekday (e.g. every Monday) or from the
-    post-lunch periods, even when overall attendance looks fine.
+  - PATTERN risk — same-weekday / period-of-day / SUBJECT patterns: a learner
+    who is repeatedly absent on a particular weekday (e.g. every Monday), from
+    the post-lunch periods, or from one SUBJECT (e.g. skips every maths period),
+    even when overall attendance looks fine.
+  - EXAM-SHORTAGE risk — attendance-shortage BEFORE exams: the learner's
+    attendance rate is at or near the eligibility floor a board/institution sets
+    for sitting an exam, with the exam window approaching. This is a forward-
+    looking eligibility shortfall, not a record of past misconduct.
 
 DESIGN (INVARIANT 7, generate-and-verify + confidence gate; principle 7,
 evidence over assertion):
@@ -38,7 +43,8 @@ from .capture import Status
 class RiskKind(str, Enum):
     CONSECUTIVE = "consecutive"
     CHRONIC = "chronic"
-    PATTERN = "pattern"
+    PATTERN = "pattern"          # weekday / period-of-day / subject pattern
+    EXAM_SHORTAGE = "exam_shortage"  # eligibility shortfall before an exam
 
 
 class RiskSeverity(str, Enum):
@@ -71,7 +77,16 @@ class RiskConfig:
     chronic_urgent_rate: float = 0.20
 
     pattern_min_occurrences: int = 3     # min misses in a slice before a pattern
-    pattern_concern_rate: float = 0.40   # missed 40%+ of that weekday/slot
+    pattern_concern_rate: float = 0.40   # missed 40%+ of that weekday/slot/subject
+
+    # Exam-shortage (eligibility shortfall before an exam). The minimum
+    # attendance rate a learner must hold to sit the exam is board/institution
+    # policy and is passed per call (``exam_eligibility_floor``); these only
+    # tune HOW CLOSE to the floor starts to count and how much evidence is
+    # needed. Never hard-coded policy.
+    exam_shortage_min_marks: int = 5     # need enough marks to project a rate
+    exam_shortage_margin: float = 0.05   # within 5 points of the floor -> watch
+    exam_window_watch_days: int = 30     # exam within this many days -> in scope
 
 
 @dataclass(frozen=True)
@@ -107,6 +122,7 @@ class _Day:
     date: str
     status: Status
     period_of_day: Optional[str] = None
+    subject: Optional[str] = None
 
 
 def _coerce_status(value: Any) -> Status:
@@ -132,6 +148,7 @@ def _normalise_history(history: Mapping[str, Any]) -> "tuple[str, List[_Day]]":
                 date=d["date"],
                 status=_coerce_status(d.get("status", "unknown")),
                 period_of_day=d.get("period_of_day"),
+                subject=d.get("subject"),
             )
         )
     days.sort(key=lambda x: _parse_day(x.date))
@@ -232,12 +249,19 @@ _WEEKDAYS = (
 def _detect_patterns(
     cuid: str, days: Sequence[_Day], cfg: RiskConfig
 ) -> List[RiskFinding]:
-    """Same-weekday and period-of-day patterns.
+    """Same-weekday, period-of-day and SUBJECT patterns.
 
     Catches the learner who attends overall but repeatedly skips a particular
-    weekday (e.g. every Monday) or the post-lunch periods (d8).
+    weekday (e.g. every Monday), the post-lunch periods, or one SUBJECT (e.g.
+    every maths period) — a targeted pattern, not random absence (d8).
     """
     findings: List[RiskFinding] = []
+
+    _readable = {
+        "weekday": "weekday",
+        "period_of_day": "time slot",
+        "subject": "subject",
+    }
 
     def _slice(label_kind: str, value: str, slice_days: Sequence[_Day]) -> None:
         counted = [d for d in slice_days if d.status in _MISS or d.status in _ATTENDED]
@@ -249,7 +273,7 @@ def _detect_patterns(
             return
         sev = RiskSeverity.CONCERN
         confidence = min(0.95, 0.5 + (rate - cfg.pattern_concern_rate) + 0.02 * len(misses))
-        readable = "weekday" if label_kind == "weekday" else "time slot"
+        readable = _readable.get(label_kind, label_kind)
         findings.append(
             RiskFinding(
                 canonical_uuid=cuid,
@@ -283,19 +307,100 @@ def _detect_patterns(
     for slot, slice_days in by_slot.items():
         _slice("period_of_day", slot, slice_days)
 
+    # By subject (e.g. repeatedly skipping maths), when present in the record.
+    by_subject: dict[str, List[_Day]] = {}
+    for d in days:
+        if d.subject is not None:
+            by_subject.setdefault(d.subject, []).append(d)
+    for subject, slice_days in by_subject.items():
+        _slice("subject", subject, slice_days)
+
     return findings
 
 
+def _detect_exam_shortage(
+    cuid: str,
+    days: Sequence[_Day],
+    cfg: RiskConfig,
+    exam_eligibility_floor: Optional[float],
+    days_to_exam: Optional[int],
+) -> Optional[RiskFinding]:
+    """Attendance-shortage BEFORE an exam: an eligibility shortfall.
+
+    Fires only when the caller supplies the board/institution
+    ``exam_eligibility_floor`` (the minimum attendance rate to sit the exam)
+    AND an exam is within the watch window. The learner's attendance rate is
+    projected from their record; if it is below the floor, or within
+    ``exam_shortage_margin`` of it, we surface a forward-looking eligibility
+    risk so a human can act WHILE there is still time to recover.
+
+    This is never misconduct and never auto-blocks the learner from the exam —
+    eligibility decisions are human-owned (``needs_human_review``).
+    """
+    if exam_eligibility_floor is None or days_to_exam is None:
+        return None
+    if days_to_exam < 0 or days_to_exam > cfg.exam_window_watch_days:
+        return None
+    counted = [d for d in days if d.status in _MISS or d.status in _ATTENDED]
+    if len(counted) < cfg.exam_shortage_min_marks:
+        return None
+    attended = [d for d in counted if d.status in _ATTENDED]
+    rate = len(attended) / len(counted)
+    if rate >= exam_eligibility_floor + cfg.exam_shortage_margin:
+        return None  # comfortably above the floor — no shortfall
+
+    below = rate < exam_eligibility_floor
+    sev = RiskSeverity.URGENT if below else RiskSeverity.CONCERN
+    confidence = min(0.97, 0.6 + 0.01 * len(counted))
+    gap = exam_eligibility_floor - rate
+    rationale = (
+        f"Attendance is {rate:.0%} against an eligibility floor of "
+        f"{exam_eligibility_floor:.0%}, with an exam in {days_to_exam} day(s). "
+        + (
+            f"That is {gap:.0%} below the floor — the learner risks being "
+            "ineligible to sit the exam."
+            if below
+            else "That is close to the floor — a few more absences would put "
+            "eligibility at risk."
+        )
+        + " Acting now still leaves time to recover; this is an eligibility "
+        "signal for a human, not an exam bar."
+    )
+    return RiskFinding(
+        canonical_uuid=cuid,
+        risk_kind=RiskKind.EXAM_SHORTAGE.value,
+        severity=sev.value,
+        confidence=confidence,
+        rationale=rationale,
+        evidence_days=[d.date for d in counted if d.status in _MISS],
+        metric=round(rate, 4),
+        detail={
+            "eligibility_floor": f"{exam_eligibility_floor:.4f}",
+            "days_to_exam": str(days_to_exam),
+            "below_floor": "true" if below else "false",
+        },
+    )
+
+
 def detect_risks(
-    history: Mapping[str, Any], config: Optional[RiskConfig] = None
+    history: Mapping[str, Any],
+    config: Optional[RiskConfig] = None,
+    *,
+    exam_eligibility_floor: Optional[float] = None,
+    days_to_exam: Optional[int] = None,
 ) -> List[RiskFinding]:
     """Run every detector over one learner's attendance history.
 
     ``history`` is ``{"canonical_uuid": <opaque ref>, "days": [{"date",
-    "status", "period_of_day"?}, ...]}``. Returns all findings; each is
-    independent, carries its own evidence + confidence + plain-language
+    "status", "period_of_day"?, "subject"?}, ...]}``. Returns all findings; each
+    is independent, carries its own evidence + confidence + plain-language
     rationale, and is a recommendation only (``needs_human_review`` is always
     ``True``). Responses are owned by humans and fired via events.py.
+
+    EXAM-SHORTAGE detection runs only when the caller supplies the board/
+    institution ``exam_eligibility_floor`` (minimum attendance rate to sit the
+    exam, in [0,1]) AND ``days_to_exam`` (how soon the exam is). The floor is
+    policy and is never hard-coded here.
     """
     cfg = config or RiskConfig()
     cuid, days = _normalise_history(history)
@@ -310,4 +415,9 @@ def detect_risks(
     if chronic is not None:
         findings.append(chronic)
     findings.extend(_detect_patterns(cuid, days, cfg))
+    exam = _detect_exam_shortage(
+        cuid, days, cfg, exam_eligibility_floor, days_to_exam
+    )
+    if exam is not None:
+        findings.append(exam)
     return findings

@@ -3,6 +3,7 @@
 import pytest
 
 from app.capture import (
+    Correction,
     DraftRoll,
     Method,
     Status,
@@ -13,6 +14,8 @@ from app.capture import (
     capture_photo_scan,
     capture_voice,
     confirm_roll,
+    correct_finalised_roll,
+    effective_status,
     summarize_draft,
 )
 
@@ -130,3 +133,82 @@ def test_no_pii_only_uuids_in_marks():
 def test_session_id_required():
     with pytest.raises(ValueError):
         capture_absent_only("", ROSTER, [])
+
+
+# --- post-finalisation locked-correction with audit ------------------------
+
+
+def _finalised():
+    draft = capture_absent_only("s", ROSTER, ["uuid-b"])
+    return confirm_roll(draft, confirmed_by="teacher-uuid")
+
+
+def test_correction_does_not_mutate_locked_roll():
+    final = _finalised()
+    corr = correct_finalised_roll(
+        final, "uuid-b", Status.PRESENT,
+        corrected_by="head-uuid", reason="was on a school trip",
+    )
+    assert isinstance(corr, Correction)
+    # the locked roll is untouched: original mark still ABSENT
+    by = {m.canonical_uuid: m.status for m in final.marks}
+    assert by["uuid-b"] is Status.ABSENT
+    # the correction supersedes it
+    assert corr.previous_status is Status.ABSENT
+    assert corr.corrected_status is Status.PRESENT
+    assert effective_status(final, "uuid-b", [corr]) is Status.PRESENT
+
+
+def test_correction_carries_audit_trail():
+    final = _finalised()
+    corr = correct_finalised_roll(
+        final, "uuid-b", "present",
+        corrected_by="head-uuid", reason="approved leave",
+    )
+    assert corr.corrected_by == "head-uuid"
+    assert corr.reason
+    assert corr.corrected_at
+
+
+def test_correction_requires_human_and_reason():
+    final = _finalised()
+    with pytest.raises(ValueError):
+        correct_finalised_roll(
+            final, "uuid-b", Status.PRESENT, corrected_by="", reason="x"
+        )
+    with pytest.raises(ValueError):
+        correct_finalised_roll(
+            final, "uuid-b", Status.PRESENT, corrected_by="head-uuid", reason=""
+        )
+
+
+def test_correction_reason_is_safety_screened():
+    final = _finalised()
+    with pytest.raises(ValueError):
+        correct_finalised_roll(
+            final, "uuid-b", Status.PRESENT,
+            corrected_by="head-uuid", reason="child said suicide",
+        )
+
+
+def test_cannot_correct_an_unfinalised_draft():
+    draft = capture_absent_only("s", ROSTER, ["uuid-b"])
+    with pytest.raises(ValueError):
+        correct_finalised_roll(
+            draft, "uuid-b", Status.PRESENT,
+            corrected_by="head-uuid", reason="oops",
+        )
+
+
+def test_latest_correction_wins():
+    final = _finalised()
+    c1 = correct_finalised_roll(
+        final, "uuid-b", Status.PRESENT,
+        corrected_by="head-uuid", reason="first",
+    )
+    c2 = correct_finalised_roll(
+        final, "uuid-b", Status.EXCUSED,
+        corrected_by="head-uuid", reason="second",
+    )
+    # c2 is later (corrected_at) -> wins
+    assert effective_status(final, "uuid-b", [c1, c2]) is Status.EXCUSED

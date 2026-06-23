@@ -32,8 +32,13 @@ import uuid
 from dataclasses import dataclass, field, replace
 from typing import Optional
 
-from ._ontology import Edge, OntologySnapshot, PrerequisiteKind, Topic
+from ._ontology import Edge, NodeKind, OntologySnapshot, PrerequisiteKind, Topic
 from .embeddings import SemanticIndex, SimilarityHit
+
+
+# Above this cosine similarity two same-scope nodes are flagged as a likely
+# DUPLICATE for steward review. A flag, never an auto-merge (human is final).
+DUPLICATE_SIMILARITY_THRESHOLD = 0.82
 
 
 # Confidence the steward attaches to a same-chapter sequence-adjacency proposal.
@@ -80,6 +85,37 @@ class StewardDecision:
     edge_id: str
     decision: str        # "confirmed" | "rejected"
     steward_ref: str     # opaque human ref — never a name.
+
+
+@dataclass(frozen=True)
+class DuplicateFlag:
+    """A steward FLAG that two same-scope nodes may be duplicates.
+
+    A flag only — never an auto-merge. Merging nodes is consequential and human
+    final; the steward surfaces the candidate pair with evidence + confidence,
+    sorted so the higher-similarity pair is reviewed first.
+    """
+
+    node_kind: NodeKind
+    left_id: str
+    right_id: str
+    similarity: float
+    rationale: str
+
+
+@dataclass(frozen=True)
+class MissingPrerequisiteFlag:
+    """A steward FLAG that a topic likely has an UNMODELLED prerequisite.
+
+    Detected from semantic evidence: an earlier-sequenced topic with similar
+    curriculum text but NO prerequisite edge (proposed or confirmed) between the
+    pair. Surfaced for the steward to model — never auto-added to the graph.
+    """
+
+    topic_id: str
+    likely_prerequisite_id: str
+    similarity: float
+    rationale: str
 
 
 class PrerequisiteSteward:
@@ -248,6 +284,153 @@ class PrerequisiteSteward:
         ka = (a.sequence, a.id)
         kb = (b.sequence, b.id)
         return (a, b) if ka <= kb else (b, a)
+
+    # -- steward hygiene: duplicates + missing prerequisites ---------------
+
+    def detect_duplicates(
+        self,
+        semantic_index: SemanticIndex,
+        *,
+        threshold: float = DUPLICATE_SIMILARITY_THRESHOLD,
+    ) -> list[DuplicateFlag]:
+        """FLAG likely-duplicate topics within the same chapter.
+
+        Uses curriculum-text similarity: two topics in the SAME chapter whose
+        text is near-identical (>= ``threshold``) are surfaced as a duplicate
+        candidate. A flag only — merging is consequential and human-final; the
+        steward never auto-merges. Deterministic ordering (kind, then descending
+        similarity, then ids). Restricting to same chapter avoids flagging the
+        legitimate cross-chapter recurrence of a concept.
+        """
+        by_chapter: dict[str, list[Topic]] = {}
+        for topic in self._snapshot.topics:
+            by_chapter.setdefault(topic.chapter_id, []).append(topic)
+        flags: list[DuplicateFlag] = []
+        for topics in by_chapter.values():
+            for i, left in enumerate(topics):
+                hits = {
+                    h.node_id: h.score
+                    for h in semantic_index.similar_to_text(left.name, top_k=8)
+                }
+                for right in topics[i + 1 :]:
+                    score = hits.get(right.id)
+                    if score is None or score < threshold:
+                        continue
+                    a, b = sorted((left.id, right.id))
+                    flags.append(
+                        DuplicateFlag(
+                            node_kind=NodeKind.TOPIC,
+                            left_id=a,
+                            right_id=b,
+                            similarity=round(float(score), 4),
+                            rationale=(
+                                f"'{left.name}' and '{right.name}' sit in the same "
+                                f"chapter with near-identical curriculum text "
+                                f"(similarity {score:.2f}). Candidate duplicate — "
+                                "steward review before any merge; never auto-merged."
+                            ),
+                        )
+                    )
+        flags.sort(key=lambda f: (-f.similarity, f.left_id, f.right_id))
+        return flags
+
+    def detect_duplicate_skills(
+        self,
+        semantic_index: SemanticIndex,
+        *,
+        threshold: float = DUPLICATE_SIMILARITY_THRESHOLD,
+    ) -> list[DuplicateFlag]:
+        """FLAG likely-duplicate SKILLS under the same competency.
+
+        As the graph deepens below competency, near-identical skills proliferate
+        (e.g. two phrasings of "factorise a quadratic"). Same shape as
+        :meth:`detect_duplicates` but over skills, scoped to the SAME competency
+        so a skill legitimately reused across competencies is not flagged. The
+        supplied index must be indexed over skill (id, name) pairs. A flag only —
+        merging is consequential and human-final; never auto-merged. Deterministic
+        ordering (descending similarity, then ids).
+        """
+        by_competency: dict[str, list] = {}
+        for skill in self._snapshot.skills:
+            by_competency.setdefault(skill.competency_id, []).append(skill)
+        flags: list[DuplicateFlag] = []
+        for skills in by_competency.values():
+            for i, left in enumerate(skills):
+                hits = {
+                    h.node_id: h.score
+                    for h in semantic_index.similar_to_text(left.name, top_k=8)
+                }
+                for right in skills[i + 1 :]:
+                    score = hits.get(right.id)
+                    if score is None or score < threshold:
+                        continue
+                    a, b = sorted((left.id, right.id))
+                    flags.append(
+                        DuplicateFlag(
+                            node_kind=NodeKind.SKILL,
+                            left_id=a,
+                            right_id=b,
+                            similarity=round(float(score), 4),
+                            rationale=(
+                                f"'{left.name}' and '{right.name}' serve the same "
+                                f"competency with near-identical text (similarity "
+                                f"{score:.2f}). Candidate duplicate skill — steward "
+                                "review before any merge; never auto-merged."
+                            ),
+                        )
+                    )
+        flags.sort(key=lambda f: (-f.similarity, f.left_id, f.right_id))
+        return flags
+
+    def detect_missing_prerequisites(
+        self,
+        semantic_index: SemanticIndex,
+        *,
+        threshold: float = SEMANTIC_SIMILARITY_THRESHOLD,
+    ) -> list[MissingPrerequisiteFlag]:
+        """FLAG topics whose likely prerequisite is NOT modelled by any edge.
+
+        Goes beyond proposing adjacency: it audits the graph for GAPS. For each
+        topic, find an earlier-sequenced, semantically-similar topic; if NO edge
+        (proposed or confirmed, either direction) already links the pair, raise a
+        missing-prerequisite flag. Surfaced for the steward to model — never
+        auto-added. Deterministic ordering (descending similarity, then ids).
+        """
+        existing_pairs: set[frozenset[str]] = {
+            frozenset((p.edge.from_topic_id, p.edge.to_topic_id))
+            for p in self._proposals.values()
+        }
+        flags: list[MissingPrerequisiteFlag] = []
+        seen: set[frozenset[str]] = set()
+        for topic in self._snapshot.topics:
+            for hit in semantic_index.similar_to_text(topic.name, top_k=6):
+                if hit.node_id == topic.id or hit.score < threshold:
+                    continue
+                other = self._snapshot.topic_by_id(hit.node_id)
+                if other is None:
+                    continue
+                earlier, later = self._order_by_sequence(topic, other)
+                if earlier.id == later.id:
+                    continue
+                pair = frozenset((earlier.id, later.id))
+                if pair in existing_pairs or pair in seen:
+                    continue
+                seen.add(pair)
+                flags.append(
+                    MissingPrerequisiteFlag(
+                        topic_id=later.id,
+                        likely_prerequisite_id=earlier.id,
+                        similarity=round(float(hit.score), 4),
+                        rationale=(
+                            f"'{later.name}' is similar to the earlier-sequenced "
+                            f"'{earlier.name}' (similarity {hit.score:.2f}) but no "
+                            "prerequisite edge links them. Likely MISSING "
+                            "prerequisite — steward to model; never auto-added."
+                        ),
+                    )
+                )
+        flags.sort(key=lambda f: (-f.similarity, f.likely_prerequisite_id, f.topic_id))
+        return flags
 
     # -- confirmation (human, consequential) -------------------------------
 

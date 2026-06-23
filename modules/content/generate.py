@@ -178,8 +178,15 @@ class ContentGenerator:
         else:  # pragma: no cover - only when the spine is genuinely absent
             self._orchestrator = None
         # The hyperlocalizer runs AFTER the content gate, on already-verified
-        # bodies. With no provider it degrades to not-yet-localised; it never
-        # serves an unverified or fabricated localised variant.
+        # bodies. When no provider is injected, attempt to AUTO-WIRE the REAL
+        # Gemini-backed provider from the environment (key read by NAME). With no
+        # key it returns None, so the hyperlocalizer degrades to its existing
+        # deterministic/template path — base content served not-yet-localised,
+        # never a fabricated localised variant.
+        if localization_provider is None:
+            from .gemini_localization import make_localization_provider
+
+            localization_provider = make_localization_provider()
         self._hyperlocalizer = Hyperlocalizer(
             provider=localization_provider,
             second_model=localization_second_model,

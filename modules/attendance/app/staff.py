@@ -28,8 +28,18 @@ class StaffStatus(str, Enum):
     PRESENT = "present"
     ABSENT = "absent"
     LEAVE = "leave"
-    LATE = "late"
+    LATE = "late"                       # late arrival
+    EARLY_DEPARTURE = "early_departure"  # present but left before the day ended
     ON_DUTY_ELSEWHERE = "on_duty_elsewhere"
+
+
+class CaptureMethod(str, Enum):
+    """How the staff record was captured. Every method ASSISTS — the record is
+    still a draft a human confirms (kiosk taps included)."""
+
+    MANUAL = "manual"   # entered by an administrator
+    KIOSK = "kiosk"     # self-service tap-in / tap-out at a shared device
+    DEVICE = "device"   # an integrated attendance device feed
 
 
 def _now() -> str:
@@ -46,10 +56,14 @@ class StaffRecord:
     status: StaffStatus
     assigned_session_ids: Sequence[str]
     created_at: str
+    capture_method: CaptureMethod = CaptureMethod.MANUAL
     state: str = "draft"  # "draft" | "confirmed"
     confirmed_by: Optional[str] = None
     confirmed_at: Optional[str] = None
     note: str = ""
+    # For an EARLY_DEPARTURE, the sessions left uncovered AFTER the departure
+    # (a subset of assigned_session_ids). Drives substitution for the remainder.
+    uncovered_session_ids: Sequence[str] = ()
 
     @property
     def is_confirmed(self) -> bool:
@@ -57,14 +71,28 @@ class StaffRecord:
 
     @property
     def needs_substitution(self) -> bool:
-        """True when a CONFIRMED absence leaves assigned sessions uncovered."""
+        """True when a CONFIRMED absence leaves assigned sessions uncovered.
 
-        absent_like = {StaffStatus.ABSENT, StaffStatus.LEAVE}
-        return (
-            self.is_confirmed
-            and self.status in absent_like
-            and bool(self.assigned_session_ids)
-        )
+        A full-day absence/leave uncovers every assigned session; an
+        EARLY_DEPARTURE uncovers only the sessions remaining after the staff
+        member left (``uncovered_session_ids``).
+        """
+
+        if not self.is_confirmed:
+            return False
+        if self.status in {StaffStatus.ABSENT, StaffStatus.LEAVE}:
+            return bool(self.assigned_session_ids)
+        if self.status is StaffStatus.EARLY_DEPARTURE:
+            return bool(self.uncovered_session_ids)
+        return False
+
+    @property
+    def sessions_to_cover(self) -> Sequence[str]:
+        """The sessions a substitution request should cover, by status."""
+
+        if self.status is StaffStatus.EARLY_DEPARTURE:
+            return tuple(self.uncovered_session_ids)
+        return tuple(self.assigned_session_ids)
 
 
 def record_staff(
@@ -72,20 +100,64 @@ def record_staff(
     date: str,
     status: StaffStatus,
     assigned_session_ids: Optional[Sequence[str]] = None,
+    *,
+    capture_method: CaptureMethod = CaptureMethod.MANUAL,
+    uncovered_session_ids: Optional[Sequence[str]] = None,
 ) -> StaffRecord:
-    """Create a DRAFT staff attendance record. Not finalised."""
+    """Create a DRAFT staff attendance record. Not finalised.
+
+    ``capture_method`` records HOW it was captured (manual, kiosk tap, device).
+    For an ``EARLY_DEPARTURE``, pass ``uncovered_session_ids`` — the assigned
+    sessions that fall AFTER the departure and so need cover.
+    """
 
     assert_no_pii_identifier(staff_uuid)
     if not date:
         raise ValueError("date is required")
+    assigned = tuple(assigned_session_ids or ())
+    uncovered = tuple(uncovered_session_ids or ())
+    if status is StaffStatus.EARLY_DEPARTURE and uncovered:
+        unknown = [s for s in uncovered if s not in assigned]
+        if unknown:
+            raise ValueError(
+                "uncovered_session_ids must be a subset of assigned_session_ids"
+            )
     return StaffRecord(
         record_id="staff_" + _uuid.uuid4().hex,
         staff_uuid=staff_uuid,
         date=date,
         status=status,
-        assigned_session_ids=tuple(assigned_session_ids or ()),
+        assigned_session_ids=assigned,
         created_at=_now(),
+        capture_method=capture_method,
         state="draft",
+        uncovered_session_ids=uncovered,
+    )
+
+
+def record_kiosk(
+    staff_uuid: str,
+    date: str,
+    status: StaffStatus,
+    assigned_session_ids: Optional[Sequence[str]] = None,
+    *,
+    uncovered_session_ids: Optional[Sequence[str]] = None,
+) -> StaffRecord:
+    """Capture a staff record from a shared self-service KIOSK (tap-in/out).
+
+    A kiosk tap ASSISTS exactly like every other method: it produces a DRAFT
+    that an administrator still confirms before any substitution is requested —
+    a tap never auto-fires cover. Convenience over :func:`record_staff` with
+    ``capture_method=KIOSK``.
+    """
+
+    return record_staff(
+        staff_uuid,
+        date,
+        status,
+        assigned_session_ids,
+        capture_method=CaptureMethod.KIOSK,
+        uncovered_session_ids=uncovered_session_ids,
     )
 
 
@@ -134,11 +206,16 @@ def build_substitution_request(
 
     if not record.needs_substitution:
         return None
+    reason = (
+        "staff_early_departure"
+        if record.status is StaffStatus.EARLY_DEPARTURE
+        else "staff_absent"
+    )
     return substitution_needed_event(
         staff_uuid=record.staff_uuid,
         date=record.date,
-        session_ids=record.assigned_session_ids,
-        reason="staff_absent",
+        session_ids=record.sessions_to_cover,
+        reason=reason,
     )
 
 

@@ -30,6 +30,9 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, status
 
 from .config import IdentitySettings, get_settings
 from .models import (
+    AccessEvent,
+    AccessGrantRecord,
+    AccessGrantRequest,
     AppId,
     CanonicalUserCreate,
     CanonicalUserIssued,
@@ -37,15 +40,23 @@ from .models import (
     ConsentCheckResponse,
     ConsentGrantRequest,
     ConsentRecord,
+    DeviceRecord,
+    DeviceRegisterRequest,
     Membership,
     OtpStartRequest,
     OtpStartResponse,
     OtpVerifyRequest,
     Purpose,
+    SessionRiskRequest,
+    SessionRiskResponse,
+    SsoCallbackRequest,
+    SsoStartRequest,
+    SsoStartResponse,
     TokenClaims,
     TokenResponse,
 )
-from .store import IdentityStore, build_store
+from . import sso
+from .store import IdentityStore, build_store, _grant_active
 from .tokens import TokenError, TokenService
 
 logging.basicConfig(level=logging.INFO)
@@ -55,6 +66,26 @@ logger = logging.getLogger("clss.identity")
 # lives in Redis (clss.identity.dev.redis_url) and dispatch goes via Supabase
 # Auth. We never store or log the code.
 _otp_challenges: dict[UUID, dict] = {}
+
+# In-process anti-forgery state for the degraded SSO path. In production this
+# lives in Redis with the OTP state. Maps state -> {provider, app, redirect_uri}.
+_sso_states: dict[str, dict] = {}
+
+# Signals that raise the risk band. Non-identifying, coarse signals only; the
+# human is always final and identity never blocks on its own.
+_HIGH_RISK_SIGNALS = frozenset({"impossible_travel", "credential_stuffing", "tor_exit"})
+_MEDIUM_RISK_SIGNALS = frozenset({"new_device", "new_geo", "new_ip", "elevated_velocity"})
+
+
+def _derive_risk(signals: list[str]) -> str:
+    """Map coarse session signals to a band. Generate-and-verify spirit: a
+    derived band, never an automated consequential action."""
+    s = set(signals)
+    if s & _HIGH_RISK_SIGNALS:
+        return "high"
+    if s & _MEDIUM_RISK_SIGNALS:
+        return "medium"
+    return "low"
 
 
 @asynccontextmanager
@@ -161,6 +192,10 @@ async def auth_otp_verify(
         app=app_id,
         memberships=[m.model_dump(mode="json") for m in memberships],
     )
+    await store.record_access(
+        canonical_uuid=canonical_uuid, action="auth.otp.verified",
+        outcome="issued", app=app_id,
+    )
     return TokenResponse(access_token=token, expires_in=expires_in, canonical_uuid=canonical_uuid)
 
 
@@ -231,6 +266,218 @@ async def consent_grant(
 
 
 # ---------------------------------------------------------------------------
+# SSO — the single front door. Phone-OTP stays first; these are delegated
+# federations (Google / Apple / Microsoft / institutional SSO+SAML).
+# Auto-provisions ONE canonical identity on first signup. Degrades cleanly.
+# ---------------------------------------------------------------------------
+@app.post("/v1/identity/auth/sso/start", response_model=SsoStartResponse, status_code=202, tags=["auth"])
+async def auth_sso_start(req: SsoStartRequest) -> SsoStartResponse:
+    started = sso.build_start(provider=req.provider, app=req.app, redirect_uri=req.redirect_uri)
+    _sso_states[started.state] = {
+        "provider": req.provider, "app": req.app, "redirect_uri": req.redirect_uri,
+        "created_at": datetime.now(timezone.utc),
+    }
+    logger.info("SSO start for provider=%s (state only): %s degraded=%s",
+                req.provider, started.state, started.degraded)
+    return SsoStartResponse(
+        provider=req.provider, authorization_url=started.authorization_url,
+        state=started.state, degraded=started.degraded,
+    )
+
+
+@app.post("/v1/identity/auth/sso/callback", response_model=TokenResponse, tags=["auth"])
+async def auth_sso_callback(
+    req: SsoCallbackRequest,
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> TokenResponse:
+    pending = _sso_states.get(req.state)
+    if pending is None or pending["provider"] != req.provider:
+        raise HTTPException(status_code=401, detail="invalid or expired sso state")
+    _sso_states.pop(req.state, None)
+    app_id: AppId = pending["app"]
+
+    # The provider's stable subject. In production this comes from the verified
+    # token exchange; in the degraded/local path the caller supplies it directly
+    # so the federation is exercisable offline. Without either, fail closed.
+    subject = req.subject or (req.code if req.code else None)
+    if not subject:
+        raise HTTPException(status_code=401, detail="provider did not return a subject")
+
+    # Auto-provision ONE canonical identity on first signup (single front door).
+    canonical_uuid = await store.resolve_by_federation(provider=req.provider, subject=subject)
+    first_signup = canonical_uuid is None
+    if canonical_uuid is None:
+        canonical_uuid = await store.issue_canonical_user(
+            phone=None, full_name=req.full_name, dob=None, email=req.email
+        )
+    await store.link_federation(
+        canonical_uuid=canonical_uuid, provider=req.provider, subject=subject,
+        email=req.email, full_name=req.full_name,
+    )
+
+    raw = await store.active_memberships(canonical_uuid, app_id)
+    memberships = [_to_membership(m) for m in raw]
+    token, expires_in, _exp = tokens.mint(
+        canonical_uuid=canonical_uuid, app=app_id,
+        memberships=[m.model_dump(mode="json") for m in memberships],
+    )
+    await store.record_access(
+        canonical_uuid=canonical_uuid,
+        action="sso.signup" if first_signup else "sso.callback",
+        outcome="issued", app=app_id,
+    )
+    return TokenResponse(access_token=token, expires_in=expires_in, canonical_uuid=canonical_uuid)
+
+
+# ---------------------------------------------------------------------------
+# Device & session risk management (session, device, and risk).
+# ---------------------------------------------------------------------------
+@app.post("/v1/identity/devices/register", response_model=DeviceRecord, status_code=201, tags=["device"])
+async def register_device(
+    req: DeviceRegisterRequest,
+    authorization: str | None = Header(default=None),
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> DeviceRecord:
+    _verify(tokens, authorization)
+    rec = await store.register_device(
+        canonical_uuid=req.canonical_uuid, device_fingerprint=req.device_fingerprint,
+        label=req.label, platform=req.platform,
+    )
+    await store.record_access(
+        canonical_uuid=req.canonical_uuid, action="device.registered",
+        outcome="issued", device_id=rec["device_id"],
+    )
+    return DeviceRecord(**_device_public(rec))
+
+
+@app.get("/v1/identity/devices", response_model=list[DeviceRecord], tags=["device"])
+async def list_devices(
+    canonical_uuid: UUID = Query(...),
+    authorization: str | None = Header(default=None),
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> list[DeviceRecord]:
+    _verify(tokens, authorization)
+    rows = await store.list_devices(canonical_uuid)
+    return [DeviceRecord(**_device_public(r)) for r in rows]
+
+
+@app.post("/v1/identity/devices/{device_id}/revoke", status_code=204, tags=["device"])
+async def revoke_device(
+    device_id: UUID,
+    canonical_uuid: UUID = Query(...),
+    authorization: str | None = Header(default=None),
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> None:
+    _verify(tokens, authorization)
+    ok = await store.revoke_device(canonical_uuid=canonical_uuid, device_id=device_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="device not found or already revoked")
+    await store.record_access(
+        canonical_uuid=canonical_uuid, action="device.revoked",
+        outcome="revoked", device_id=device_id,
+    )
+
+
+@app.post("/v1/identity/sessions/risk", response_model=SessionRiskResponse, tags=["device"])
+async def assess_session_risk(
+    req: SessionRiskRequest,
+    authorization: str | None = Header(default=None),
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> SessionRiskResponse:
+    _verify(tokens, authorization)
+    risk = _derive_risk(req.signals)
+    rec = await store.record_session_risk(
+        canonical_uuid=req.canonical_uuid, session_id=req.session_id,
+        risk=risk, signals=req.signals, device_id=req.device_id,
+    )
+    await store.record_access(
+        canonical_uuid=req.canonical_uuid, action="session.risk_assessed",
+        outcome="allowed", session_id=req.session_id, device_id=req.device_id, risk=risk,
+    )
+    return SessionRiskResponse(
+        session_id=req.session_id, canonical_uuid=req.canonical_uuid, risk=risk,
+        signals=req.signals,
+        # PERMISSION LADDER: a high band RECOMMENDS step-up; it never blocks on
+        # its own. The gateway/human decides.
+        requires_step_up=(risk == "high"),
+        assessed_at=rec["assessed_at"],
+    )
+
+
+# ---------------------------------------------------------------------------
+# Access history (full access history and audit).
+# ---------------------------------------------------------------------------
+@app.get("/v1/identity/access-history", response_model=list[AccessEvent], tags=["history"])
+async def access_history(
+    canonical_uuid: UUID = Query(...),
+    limit: int = Query(default=100, ge=1, le=500),
+    authorization: str | None = Header(default=None),
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> list[AccessEvent]:
+    _verify(tokens, authorization)
+    rows = await store.access_history(canonical_uuid, limit=limit)
+    return [AccessEvent(**r) for r in rows]
+
+
+# ---------------------------------------------------------------------------
+# Delegated / temporary / substitute access — first-class TIME-BOUND grants.
+# ---------------------------------------------------------------------------
+@app.post("/v1/identity/access-grants", response_model=AccessGrantRecord, status_code=201, tags=["grants"])
+async def create_access_grant(
+    req: AccessGrantRequest,
+    authorization: str | None = Header(default=None),
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> AccessGrantRecord:
+    _verify(tokens, authorization)
+    starts_at = req.starts_at or datetime.now(timezone.utc)
+    if req.expires_at <= starts_at:
+        raise HTTPException(status_code=422, detail="expires_at must be after starts_at")
+    rec = await store.create_access_grant(
+        kind=req.kind, grantee=req.grantee, granted_by=req.granted_by, app=req.app,
+        role=req.role, scope=req.scope, starts_at=starts_at, expires_at=req.expires_at,
+        reason=req.reason,
+    )
+    await store.record_access(
+        canonical_uuid=req.grantee, action=f"grant.{req.kind}.created",
+        outcome="issued", app=req.app, scope=req.scope,
+    )
+    return _to_grant(rec)
+
+
+@app.get("/v1/identity/access-grants", response_model=list[AccessGrantRecord], tags=["grants"])
+async def list_access_grants(
+    grantee: UUID | None = Query(default=None),
+    granted_by: UUID | None = Query(default=None),
+    authorization: str | None = Header(default=None),
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> list[AccessGrantRecord]:
+    _verify(tokens, authorization)
+    rows = await store.list_access_grants(grantee=grantee, granted_by=granted_by)
+    return [_to_grant(r) for r in rows]
+
+
+@app.post("/v1/identity/access-grants/{grant_id}/revoke", status_code=204, tags=["grants"])
+async def revoke_access_grant(
+    grant_id: UUID,
+    authorization: str | None = Header(default=None),
+    store: IdentityStore = Depends(get_store),
+    tokens: TokenService = Depends(get_tokens),
+) -> None:
+    _verify(tokens, authorization)
+    ok = await store.revoke_access_grant(grant_id=grant_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail="grant not found or already revoked")
+
+
+# ---------------------------------------------------------------------------
 # Internal privileged provisioning. Returns the opaque canonical_uuid ONLY.
 # Reachable only behind the gateway with a privileged policy.
 # ---------------------------------------------------------------------------
@@ -278,4 +525,24 @@ def _to_membership(row: dict) -> Membership:
     return Membership(
         app=row["app"], role=row["role"], scope=scope_str,
         granted_at=row["granted_at"], revoked_at=row.get("revoked_at"),
+    )
+
+
+def _device_public(row: dict) -> dict:
+    """Strip the in-vault fingerprint; the response carries no raw identifier."""
+    return {
+        "device_id": row["device_id"], "canonical_uuid": row["canonical_uuid"],
+        "label": row.get("label"), "platform": row.get("platform"),
+        "registered_at": row["registered_at"], "last_seen_at": row.get("last_seen_at"),
+        "revoked_at": row.get("revoked_at"), "trusted": row.get("trusted", False),
+    }
+
+
+def _to_grant(row: dict) -> AccessGrantRecord:
+    return AccessGrantRecord(
+        grant_id=row["grant_id"], kind=row["kind"], grantee=row["grantee"],
+        granted_by=row["granted_by"], app=row["app"], role=row["role"],
+        scope=row["scope"], starts_at=row["starts_at"], expires_at=row["expires_at"],
+        reason=row.get("reason"), granted_at=row["granted_at"],
+        revoked_at=row.get("revoked_at"), active=_grant_active(row),
     )

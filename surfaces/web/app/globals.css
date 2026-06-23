@@ -1393,6 +1393,173 @@ a {
 }
 
 /* ============================================================================
+   Vidya canvas — the on-demand floating drawing surface. Calm v4: ink strokes
+   (var(--text-primary)), crisp stroke-draw that animates in, generous space,
+   sharp corners, no shadows. Caveat (script) only for a human annotation. The
+   signature is reserved for the rare mastery moment — never used here.
+   ============================================================================ */
+.vidya-canvas {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 60;
+  width: min(560px, calc(100vw - 2 * var(--space-5)));
+  max-height: min(78vh, 640px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-strong, var(--border));
+  border-radius: 0; /* sharp corners */
+  overflow: hidden;
+  animation: vidya-canvas-in var(--dur-slow, 220ms) var(--ease) both;
+}
+
+@keyframes vidya-canvas-in {
+  from { opacity: 0; transform: translate(-50%, -48%) scale(0.98); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+.vidya-canvas-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border);
+  cursor: grab;
+  touch-action: none;
+}
+.vidya-canvas-head:active { cursor: grabbing; }
+
+.vidya-canvas-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.vidya-canvas-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: var(--space-5);
+}
+
+/* The SVG drawing surface — ink strokes, crisp, animatable stroke-draw. */
+.vc-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+}
+
+.vc-stroke {
+  fill: none;
+  stroke: var(--text-primary);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+/* Stroke-draw: lines/paths draw themselves in, like .c-draw / spark / ring. */
+.vc-stroke.is-drawn {
+  stroke-dasharray: 260;
+  stroke-dashoffset: 260;
+  animation: vc-draw 0.7s var(--ease) forwards;
+}
+@keyframes vc-draw { to { stroke-dashoffset: 0; } }
+
+.vc-label {
+  fill: var(--text-secondary);
+  font-size: 3.4px;
+  text-anchor: middle;
+  font-family: var(--font-sans, inherit);
+}
+.vc-label-free { text-anchor: start; }
+
+/* The human-style annotation — script (Caveat), the one place it is used. */
+.vc-annotation {
+  fill: var(--text-primary);
+  font-size: 4.2px;
+  text-anchor: start;
+  font-family: 'Caveat', var(--font-script, cursive);
+}
+
+/* A derivation rendered large on the canvas — steps reveal one by one. */
+.vc-derivation {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.vc-derivation-step {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  animation: vc-step-in 0.4s var(--ease) both;
+}
+@keyframes vc-step-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+.vc-derivation-index {
+  flex: none;
+  width: 1.6em;
+  height: 1.6em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) solid var(--border);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+.vc-derivation-text {
+  color: var(--text-primary);
+  line-height: 1.5;
+}
+.vc-derivation-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
+  color: var(--text-tertiary, var(--text-secondary));
+  font-size: 0.8em;
+}
+
+/* A written explanation that writes on — lines appear one at a time. */
+.vc-written {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.vc-written-line {
+  margin: 0;
+  color: var(--text-primary);
+  line-height: 1.6;
+  animation: vc-step-in 0.4s var(--ease) both;
+}
+
+.vidya-canvas-foot {
+  border-top: var(--border-width) solid var(--border);
+  padding: var(--space-3) var(--space-4);
+}
+.vidya-canvas-open {
+  background: none;
+  border: var(--border-width) solid var(--border);
+  border-radius: 0;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+.vidya-canvas-open:hover { border-color: var(--accent); color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .vidya-canvas { animation: none; }
+  .vc-stroke.is-drawn { animation: none; stroke-dashoffset: 0; }
+  .vc-derivation-step,
+  .vc-written-line { animation: none; }
+}
+
+/* ============================================================================
    Voice-first + speak-and-show — the type-instead affordance, the self-
    assembling derivation, and the on-page spotlight ring + margin note.
    Calm, certain, never bouncy; reduced-motion safe.
@@ -1484,14 +1651,25 @@ a {
   z-index: 999; /* under the orb (1000), over the page */
   pointer-events: none;
 }
+/* The ring is now a real SVG vector that DRAWS itself in (the whole Vidya
+   highlight layer is vector, not a CSS box). pathLength=100 normalises the
+   perimeter so a single dash/offset of 100 draws the full ring regardless of
+   size; it then settles into a calm pulse. */
+.vidya-spotlight-svg {
+  overflow: visible;
+  pointer-events: none;
+}
 .vidya-spotlight-ring {
-  position: fixed;
-  border: 2px solid var(--accent);
-  border-radius: var(--radius-sm, 6px);
-  box-sizing: border-box;
-  transition: top var(--dur) var(--ease), left var(--dur) var(--ease),
-    width var(--dur) var(--ease), height var(--dur) var(--ease);
-  animation: vidya-spotlight-pulse 2.4s var(--ease) infinite;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: vidya-spotlight-draw 0.6s var(--ease) forwards,
+    vidya-spotlight-pulse 2.4s var(--ease) 0.6s infinite;
+}
+@keyframes vidya-spotlight-draw {
+  to { stroke-dashoffset: 0; }
 }
 .vidya-spotlight-label,
 .vidya-spotlight-note {
@@ -1504,11 +1682,15 @@ a {
   color: var(--text-primary);
 }
 @keyframes vidya-spotlight-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 var(--accent-tint, transparent); }
-  50% { box-shadow: 0 0 0 4px var(--accent-tint, transparent); }
+  0%, 100% { stroke-opacity: 1; }
+  50% { stroke-opacity: 0.55; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .vidya-spotlight-ring { animation: none; }
+  /* No draw-in, no pulse — the ring simply appears, fully drawn. */
+  .vidya-spotlight-ring {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
 }
 
 /* ============================================================================

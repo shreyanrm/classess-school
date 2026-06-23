@@ -16,6 +16,10 @@ boards, and indexes nodes semantically. The package surface:
                       board-agnostic (every board is a code label).
   - ``embeddings``  — the pgvector semantic-index interface with an in-memory
                       fallback; Track 1 / Track 2 model lanes kept separate.
+  - ``coverage``    — learning-outcome coverage (outcome → skill → question) and
+                      curriculum versioning (effective-on-date + supersession).
+  - ``overlays``    — competitive-exam mappings and school-defined local overlays
+                      as projections over the shared graph (never base mutation).
   - ``events``      — emit ontology lifecycle events on the contract envelope
                       (opaque ids only; append-only).
   - ``config``      — env-var NAMES only (degrades gracefully with none set).
@@ -32,20 +36,24 @@ from __future__ import annotations
 
 from . import (  # noqa: F401
     config,
+    coverage,
     embeddings,
     equivalence,
     events,
     ingest,
+    overlays,
     seed,
     steward,
 )
 
 __all__ = [
     "config",
+    "coverage",
     "embeddings",
     "equivalence",
     "events",
     "ingest",
+    "overlays",
     "seed",
     "steward",
 ]

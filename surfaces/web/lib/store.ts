@@ -204,6 +204,13 @@ export interface Institution {
   /** Pacing approach captured in the policy step. */
   pacing: string;
   createdAt: string;
+  /**
+   * The LIVE operational institution_id returned by /api/school once the
+   * blueprint persists to Supabase. Opaque. Absent on the degraded (no-db)
+   * path; when present, surfaces reload the school live and it survives a
+   * refresh. Never a real personal id.
+   */
+  liveId?: string;
 }
 
 /** The whole school setup blueprint, persisted across reload. */
@@ -537,6 +544,19 @@ export function saveSchool(school: SchoolSetup): void {
 /** Remove the school setup (start the blueprint over). */
 export function clearSchool(): void {
   updateStore((s) => ({ ...s, school: null }));
+}
+
+/**
+ * Stamp the LIVE operational institution_id onto the saved blueprint after it
+ * persists to Supabase via /api/school. No-op when there is no school yet.
+ * This is what lets surfaces reload the school live and survive a refresh.
+ */
+export function setSchoolLiveId(liveId: string): void {
+  updateStore((s) =>
+    s.school
+      ? { ...s, school: { ...s.school, institution: { ...s.school.institution, liveId } } }
+      : s,
+  );
 }
 
 // ---------------------------------------------------------------------------

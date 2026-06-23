@@ -24,7 +24,12 @@ import {
   type VidyaAction,
   type HighlightRegion,
   type StepsCardSpec,
+  type CanvasCardSpec,
 } from './vidya';
+
+/** A substantial derivation (this many verified steps or more) earns the canvas
+ *  — a short result stays small inline in the orb. */
+const CANVAS_STEPS_THRESHOLD = 3;
 
 /** A live highlight directive the orb spotlights on the page. */
 export interface ActiveHighlight {
@@ -56,8 +61,12 @@ export interface UseVidyaResult {
   highlight: ActiveHighlight | null;
   /** The active margin annotation, or null. Visual only. */
   annotation: ActiveAnnotation | null;
-  /** The active self-assembling derivation, or null. */
+  /** The active self-assembling derivation in the orb, or null. */
   steps: StepsCardSpec | null;
+  /** The active floating-canvas content Vidya has summoned, or null. */
+  canvas: CanvasCardSpec | null;
+  /** Dismiss the floating canvas (without clearing the conversation). */
+  closeCanvas: () => void;
   /** Clear the current speak-and-show visuals (e.g. on close / new turn). */
   clearVisuals: () => void;
   reset: () => void;
@@ -76,11 +85,15 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
   const [highlight, setHighlight] = useState<ActiveHighlight | null>(null);
   const [annotation, setAnnotation] = useState<ActiveAnnotation | null>(null);
   const [steps, setSteps] = useState<StepsCardSpec | null>(null);
+  const [canvas, setCanvas] = useState<CanvasCardSpec | null>(null);
+
+  const closeCanvas = useCallback(() => setCanvas(null), []);
 
   const clearVisuals = useCallback(() => {
     setHighlight(null);
     setAnnotation(null);
     setSteps(null);
+    setCanvas(null);
   }, []);
 
   // The offline fallback — used ONLY when the orchestrator degrades. Typing must
@@ -99,15 +112,32 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
   // and applyVoiceTurn().
   const applyTurn = useCallback(
     (text: string, actions: VidyaAction[], emptyFallback: string) => {
+      // A canvas action is the explicit "show it" — Vidya summoned the floating
+      // canvas to draw / derive / sketch. It is honoured directly.
+      const canvasAction = actions.find((a) => a.type === 'canvas');
+      let canvasSpec: CanvasCardSpec | null =
+        canvasAction && canvasAction.type === 'canvas' ? canvasAction.spec : null;
+
       // A self-assembling derivation prefers the dedicated steps overlay; any
       // other render spec becomes the inline card in the thread.
       const stepsAction = actions.find(
         (a) => a.type === 'render' && a.spec.kind === 'steps',
       );
-      const stepsSpec =
+      let stepsSpec =
         stepsAction && stepsAction.type === 'render' && stepsAction.spec.kind === 'steps'
           ? stepsAction.spec
           : null;
+
+      // A SUBSTANTIAL derivation is promoted to the floating canvas (rendered
+      // large, self-assembling). A short result stays small inline in the orb.
+      if (!canvasSpec && stepsSpec && stepsSpec.steps.length >= CANVAS_STEPS_THRESHOLD) {
+        canvasSpec = {
+          kind: 'canvas',
+          title: stepsSpec.title,
+          content: { type: 'derivation', steps: stepsSpec.steps },
+        };
+        stepsSpec = null; // it lives on the canvas now, not the inline overlay
+      }
 
       const renderAction = actions.find(
         (a) => a.type === 'render' && a.spec.kind !== 'steps',
@@ -120,11 +150,13 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
       const replyText =
         text.trim().length > 0
           ? text
-          : inline || stepsSpec
+          : inline || stepsSpec || canvasSpec
             ? 'Here is what I found.'
             : emptyFallback;
 
       setMessages((prev) => [...prev, { id: messageId(), role: 'vidya', text: replyText, inline }]);
+
+      setCanvas(canvasSpec);
 
       // Speak-and-show: a fresh turn replaces the prior visuals.
       const highlightAction = actions.find((a) => a.type === 'highlight');
@@ -208,6 +240,8 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
     highlight,
     annotation,
     steps,
+    canvas,
+    closeCanvas,
     clearVisuals,
     reset,
   };

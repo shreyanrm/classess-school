@@ -12,6 +12,8 @@ from app.substitution import (
     SubstitutionLadder,
     VacancyContext,
     assign_substitute,
+    grant_external_access,
+    revoke_external_access,
 )
 
 
@@ -122,3 +124,81 @@ def test_assign_requires_human_approval():
     confirmed = assign_substitute(top, approved_by=APPROVER)
     assert confirmed.staff_ref == top.staff_ref
     assert confirmed.is_free_period is False
+
+
+# -- Doc-aligned Levels 4/5/6 ----------------------------------------------
+
+
+def _cross_campus_vacancy() -> VacancyContext:
+    return VacancyContext(
+        period_id="p1",
+        on_date=date(2026, 6, 22),
+        slot_key=SLOT,
+        subject_id="math",
+        grade_id="g10",
+        home_campus_id="campus_main",
+        current_topic_id="topic_quadratics",
+        resume_at_period=18,
+    )
+
+
+def test_level_four_cross_campus_online_pairs_an_onsite_supervisor():
+    ladder = SubstitutionLadder()
+    staff = [
+        # A subject specialist at ANOTHER campus who teaches online -> Level 4.
+        StaffMember(
+            "remote1", "teacher", frozenset({"math"}), None, frozenset({"g10"}),
+            campus_id="campus_north", teaches_online=True, free_slots=frozenset({SLOT}),
+        ),
+        # A free on-site duty teacher to supervise the room.
+        StaffMember(
+            "onsite1", "duty_teacher", frozenset(), None, frozenset(),
+            campus_id="campus_main", is_duty_teacher=True, free_slots=frozenset({SLOT}),
+        ),
+    ]
+    options = ladder.build_ladder(_cross_campus_vacancy(), staff)
+    l4 = next(o for o in options if o.level is SubLevel.CROSS_CAMPUS_ONLINE)
+    assert l4.supervisor_ref == "onsite1"  # on-site supervision present.
+    assert l4.is_supervised is True
+    # Pick-up-at-the-right-point linkage travels with every option.
+    assert l4.pickup is not None and l4.pickup.is_linked is True
+
+
+def test_level_five_external_grant_is_time_bound_and_removable():
+    ladder = SubstitutionLadder(owner_ref=APPROVER)
+    staff = [
+        StaffMember(
+            "ext1", "teacher", frozenset({"math"}), None, frozenset({"g10"}),
+            is_external=True, free_slots=frozenset({SLOT}),
+        ),
+    ]
+    options = ladder.build_ladder(_cross_campus_vacancy(), staff)
+    l5 = next(o for o in options if o.level is SubLevel.EXTERNAL_TIME_BOUND)
+    # Staged, not yet active until human approval.
+    assert l5.access_grant is not None
+    assert l5.access_grant.is_active is False
+
+    # Activation needs approval; never auto-fires.
+    with pytest.raises(PermissionError):
+        grant_external_access(l5, approved_by=None, granted_at="2026-06-22T08:00:00+00:00", expires_at="2026-06-22T09:00:00+00:00")
+    active = grant_external_access(
+        l5, approved_by=APPROVER,
+        granted_at="2026-06-22T08:00:00+00:00",
+        expires_at="2026-06-22T09:00:00+00:00",
+    )
+    assert active.is_active is True
+
+    # Removed after cover -> no standing external access.
+    removed = revoke_external_access(active)
+    assert removed.is_active is False
+    assert removed.revoked_at == active.expires_at
+    # Idempotent.
+    assert revoke_external_access(removed).is_active is False
+
+
+def test_grant_requires_a_level_five_option():
+    ladder = SubstitutionLadder()
+    options = ladder.build_ladder(_vacancy(), _staff())
+    non_l5 = next(o for o in options if o.level is not SubLevel.EXTERNAL_TIME_BOUND)
+    with pytest.raises(ValueError):
+        grant_external_access(non_l5, approved_by=APPROVER, granted_at="x", expires_at="y")

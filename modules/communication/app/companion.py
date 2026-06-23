@@ -39,17 +39,33 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Literal
 
+from .companion_memory import CompanionMemory
 from .config import CommunicationSettings, get_settings
 from .safeguarding import Escalation, SafetyFinding, Safeguard
 
 
 class CompanionRole(str, Enum):
     """The companion is shaped to a role/stage. The shape changes the tone and
-    the vocabulary, never the boundaries — the boundaries are identical for all."""
+    the vocabulary, never the boundaries — the boundaries are identical for all.
+
+    Two families share one identity (the dossier: "one companion, role-shaped"):
+      - learner STAGES (early/learner/senior) — the academic companion, shaped to
+        age; protects productive struggle.
+      - functional ROLES (student/teacher/parent/admin) — the student's companion
+        protects struggle; the teacher's prepares; the parent's reports and
+        reassures; the admin's commands the institution.
+    All boundaries (no dependence/exclusivity/manipulation; crisis escalates) are
+    identical across every shape — only tone and vocabulary differ.
+    """
 
     EARLY_LEARNER = "early_learner"
     LEARNER = "learner"
     SENIOR_LEARNER = "senior_learner"
+    # Functional role shapes over the one identity.
+    STUDENT = "student"
+    TEACHER = "teacher"
+    PARENT = "parent"
+    ADMIN = "admin"
 
 
 # Phrasing the companion must NEVER produce. These encode dependence,
@@ -116,7 +132,23 @@ _OPENERS: dict[CompanionRole, str] = {
     CompanionRole.EARLY_LEARNER: "Hello. I am here to help you keep going.",
     CompanionRole.LEARNER: "Hi. I can help you make a start — the thinking stays yours.",
     CompanionRole.SENIOR_LEARNER: "Hi. Tell me what you are working on and we can plan a first step.",
+    # Functional roles — the student is shaped like a learner (struggle-protecting);
+    # the staff roles are shaped to prepare/report/command without over-doing.
+    CompanionRole.STUDENT: "Hi. I can help you make a start — the thinking stays yours.",
+    CompanionRole.TEACHER: "Hi. Tell me what you are teaching and I can prepare a draft for your review.",
+    CompanionRole.PARENT: "Hi. I can share how things are going and one thing to try together at home.",
+    CompanionRole.ADMIN: "Hi. Tell me what you need and I can prepare it for your approval.",
 }
+
+# Functional roles point a learner toward people + independence; staff roles
+# instead make clear the companion PREPARES and a human approves (permission
+# ladder), so the closing line is shaped to the role.
+_STAFF_ROLES: frozenset[CompanionRole] = frozenset(
+    {CompanionRole.TEACHER, CompanionRole.PARENT, CompanionRole.ADMIN}
+)
+_TO_HUMAN_DECISION = (
+    "I will prepare it; the decision and the final action stay with you."
+)
 
 # Gentle nudges back toward people and independence (anti-dependence by design).
 _TO_PEOPLE = (
@@ -163,12 +195,21 @@ class Companion:
         role: CompanionRole = CompanionRole.LEARNER,
         guard: Safeguard | None = None,
         settings: CommunicationSettings | None = None,
+        memory: "CompanionMemory | None" = None,
     ) -> None:
         self._role = role
         self._settings = settings or get_settings()
         # No unmonitored channel: the companion ALWAYS has a safeguard. If none
         # is supplied it constructs the deterministic on-device one.
         self._guard = guard or Safeguard(self._settings)
+        # Optional persistent memory. None -> the companion is stateless per
+        # request (the prior behaviour). When supplied, turns are remembered
+        # ONLY when a consent ref is passed to respond() (consent-gated).
+        self._memory = memory
+
+    @property
+    def memory(self) -> "CompanionMemory | None":
+        return self._memory
 
     @property
     def role(self) -> CompanionRole:
@@ -178,17 +219,28 @@ class Companion:
     def guard(self) -> Safeguard:
         return self._guard
 
-    def respond(self, learner_text: str, *, writer_ref: str) -> CompanionReply:
+    def respond(
+        self,
+        learner_text: str,
+        *,
+        writer_ref: str,
+        consent_ref: str | None = None,
+    ) -> CompanionReply:
         """The single entry point. Screen first, escalate serious matters, and
         otherwise return a bounded, boundary-checked, anti-dependence reply.
 
         ``writer_ref`` is the learner's opaque canonical_uuid (no PII).
+        ``consent_ref`` — when a memory store is attached AND a consent ref for
+        the companion_memory purpose is supplied, the turn is remembered
+        (consent-gated, PII-free). Without it the companion stays stateless.
         """
         finding, escalation = self._guard.screen(
             learner_text, surface="companion", writer_ref=writer_ref
         )
 
         # Serious matter -> the companion NEVER counsels. Hand off to a human.
+        # A flagged turn is NEVER written to memory (it is a safeguarding matter
+        # owned by a human, not companion context).
         if finding.flagged:
             text = _HANDOFF_TEXT
             check_boundaries(text)  # the hand-off itself respects the boundaries.
@@ -208,15 +260,45 @@ class Companion:
         # unwired we serve the vetted scripted reply.
         text = self._scripted_reply()
         check_boundaries(text)
+
+        # Consent-gated memory: only retain when a store is attached and a
+        # consent ref is present. PII-shaped turns are refused by the store; we
+        # never let a memory write break the reply, so a refused turn is dropped.
+        self._maybe_remember(writer_ref, learner_text, text, consent_ref)
+
         return CompanionReply(
             text=text,
             role=self._role,
             handed_off=False,
             escalation=None,
             finding=finding,
-            points_to_people=True,
+            points_to_people=self._role not in _STAFF_ROLES,
             source="scripted_bounded",
         )
+
+    def _maybe_remember(
+        self,
+        writer_ref: str,
+        learner_text: str,
+        reply_text: str,
+        consent_ref: str | None,
+    ) -> None:
+        if self._memory is None or not consent_ref:
+            return
+        from .companion_memory import PiiInMemoryError
+
+        try:
+            self._memory.remember_turn(
+                user_ref=writer_ref, speaker="user", text=learner_text,
+                consent_ref=consent_ref,
+            )
+            self._memory.remember_turn(
+                user_ref=writer_ref, speaker="companion", text=reply_text,
+                consent_ref=consent_ref,
+            )
+        except PiiInMemoryError:
+            # A PII-shaped turn is refused, never stored. The reply still stands.
+            return
 
     def vet_generated_reply(self, candidate: str) -> str:
         """Pass a model-generated candidate reply through the boundary wall.
@@ -230,4 +312,8 @@ class Companion:
 
     def _scripted_reply(self) -> str:
         opener = _OPENERS[self._role]
+        if self._role in _STAFF_ROLES:
+            # Staff shapes: the companion prepares; a human decides (permission
+            # ladder). No anti-dependence "talk to a teacher" nudge for staff.
+            return f"{opener} {_TO_HUMAN_DECISION}"
         return f"{opener} {_TO_INDEPENDENCE} {_TO_PEOPLE}"

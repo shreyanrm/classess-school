@@ -99,3 +99,76 @@ def test_findings_are_advisory_and_pii_free():
 def test_empty_history_no_findings():
     findings = risk.detect_risks(_history("uuid-x", []))
     assert list(findings) == []
+
+
+# --- subject-specific pattern ---------------------------------------------
+
+
+def test_subject_specific_pattern_detected():
+    # Attends overall, but repeatedly skips one subject -> subject pattern.
+    days = []
+    anchor = _dt.date(2026, 6, 22)
+    for i in range(20):
+        d = (anchor - _dt.timedelta(days=i)).isoformat()
+        # every 3rd day is "maths" and is missed; the rest present in "english"
+        if i % 3 == 0:
+            days.append({"date": d, "status": "absent", "subject": "maths"})
+        else:
+            days.append({"date": d, "status": "present", "subject": "english"})
+    findings = risk.detect_risks(_history("uuid-s", days))
+    pattern = [
+        f for f in findings
+        if (getattr(f, "risk_kind", None) or f.get("risk_kind")) == "pattern"
+    ]
+    assert pattern
+    # at least one pattern finding is keyed on the subject
+    details = [getattr(f, "detail", {}) for f in pattern]
+    assert any(d.get("subject") == "maths" for d in details)
+
+
+# --- exam-shortage (eligibility shortfall before exams) --------------------
+
+
+def test_exam_shortage_below_floor_is_urgent():
+    # 50% attendance against a 75% floor, exam in 10 days -> urgent shortfall.
+    days = [_day(i, "present" if i % 2 == 0 else "absent") for i in range(20)]
+    findings = risk.detect_risks(
+        _history("uuid-e", days),
+        exam_eligibility_floor=0.75,
+        days_to_exam=10,
+    )
+    exam = [
+        f for f in findings
+        if (getattr(f, "risk_kind", None) or f.get("risk_kind")) == "exam_shortage"
+    ]
+    assert exam
+    assert exam[0].severity == "urgent"
+    assert exam[0].detail["below_floor"] == "true"
+
+
+def test_no_exam_shortage_without_floor_or_window():
+    days = [_day(i, "present" if i % 2 == 0 else "absent") for i in range(20)]
+    # no floor supplied -> detector does not run
+    assert not [
+        f for f in risk.detect_risks(_history("uuid-e", days))
+        if (getattr(f, "risk_kind", None) or f.get("risk_kind")) == "exam_shortage"
+    ]
+    # exam too far away -> out of window
+    far = risk.detect_risks(
+        _history("uuid-e", days), exam_eligibility_floor=0.75, days_to_exam=120
+    )
+    assert not [
+        f for f in far
+        if (getattr(f, "risk_kind", None) or f.get("risk_kind")) == "exam_shortage"
+    ]
+
+
+def test_exam_shortage_comfortably_above_floor_no_flag():
+    days = [_day(i, "present") for i in range(20)]
+    findings = risk.detect_risks(
+        _history("uuid-e", days), exam_eligibility_floor=0.75, days_to_exam=5
+    )
+    assert not [
+        f for f in findings
+        if (getattr(f, "risk_kind", None) or f.get("risk_kind")) == "exam_shortage"
+    ]

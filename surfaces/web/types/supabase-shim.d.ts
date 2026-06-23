@@ -60,8 +60,24 @@ declare module '@supabase/supabase-js' {
     };
   }
 
+  /** A realtime channel — the small structural surface lib/realtime.ts uses. */
+  export interface RealtimeChannel {
+    on(
+      type: string,
+      filter: Record<string, unknown>,
+      callback: (payload: unknown) => void,
+    ): RealtimeChannel;
+    subscribe(callback?: (status: string) => void): RealtimeChannel;
+    send(args: { type: string; event: string; payload: unknown }): Promise<string> | string;
+    track(state: Record<string, unknown>): Promise<string> | string;
+    presenceState(): Record<string, unknown[]>;
+    unsubscribe(): Promise<string> | string;
+  }
+
   export interface SupabaseClient {
     auth: SupabaseAuthClient;
+    channel(name: string, opts?: Record<string, unknown>): RealtimeChannel;
+    removeChannel(channel: RealtimeChannel): Promise<string> | string;
   }
 
   export interface SupabaseClientOptions {

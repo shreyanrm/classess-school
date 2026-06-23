@@ -13,6 +13,7 @@ Import-safe, no network.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 
 import pytest
@@ -20,8 +21,12 @@ import pytest
 from app.config import get_settings
 from app.second_model import (
     CROSSCHECK_KEY_ENV_VAR,
+    CROSSCHECK_PROVIDER,
+    GENERATOR_PROVIDER,
     CrossCheckVerdict,
     LiveSecondModel,
+    OpenAICrossCheckProvider,
+    crosscheck_is_independent_of_generator,
     make_second_model,
 )
 from app.verify import AbstainingSecondModel, ConfidenceGate, DeterministicCheck
@@ -92,10 +97,12 @@ def test_factory_abstains_with_no_key():
     assert isinstance(sm, AbstainingSecondModel)
 
 
-def test_factory_abstains_with_key_but_no_provider():
-    # Key present but no provider seam wired => fall back to abstaining.
+def test_factory_wires_real_openai_provider_by_default_with_key():
+    # Key present and no explicit provider => the factory loads the REAL default
+    # cross-check provider (OpenAI), so a LIVE independent second model is wired.
     sm = make_second_model(settings=_settings_with_key(), provider=None)
-    assert isinstance(sm, AbstainingSecondModel)
+    assert isinstance(sm, LiveSecondModel)
+    assert isinstance(sm.provider, OpenAICrossCheckProvider)
 
 
 def test_factory_picks_abstain_from_empty_env():
@@ -181,3 +188,95 @@ def test_raw_key_not_in_repr_of_live_model_attrs():
     assert SECRET_KEY_VALUE not in repr(chosen)
     # _raw_key is private and returns the value for the seam only.
     assert sm._raw_key() == SECRET_KEY_VALUE
+
+
+# ---------------------------------------------------------------------------
+# The REAL OpenAI cross-check provider — exercised OFFLINE via an injected
+# transport. No live network call; the OpenAI provider is INVOKED BY NAME.
+# ---------------------------------------------------------------------------
+
+@dataclass
+class FakeOpenAITransport:
+    """An offline stand-in for httpx: returns a canned OpenAI-shaped response and
+    records the request so tests can assert what was sent (and what was NOT)."""
+
+    verdict_json: str = '{"agrees": true, "confidence": 0.92}'
+    seen_url: str | None = None
+    seen_headers: dict | None = None
+    seen_body: dict | None = None
+
+    def post_json(self, *, url, headers, json_body, timeout):
+        self.seen_url = url
+        self.seen_headers = dict(headers)
+        self.seen_body = json_body
+        return {"choices": [{"message": {"content": self.verdict_json}}]}
+
+
+def _openai_live(transport):
+    return LiveSecondModel(
+        provider=OpenAICrossCheckProvider(transport=transport),
+        settings=_settings_with_key(),
+    )
+
+
+def test_openai_provider_is_a_different_provider_than_the_generator():
+    assert CROSSCHECK_PROVIDER == "openai"
+    assert GENERATOR_PROVIDER == "gemini"
+    assert CROSSCHECK_PROVIDER != GENERATOR_PROVIDER
+    assert crosscheck_is_independent_of_generator() is True
+
+
+def test_openai_crosscheck_invoked_by_name_and_agrees():
+    transport = FakeOpenAITransport(verdict_json='{"agrees": true, "confidence": 0.9}')
+    sm = _openai_live(transport)
+    agrees, conf = sm.cross_check(task_class="content.generate-practice-item", content="2+2=4")
+    assert agrees is True
+    assert conf == pytest.approx(0.9)
+    # Invoked by NAME against the OpenAI endpoint with the configured model.
+    assert transport.seen_url == "https://api.openai.com/v1/chat/completions"
+    assert transport.seen_body["model"] == "gpt-4o-mini"
+
+    gate = ConfidenceGate(threshold=0.85)
+    assert gate.evaluate(_ok_checks(), agrees, conf).served is True
+
+
+def test_openai_crosscheck_refusal_keeps_gate_closed():
+    transport = FakeOpenAITransport(verdict_json='{"agrees": false, "confidence": 0.99}')
+    sm = _openai_live(transport)
+    agrees, conf = sm.cross_check(task_class="x", content="2+2=5")
+    assert agrees is False
+    assert conf == 0.0
+    gate = ConfidenceGate(threshold=0.85)
+    v = gate.evaluate(_ok_checks(), agrees, conf)
+    assert v.served is False
+    assert "second-model" in (v.review_reason or "")
+
+
+def test_openai_crosscheck_malformed_response_fails_closed():
+    transport = FakeOpenAITransport(verdict_json="not json at all")
+    sm = _openai_live(transport)
+    agrees, conf = sm.cross_check(task_class="x", content="y")
+    assert agrees is False
+    assert conf == 0.0
+
+
+def test_openai_crosscheck_abstains_without_key():
+    # No key => the factory abstains; the OpenAI provider is never called.
+    sm = make_second_model(settings=_settings_without_key())
+    assert isinstance(sm, AbstainingSecondModel)
+    agrees, conf = sm.cross_check(task_class="x", content="y")
+    assert agrees is False
+    assert conf == 0.0
+
+
+def test_openai_key_rides_only_in_header_never_in_result():
+    transport = FakeOpenAITransport()
+    sm = _openai_live(transport)
+    result = sm.cross_check(task_class="x", content="content")
+    # The key reaches ONLY the Authorization header at call time ...
+    assert transport.seen_headers["Authorization"] == f"Bearer {SECRET_KEY_VALUE}"
+    # ... never in the request body, never in the returned tuple.
+    assert SECRET_KEY_VALUE not in json.dumps(transport.seen_body)
+    assert SECRET_KEY_VALUE not in repr(result)
+    for part in result:
+        assert SECRET_KEY_VALUE != part

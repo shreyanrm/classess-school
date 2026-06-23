@@ -93,7 +93,11 @@ export function VidyaSpotlight({
       }
       const r = el.getBoundingClientRect();
       setRect({ top: r.top, left: r.left, width: r.width, height: r.height });
-      el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      // Bring the target into view — guarded, since some environments (and tests)
+      // do not implement scrollIntoView.
+      if (typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
     };
 
     measure();
@@ -122,17 +126,36 @@ export function VidyaSpotlight({
   if (!rect) return null;
 
   const pad = 6;
+  // The ring is a real SVG vector — a rounded rectangle that draws itself in
+  // (stroke-dashoffset animates from the full perimeter to 0). The whole Vidya
+  // highlight layer is vector, not a CSS box: it reads as a drawn annotation,
+  // honours prefers-reduced-motion (the draw-in is disabled there), and never
+  // mutates the page. A 2px-inset viewport keeps the stroke from clipping.
+  const w = rect.width + pad * 2;
+  const h = rect.height + pad * 2;
+  const inset = 2;
+  const rx = 6;
   return (
     <div className="vidya-spotlight-layer" aria-hidden="true" data-testid="vidya-spotlight">
-      <div
-        className="vidya-spotlight-ring"
-        style={{
-          top: rect.top - pad,
-          left: rect.left - pad,
-          width: rect.width + pad * 2,
-          height: rect.height + pad * 2,
-        }}
-      />
+      <svg
+        className="vidya-spotlight-svg"
+        width={w + inset * 2}
+        height={h + inset * 2}
+        viewBox={`0 0 ${w + inset * 2} ${h + inset * 2}`}
+        style={{ position: 'fixed', top: rect.top - pad - inset, left: rect.left - pad - inset }}
+        fill="none"
+      >
+        <rect
+          className="vidya-spotlight-ring"
+          x={inset}
+          y={inset}
+          width={w}
+          height={h}
+          rx={rx}
+          ry={rx}
+          pathLength={100}
+        />
+      </svg>
       {label ? (
         <div
           className="vidya-spotlight-label body-sm"

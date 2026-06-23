@@ -93,6 +93,10 @@ class Candidate:
     confidence: float
     # For math/physics items: the deterministic ground-truth handle.
     math_item: MathItem | None = None
+    # Token usage if the provider reports it (None when unavailable). Recorded on
+    # the trace span; never required for the deterministic paths.
+    prompt_tokens: int | None = None
+    completion_tokens: int | None = None
 
 
 class ProviderAdapter(Protocol):
@@ -205,6 +209,8 @@ class Orchestrator:
             ))
             span.set("router.tier", route.selection.tier.value)
             span.set("router.track", route.selection.track)
+            if route.model is not None:
+                span.record_model(route.model.model_label)
 
             # Resolve the provider: explicit adapter, else deterministic math
             # stand-in when the payload supports it.
@@ -231,6 +237,12 @@ class Orchestrator:
                 )
 
             candidate = provider.generate(capability=cap, route=route, payload=intent.payload)
+            # Tokens are recorded only when the provider reported them.
+            if candidate.prompt_tokens is not None or candidate.completion_tokens is not None:
+                span.record_tokens(
+                    prompt=candidate.prompt_tokens,
+                    completion=candidate.completion_tokens,
+                )
 
             # GENERATE-AND-VERIFY: deterministic checks FIRST.
             det_checks = self._deterministic_checks(candidate)

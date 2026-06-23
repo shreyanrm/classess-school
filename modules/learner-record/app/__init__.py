@@ -10,8 +10,18 @@ What B8 owns:
   - ``profile``     : the evidence-linked profile — independent vs support-dependent
                       mastery in PLAIN LANGUAGE, never a number; every item carries
                       its source + permission controls.
+  - ``timeline``    : the continuous academic timeline — mastery, projects,
+                      achievements, teacher observations, reflections — each
+                      evidence-linked, plain language, consent-gated.
+  - ``iep``         : the individual education plan + append-only intervention
+                      history (consequential acts return requires_approval).
   - ``portfolio``   : curated artifacts with provenance.
+  - ``showcase``    : year-end portfolio compilation + the student-owned showcase.
   - ``credentials`` : verifiable, portable credentials under the learner's control.
+  - ``artifacts``   : distinct certificate + badge issuance artifacts (over a
+                      credential; verifiability inherited, never faked).
+  - ``transfer``    : learner-controlled, revocable record handoff between
+                      permitted contexts (consequential -> requires_approval).
   - ``events``      : portfolio / credential events (append-only, gateway-degrading).
 
 What B8 does NOT do: it never authors mastery, never computes a score, never
@@ -32,8 +42,13 @@ __all__ = [
     # Submodules — imported by name for discoverability.
     "access",
     "profile",
+    "timeline",
+    "iep",
     "portfolio",
+    "showcase",
     "credentials",
+    "artifacts",
+    "transfer",
     "events",
 ]
 

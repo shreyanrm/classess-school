@@ -34,8 +34,9 @@ from __future__ import annotations
 
 import statistics
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
-from uuid import UUID
+from uuid import UUID, uuid4
 
 
 # ---------------------------------------------------------------------------
@@ -292,3 +293,83 @@ def compose_groups(
         balance_tolerance=config.balance_tolerance,
         rationale=comp_rationale,
     )
+
+
+# ---------------------------------------------------------------------------
+# Project milestones — the staged checkpoints a group project runs through.
+# A milestone is a planned checkpoint; marking it reached is a teacher act
+# (RECOMMEND/human-owned), never auto-completed by the system.
+# ---------------------------------------------------------------------------
+class MilestoneStatus(str, Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    REACHED = "reached"
+    MISSED = "missed"
+
+
+@dataclass(frozen=True)
+class Milestone:
+    """One project milestone: a named checkpoint, optionally due by a date, with a
+    status a teacher advances. Carries only opaque refs (no PII)."""
+
+    title: str
+    status: MilestoneStatus = MilestoneStatus.PENDING
+    due_at: datetime | None = None
+    milestone_id: UUID = field(default_factory=uuid4)
+    description: str = ""
+
+    def advanced_to(self, status: MilestoneStatus) -> "Milestone":
+        """Return a copy at a new status (a teacher-driven advance)."""
+        return Milestone(
+            title=self.title,
+            status=status,
+            due_at=self.due_at,
+            milestone_id=self.milestone_id,
+            description=self.description,
+        )
+
+
+@dataclass(frozen=True)
+class ProjectMilestones:
+    """The ordered milestones for one group project, with a progress read. A plan
+    the team works through; advancing a milestone is a human act."""
+
+    group_label: str
+    milestones: list[Milestone] = field(default_factory=list)
+
+    @property
+    def reached_count(self) -> int:
+        return sum(1 for m in self.milestones if m.status is MilestoneStatus.REACHED)
+
+    @property
+    def progress(self) -> float:
+        """Fraction of milestones reached, in [0,1]. 0.0 when there are none."""
+        if not self.milestones:
+            return 0.0
+        return self.reached_count / len(self.milestones)
+
+    @property
+    def overdue(self) -> list[Milestone]:
+        """Milestones not yet reached whose due date has passed (a teacher signal,
+        computed against ``now`` at call time by the caller via ``overdue_as_of``)."""
+        return [m for m in self.milestones if m.status not in (MilestoneStatus.REACHED,)]
+
+    def overdue_as_of(self, now: datetime) -> list[Milestone]:
+        """Milestones past due and not reached as of ``now`` — a risk signal for a
+        teacher, never an automatic penalty."""
+        return [
+            m
+            for m in self.milestones
+            if m.due_at is not None and m.due_at < now and m.status is not MilestoneStatus.REACHED
+        ]
+
+
+def plan_milestones(group_label: str, titles: list[str], *, due_dates: list[datetime] | None = None) -> ProjectMilestones:
+    """Plan a project's milestones from an ordered list of titles, optionally with
+    matching due dates. All start PENDING; a teacher advances them."""
+    due_dates = due_dates or []
+    milestones = [
+        Milestone(title=t, due_at=(due_dates[i] if i < len(due_dates) else None))
+        for i, t in enumerate(titles)
+    ]
+    return ProjectMilestones(group_label=group_label, milestones=milestones)
