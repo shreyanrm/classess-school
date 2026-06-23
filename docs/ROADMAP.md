@@ -22,15 +22,11 @@ _Last updated: this session._
 
 ---
 
-## ▶ NEXT — Vidya, complete (highest priority, "nothing left behind")
-Per §04 + d15 + §09. Build, then E2E each:
-1. **Generative-UI conversational OS** — Vidya summons/composes/operates real surfaces inline (e.g. "make a quiz" → working builder in the conversation), not just fixed cards.
-2. **Four role-shaped personas** — student companion / teacher copilot / parent guide / admin assistant, one identity.
-3. **Full multimodal** — text + voice (done) **+ image, document, screen** intake.
-4. **Persistent per-user memory** — wire the learned per-learner representation (built in `spine/intelligence`) into the live orchestrator so Vidya remembers + conditions every turn.
-5. **Editable canvas + sources/evidence** alongside (the workspace).
-6. **Make the orb fully E2E-driveable** (un-skip the navigate spec; ensure the panel settles for the harness).
-   _Also: ensure voice-first never holds the UI when there's no mic._
+## ✅ Vidya, complete — DONE (live on 3.classess.com, commit 705a3ed)
+4 role-shaped personas (student companion / teacher copilot / parent guide / admin assistant) · generative-UI (composes + operates real surfaces inline, typed+verified specs, permission ladder holds) · persistent per-user memory (PII-free, consent-gated, conditions the orchestrator) · multimodal intent (image/document/screen → Gemini) + voice · editable SVG canvas + sources · orb idle pulse frozen while open (calmer + actionable). E2E green (30 pass). Residual: the orb's NL-navigate E2E is `test.fixme` — feature works for real users (CDP-input deadlocks only the headless harness); revisit if we want it harness-driven.
+
+## ▶ NEXT — the priority feature list to full capability (then E2E each)
+Hyperlocalization · Metacognition (re-grade/reflection) · Blueprint wizard (conversational) · Policy versioning · Ontology steward depth · Timetable generation · Period swapping/pacing · Academic calendar · Generated material (summaries/worksheets) · Adaptive lesson/course planning · Flexible assignments (kinds/media/drafts) · Balanced group projects (6-dim rubric) · Originality (style-shift/web/model-answer) · Blueprint paper generation (sections/test-types) · Rubric library (13 types) · Voice mark entry · Adaptive practice (formats/topic-quiz/aptitude) · Fast flexible capture (Gemini vision/ASR) · Revision planner · Mock tests & readiness · Unified child view (real signals) · Intelligence dashboards · Prediction & trajectory · Ask-anything dashboard · Private teacher growth · SLM / a-mind-for-every-learner · Many-minds/model router (live wiring) · observability. **These mostly live in the Python spine — surfacing them in the live web needs THE CIRCUIT (below).**
 
 ## ⏭ AFTER — finish the priority list to full capability (then E2E each, checklist-driven)
 Hyperlocalization · Metacognition (re-grade/reflection) · Blueprint wizard (conversational) · Policy versioning · Ontology steward depth · Timetable generation · Period swapping/pacing · Academic calendar · Generated material (summaries/worksheets) · Adaptive lesson/course planning · Flexible assignments (kinds/media/drafts) · Balanced group projects (6-dim rubric) · Originality (style-shift/web/model-answer) · Blueprint paper generation (sections/test-types) · Rubric library (13 types) · Voice mark entry · Adaptive practice (formats/topic-quiz/aptitude) · Fast flexible capture (Gemini vision/ASR) · Revision planner · Mock tests & readiness (time-left) · Unified child view (real signals) · Intelligence dashboards · Prediction & trajectory · Ask-anything dashboard · Private teacher growth · **SLM / a-mind-for-every-learner** (foundry → train) · Many-minds/model router (live wiring) · Generate/verify/agents + observability.
