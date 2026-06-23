@@ -54,12 +54,12 @@ export async function getSupabaseClient(): Promise<SupabaseClient | null> {
     client = null;
     return client;
   }
-  // Resolve the SDK through an indirected specifier + @vite-ignore so the
-  // bundler/test transform does NOT eagerly resolve it. The real package is
-  // present at runtime once installed; in the demo/tests this branch is never
-  // reached (no env vars), so the import is never attempted.
-  const sdkSpecifier = '@supabase/supabase-js';
-  const sdk = (await import(/* @vite-ignore */ sdkSpecifier)) as typeof import('@supabase/supabase-js');
+  // STATIC dynamic import — webpack must see the literal specifier to code-split
+  // the SDK into its own chunk and bundle it. (A variable specifier left it as an
+  // unresolved bare import at runtime -> "Cannot find module" in the browser ->
+  // blank page in prod.) It is still lazy: the chunk loads only when this runs,
+  // which is only when the public env vars are set (never in demo/tests).
+  const sdk = await import('@supabase/supabase-js');
   client = sdk.createClient(url, key, {
     auth: {
       persistSession: true,
