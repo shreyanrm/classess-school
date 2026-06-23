@@ -1,0 +1,33 @@
+{
+  "name": "classess",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Classess School — an agentic academic intelligence platform. Ring 0 base.",
+  "workspaces": [
+    "contracts",
+    "packages/*",
+    "surfaces/*"
+  ],
+  "scripts": {
+    "build:contracts": "npm run build -w @classess/contracts",
+    "build:ds": "npm run build -w @classess/design-system",
+    "dev": "npm run dev -w @classess/web",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ts": "vitest run",
+    "test:py": "bash scripts/test-python.sh",
+    "ci": "bash scripts/ci.sh"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@vitejs/plugin-react": "^6.0.2",
+    "jsdom": "^29.1.1",
+    "vitest": "^2.1.9"
+  }
+}

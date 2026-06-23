@@ -1,0 +1,12 @@
+# Classess Coursework & Assessment (module B6, Ring 1).
+# The evaluation engine is CORE-grade. Pure, deterministic where possible:
+# stdlib + pydantic only. No LLM client and no DB driver in the degraded path —
+# generation routes through the AI fabric's generate-and-verify substrate (which
+# refuses cleanly with no provider), and event emission degrades to returning the
+# event object. Cross-service calls pass the gateway when wired; the module holds
+# no credentials.
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+
+# Test-only.
+pytest>=8.0,<9

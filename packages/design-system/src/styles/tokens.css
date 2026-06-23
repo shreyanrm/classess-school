@@ -1,0 +1,281 @@
+/* ============================================================================
+   CLASSESS · DESIGN SYSTEM v4 — DESIGN TOKENS
+   "Steel + one hit of pigment." European-minimal.
+
+   This file is the single source of truth for every primitive. Components and
+   pages consume these variables only — never raw hex. Override the semantic
+   layer per theme; never override the raw palette.
+
+   Ported verbatim from classess-design-system/tokens.css. Do not edit values
+   here without updating the canonical source.
+   ============================================================================ */
+
+:root {
+
+  /* ------------------------------------------------------------------ *
+   *  RAW PALETTE — shades of white (warm-neutral steel, never grey)     *
+   * ------------------------------------------------------------------ */
+  --white-50:  #FCFBF9;   /* surface — cards, panels (the "paper")        */
+  --white-100: #F6F4F0;   /* canvas — the app background (the "wall")     */
+  --white-200: #ECE8E1;   /* sunken — wells, inputs, track grooves        */
+  --white-300: #DCD7CE;   /* hairline — default borders & dividers        */
+  --white-400: #CFC9BE;   /* hairline-strong — emphasis borders, hover    */
+
+  /* ------------------------------------------------------------------ *
+   *  RAW PALETTE — shades of black (warm graphite, never pure #000)     *
+   * ------------------------------------------------------------------ */
+  --black-900: #0F0E0C;   /* obsidian — dark-theme canvas                 */
+  --black-800: #171510;   /* ink — primary text on light                 */
+  --black-700: #252119;   /* slate — dark-theme surface                  */
+  --black-600: #332E25;   /* graphite-line — dark-theme hairline         */
+  --black-500: #56514A;   /* graphite — secondary text on light          */
+  --black-400: #78726A;   /* stone — quiet text                          */
+  --black-300: #8B857A;   /* ash — tertiary, hints, disabled             */
+  --black-dk-surface:   #1B1813;  /* dark-theme sunken                   */
+  --black-dk-secondary: #B5AFA4;  /* dark-theme secondary text           */
+  --black-dk-tertiary:  #7B7569;  /* dark-theme tertiary text            */
+
+  /* ------------------------------------------------------------------ *
+   *  ACCENT FAMILY — vivid pigment, knocked back from neon.             *
+   *  Each hue ships with an -ink (text on the hue) and -tint (faint     *
+   *  steel-washed background for chips/banners).                        *
+   *  RULE: monochrome shell; one vivid per surface; colour = meaning.   *
+   * ------------------------------------------------------------------ */
+  --molten:      #FF4D1A;  --molten-ink:  #5C1A06;  --molten-tint:  #FCE4DA;
+  --hot-red:     #EC1C2D;  --hot-red-ink: #6B0710;  --hot-red-tint: #FBE0E2;
+  --magenta:     #DD1E9A;  --magenta-ink: #6B0A49;  --magenta-tint: #FBDFF0;
+  --violet:      #7A2FF2;  --violet-ink:  #2E0A75;  --violet-tint:  #EBE0FD;
+  --ultramarine: #1F35E0;  --ultra-ink:   #0A1574;  --ultra-tint:   #E0E4FB;
+  --tiffany:     #0FC2C0;  --tiffany-ink: #06403E;  --tiffany-tint: #D9F6F5;
+  --acid:        #C2F000;  --acid-ink:    #3A4A00;  --acid-tint:    #F1FBC9;
+  --amber:       #FFB020;  --amber-ink:   #6B4500;  --amber-tint:   #FCEFD2;
+  /* expansion — v4.1 */
+  --cobalt:      #1E6BFF;  --cobalt-ink:  #07227A;  --cobalt-tint:  #DEE9FF;
+  --cyan:        #00B5D8;  --cyan-ink:    #053C49;  --cyan-tint:    #D2F2F8;
+  --emerald:     #10A37A;  --emerald-ink: #053D2C;  --emerald-tint: #DBF3EC;
+  --tangerine:   #FF8A00;  --tangerine-ink:#6B3A00; --tangerine-tint:#FCEAD2;
+  --rose:        #F4356E;  --rose-ink:    #6B0A2C;  --rose-tint:    #FCDDE7;
+  --grape:       #A82FE0;  --grape-ink:   #420A66;  --grape-tint:   #F0DEFB;
+  --indigo:      #4B41E0;  --indigo-ink:  #16107A;  --indigo-tint:  #E2E0FB;
+
+  /* ------------------------------------------------------------------ *
+   *  FUNCTIONAL / SEMANTIC STATE — distinct from subject identity.      *
+   *  Used only for system states (validation, status), never decoration.*
+   * ------------------------------------------------------------------ */
+  --success: #10936A;  --success-ink: #053D2C;  --success-tint: #DBF2E9;
+  --danger:  #EC1C2D;  --danger-ink:  #6B0710;  --danger-tint:  #FBE0E2;
+  --warning: #FFB020;  --warning-ink: #6B4500;  --warning-tint: #FCEFD2;
+  --info:    #1F35E0;  --info-ink:    #0A1574;  --info-tint:    #E0E4FB;
+
+  /* ------------------------------------------------------------------ *
+   *  SEMANTIC SURFACE / TEXT — LIGHT THEME (default).                   *
+   *  Apps and components reference THESE, not the raw palette.          *
+   * ------------------------------------------------------------------ */
+  --bg-canvas:     var(--white-100);
+  --bg-surface:    var(--white-50);
+  --bg-raised:     #FFFFFF;            /* menus, popovers — cleanest lift  */
+  --bg-sunken:     var(--white-200);
+  --bg-inverse:    var(--black-800);
+  --border:        var(--white-300);
+  --border-strong: var(--white-400);
+  --text-primary:   var(--black-800);
+  --text-secondary: var(--black-500);
+  --text-tertiary:  var(--black-300);
+  --text-inverse:   var(--white-100);
+  --signature:      var(--ultramarine); /* THE hit: brand mark + ignite    */
+  --signature-ink:  var(--ultra-ink);
+  --signature-tint: var(--ultra-tint);
+
+  /* ------------------------------------------------------------------ *
+   *  PER-SURFACE ACCENT — set data-surface on the shell root.          *
+   *  Every interactive / active state binds to --accent (NOT signature).*
+   *  Default (no data-surface) falls back to the brand signature so an  *
+   *  unscoped shell still reads correctly.                              *
+   *  RULE: --signature (ultramarine) is reserved for the brand mark     *
+   *  (.rail-mark / .brand .mark) and the mastery ignite ONLY.           *
+   * ------------------------------------------------------------------ */
+  --accent:      var(--signature);
+  --accent-ink:  var(--signature-ink);
+  --accent-tint: var(--signature-tint);
+
+  /* ------------------------------------------------------------------ *
+   *  TYPOGRAPHY — families                                              *
+   * ------------------------------------------------------------------ */
+  --font-sans:      'Google Sans Flex', 'Poppins', 'Google Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif:     'DM Serif Display', Georgia, 'Times New Roman', serif;      /* the voice — primary */
+  --font-serif-alt: 'Bodoni Moda', 'DM Serif Display', Georgia, serif;          /* editorial / hero alt */
+  --font-mono:      'Google Sans Code', ui-monospace, 'SF Mono', 'Cascadia Code', monospace;
+  --font-script:    'Caveat', 'Segoe Print', cursive;
+
+  /* weights (sans is variable; we use three) */
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+
+  /* Google Sans Flex axes — "slightly rounded but sharp" lives here.
+     ROND (roundness) sits low so forms read crisp, not bubbly. */
+  --sans-axes: "ROND" 12, "opsz" 18;
+
+  /* ------------------------------------------------------------------ *
+   *  TYPE SCALE (px)                                                    *
+   * ------------------------------------------------------------------ */
+  --text-display-lg: 64px;   /* serif — landing hero only                */
+  --text-display:    48px;   /* serif — page hero / section opener       */
+  --text-display-sm: 36px;   /* serif — card titles, subject titles      */
+  --text-h1: 32px;
+  --text-h2: 26px;
+  --text-h3: 21px;
+  --text-h4: 18px;
+  --text-h5: 16px;
+  --text-h6: 14px;
+  --text-body-lg: 18px;
+  --text-body:    16px;
+  --text-body-sm: 14px;
+  --text-caption: 13px;
+  --text-overline:11px;      /* caps, tracked — kickers & labels         */
+  --text-code:    14px;
+  --text-code-sm: 12px;
+  --text-data:    13px;      /* numerics in tables, readouts             */
+
+  /* line heights */
+  --lh-tight:   1.05;
+  --lh-snug:    1.2;
+  --lh-normal:  1.5;
+  --lh-relaxed: 1.7;
+
+  /* letter spacing */
+  --ls-tight:      -0.01em;
+  --ls-normal:      0;
+  --ls-wide:        0.04em;
+  --ls-caps:        0.12em;
+  --ls-caps-loose:  0.18em;
+
+  /* ------------------------------------------------------------------ *
+   *  SPACING — 4px base. "European-spacey": prefer 24 / 32 / 48 for     *
+   *  section rhythm; whitespace is compositional, not just air.         *
+   * ------------------------------------------------------------------ */
+  --space-0:  0;
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-5:  24px;
+  --space-6:  32px;
+  --space-7:  40px;
+  --space-8:  48px;
+  --space-9:  64px;
+  --space-10: 96px;
+  --space-11: 128px;
+
+  /* ------------------------------------------------------------------ *
+   *  RADIUS — sharp. Subtle is the ceiling, not the default.           *
+   *  No full-radius pills (that reads soft / Korean). Tags are sharp.  *
+   * ------------------------------------------------------------------ */
+  --radius-0:  0;
+  --radius-xs: 2px;
+  --radius-sm: 3px;    /* DEFAULT — buttons, inputs, cards, tags          */
+  --radius-md: 6px;    /* ceiling — large panels, modals                 */
+
+  /* ------------------------------------------------------------------ *
+   *  BORDERS & FOCUS                                                    *
+   * ------------------------------------------------------------------ */
+  --border-width:        0.5px;   /* hairline — the structural unit       */
+  --border-width-strong: 1px;
+  --focus-ring:          2px;     /* :focus-visible outline               */
+
+  /* ------------------------------------------------------------------ *
+   *  DEPTH — NO DROP SHADOWS, EVER. Separation by compensation:         *
+   *  hairlines + tonal surface steps + frost for overlays only.        *
+   * ------------------------------------------------------------------ */
+  --frost-bg:   rgba(246, 244, 240, 0.72);
+  --frost-blur: blur(14px);
+  --scrim:      rgba(15, 14, 12, 0.42);   /* modal backdrop               */
+
+  /* ------------------------------------------------------------------ *
+   *  MOTION — quick, certain, never bouncy.                            *
+   * ------------------------------------------------------------------ */
+  --ease:      cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast:  120ms;
+  --dur:       180ms;
+  --dur-slow:  260ms;
+
+  /* ------------------------------------------------------------------ *
+   *  LAYOUT                                                             *
+   * ------------------------------------------------------------------ */
+  --container:        1200px;
+  --container-narrow: 760px;
+  --sidenav-w:        248px;
+  --topbar-h:         60px;
+}
+
+/* ============================================================================
+   DARK THEME — set data-theme="dark" on <html>. Only the semantic layer flips.
+   ============================================================================ */
+[data-theme="dark"] {
+  --bg-canvas:     var(--black-900);
+  --bg-surface:    var(--black-700);
+  --bg-raised:     #2A251D;
+  --bg-sunken:     var(--black-dk-surface);
+  --bg-inverse:    var(--white-100);
+  --border:        var(--black-600);
+  --border-strong: #403A30;
+  --text-primary:   var(--white-100);
+  --text-secondary: var(--black-dk-secondary);
+  --text-tertiary:  var(--black-dk-tertiary);
+  --text-inverse:   var(--black-800);
+  --frost-bg: rgba(15, 14, 12, 0.66);
+  --scrim:    rgba(0, 0, 0, 0.6);
+}
+
+/* Tints stay legible in dark by dropping to a low-alpha wash of the hue.
+   Apps that need dark-tinted banners can opt into these overrides. */
+[data-theme="dark"] {
+  --molten-tint:  rgba(255, 77, 26, 0.16);
+  --hot-red-tint: rgba(236, 28, 45, 0.16);
+  --magenta-tint: rgba(221, 30, 154, 0.16);
+  --violet-tint:  rgba(122, 47, 242, 0.18);
+  --ultra-tint:   rgba(31, 53, 224, 0.20);
+  --tiffany-tint: rgba(15, 194, 192, 0.16);
+  --acid-tint:    rgba(194, 240, 0, 0.16);
+  --amber-tint:   rgba(255, 176, 32, 0.16);
+  --cobalt-tint:    rgba(30, 107, 255, 0.18);
+  --cyan-tint:      rgba(0, 181, 216, 0.16);
+  --emerald-tint:   rgba(16, 163, 122, 0.16);
+  --tangerine-tint: rgba(255, 138, 0, 0.16);
+  --rose-tint:      rgba(244, 53, 110, 0.16);
+  --grape-tint:     rgba(168, 47, 224, 0.18);
+  --indigo-tint:    rgba(75, 65, 224, 0.20);
+  --success-tint: rgba(16, 147, 106, 0.16);
+  --danger-tint:  rgba(236, 28, 45, 0.16);
+  --warning-tint: rgba(255, 176, 32, 0.16);
+  --info-tint:    rgba(31, 53, 224, 0.20);
+  --signature-tint: rgba(255, 77, 26, 0.16);
+}
+
+/* ============================================================================
+   PER-SURFACE ACCENT MAPPINGS — set data-surface on the shell root.
+   student -> tiffany · teacher -> cobalt · admin -> violet · parent -> amber.
+   Resolves --accent / --accent-ink / --accent-tint from the raw palette so
+   every interactive/active state in the system reads as the surface's hue.
+   Theme-agnostic: the -tint vars already flip per data-theme above.
+   ============================================================================ */
+[data-surface="student"] {
+  --accent:      var(--tiffany);
+  --accent-ink:  var(--tiffany-ink);
+  --accent-tint: var(--tiffany-tint);
+}
+[data-surface="teacher"] {
+  --accent:      var(--cobalt);
+  --accent-ink:  var(--cobalt-ink);
+  --accent-tint: var(--cobalt-tint);
+}
+[data-surface="admin"] {
+  --accent:      var(--violet);
+  --accent-ink:  var(--violet-ink);
+  --accent-tint: var(--violet-tint);
+}
+[data-surface="parent"] {
+  --accent:      var(--amber);
+  --accent-ink:  var(--amber-ink);
+  --accent-tint: var(--amber-tint);
+}

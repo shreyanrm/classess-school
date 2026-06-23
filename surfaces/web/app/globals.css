@@ -1,0 +1,1108 @@
+/* ============================================================================
+   @classess/web — app globals.
+
+   Minimal by design. The v4 design system owns every token, type ramp, colour,
+   space and radius (imported as @classess/design-system/styles.css in layout).
+   Nothing here introduces a new value; this file only wires the app shell to
+   the system tokens and lays out the conversation-first frame.
+   ============================================================================ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background: var(--bg-canvas);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+/* The app frame: slim rail at the left, the surface fills the rest. */
+.app-frame {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.app-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* The calm, centred home canvas. */
+.home-canvas {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-7) var(--space-6);
+}
+
+.home-center {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* When a thread is active the canvas anchors content to the top and scrolls. */
+.home-canvas.has-thread {
+  justify-content: flex-start;
+  padding-top: var(--space-7);
+}
+
+.home-greeting {
+  text-align: center;
+}
+
+.home-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+/* The slim icon rail. */
+.rail {
+  width: 64px;
+  flex: 0 0 64px;
+  background: var(--bg-surface);
+  border-right: var(--border-width) solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: var(--space-4) 0;
+  gap: var(--space-2);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+}
+
+.rail-spacer {
+  flex: 1;
+}
+
+.rail-btn {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+  border-radius: var(--radius-sm, 4px);
+}
+
+.rail-btn:hover {
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+}
+
+.rail-btn.active {
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+}
+
+.rail-btn.active::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent);
+}
+
+.rail-mark {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--space-3);
+  color: var(--signature);
+  font-family: var(--font-serif, serif);
+  font-size: 22px;
+  line-height: 1;
+}
+
+/* The search / history drawer launched from the rail. */
+.rail-drawer {
+  position: fixed;
+  inset: 0 auto 0 64px;
+  width: 320px;
+  background: var(--bg-surface);
+  border-right: var(--border-width) solid var(--border);
+  padding: var(--space-5);
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* A page surface (insights, proactive) — top bar + body + docked Vidya. */
+.surface {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.surface-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-7);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.surface-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.surface-body {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  padding: var(--space-7);
+}
+
+.surface-body-inner {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* The docked, collapsible Vidya panel on destination pages. */
+.vidya-dock {
+  width: 380px;
+  flex: 0 0 380px;
+  border-left: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+  display: flex;
+  flex-direction: column;
+}
+
+.vidya-dock.collapsed {
+  width: 56px;
+  flex-basis: 56px;
+}
+
+.vidya-dock-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.vidya-dock-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.vidya-dock-foot {
+  padding: var(--space-4);
+  border-top: var(--border-width) solid var(--border);
+}
+
+.vidya-dock.collapsed .vidya-dock-body,
+.vidya-dock.collapsed .vidya-dock-foot,
+.vidya-dock.collapsed .vidya-dock-title {
+  display: none;
+}
+
+/* The message thread on the home. */
+.thread {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.msg {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.msg-user .bubble {
+  align-self: flex-end;
+  background: var(--bg-sunken);
+  border: var(--border-width) solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  max-width: 80%;
+}
+
+.msg-vidya .who {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+}
+
+.msg-vidya .vidya-text {
+  color: var(--text-primary);
+  line-height: var(--lh-relaxed, 1.6);
+}
+
+/* The inline generative result inside the thread. */
+.inline-result-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+/* Recommendation item meta grid. */
+.rec-meta {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-5);
+  margin: var(--space-4) 0;
+}
+
+.rec-meta .k {
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+  margin-bottom: 2px;
+}
+
+.rec-meta .v {
+  font-size: var(--text-body-sm);
+  color: var(--text-primary);
+}
+
+.rec-actions {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* The evidence drawer. */
+.evidence-drawer {
+  border-top: var(--border-width) solid var(--border);
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.evidence-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.evidence-item .dot {
+  width: 6px;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  flex: 0 0 6px;
+}
+
+/* Mastery view rows. */
+.mastery-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.mastery-row:last-child {
+  border-bottom: 0;
+}
+
+.mastery-band {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-body-sm);
+}
+
+/* Loading shimmer — calm, no spin. */
+.skeleton {
+  background: var(--bg-sunken);
+  border: var(--border-width) solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--bg-surface),
+    transparent
+  );
+  transform: translateX(-100%);
+  animation: skeleton-sweep 1.6s ease-in-out infinite;
+}
+
+@keyframes skeleton-sweep {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton::after {
+    animation: none;
+  }
+}
+
+.skeleton-line {
+  height: 12px;
+  margin-bottom: var(--space-3);
+}
+
+/* A quiet offline banner. */
+.offline-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: var(--bg-sunken);
+  border-bottom: var(--border-width) solid var(--border);
+  font-size: var(--text-body-sm);
+  color: var(--text-secondary);
+}
+
+@media (max-width: 860px) {
+  .vidya-dock {
+    display: none;
+  }
+}
+
+/* ============================================================================
+   Slice 1 — Student <-> Teacher loop. All values from system tokens; no new
+   colours, no shadows, sharp corners.
+   ============================================================================ */
+
+/* The six-dimension mastery breakdown — explicit, never collapsed to a number. */
+.dims {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.dim {
+  display: grid;
+  grid-template-columns: 150px 1fr;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.dim .dim-label {
+  font-size: var(--text-body-sm);
+  color: var(--text-secondary);
+}
+
+.dim .dim-track {
+  height: 8px;
+  background: var(--bg-sunken);
+  border: var(--border-width) solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+
+.dim .dim-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--text-primary);
+  transition: width var(--dur, 240ms) var(--ease, ease);
+}
+
+.dim.keystone .dim-fill {
+  background: var(--accent);
+}
+
+.dim.keystone .dim-label {
+  color: var(--text-primary);
+  font-weight: var(--fw-medium);
+}
+
+/* A loop stepper — the visible stages of the cycle. */
+.loop-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+
+.loop-step {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
+.loop-step.active {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.loop-step.done {
+  color: var(--text-secondary);
+}
+
+.loop-step .num {
+  width: 18px;
+  height: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) solid var(--border);
+  font-size: var(--text-overline);
+}
+
+.loop-step.active .num {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.loop-arrow {
+  color: var(--text-tertiary);
+}
+
+/* The evaluation review table. */
+.eval-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body-sm);
+}
+
+.eval-table th {
+  text-align: left;
+  font-size: var(--text-overline);
+  letter-spacing: var(--ls-wide, 0.04em);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: var(--fw-medium);
+  padding: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.eval-table td {
+  padding: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border);
+  vertical-align: top;
+}
+
+.eval-table tr.needs-review td {
+  background: var(--warning-tint);
+}
+
+.eval-table tr.confirmed td {
+  background: var(--bg-surface);
+}
+
+/* Assistance ladder control — fades from most support to none. */
+.ladder {
+  display: flex;
+  gap: 0;
+  border: var(--border-width) solid var(--border);
+}
+
+.ladder-rung {
+  flex: 1;
+  text-align: center;
+  padding: var(--space-2) var(--space-2);
+  font-size: var(--text-caption);
+  border: 0;
+  border-right: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  cursor: pointer;
+}
+
+.ladder-rung:last-child {
+  border-right: 0;
+}
+
+.ladder-rung.active {
+  background: var(--bg-sunken);
+  color: var(--text-primary);
+  font-weight: var(--fw-medium);
+}
+
+.ladder-rung.evaluating.active {
+  border-bottom: 2px solid var(--accent);
+}
+
+/* Learn — pose / struggle / reveal scaffold. */
+.pose {
+  border: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+  padding: var(--space-6);
+}
+
+.reveal {
+  border-top: var(--border-width) solid var(--border);
+  margin-top: var(--space-5);
+  padding-top: var(--space-5);
+}
+
+/* A small mode banner — helping vs evaluating; the student always knows. */
+.mode-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  font-size: var(--text-caption);
+}
+
+.mode-banner.evaluating {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.mode-banner.helping {
+  color: var(--text-secondary);
+}
+
+/* Gap chips. */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* Two-column page grids for the role pages. */
+.cols-2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: var(--space-5);
+}
+
+/* The student "next step" hero block. */
+.next-step {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.next-step .why-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-4);
+  margin-top: var(--space-3);
+}
+
+.next-step .why-grid .k {
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+}
+
+.next-step .why-grid .v {
+  font-size: var(--text-body-sm);
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+/* A quiet result/answer-state pill. */
+.state-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-caption);
+}
+
+.state-pill .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-tertiary);
+}
+
+.state-pill.correct .dot {
+  background: var(--success);
+}
+
+.state-pill.incomplete .dot {
+  background: var(--amber);
+}
+
+.state-pill.misunderstood .dot {
+  background: var(--hot-red);
+}
+
+/* The mastery moment row in the live loop — ignite sits beside the band. */
+.ignite-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+/* ============================================================================
+   Vidya voice — the calm, optional voice affordance on the home. Quiet, never
+   dominant. All values from system tokens; no shadows, sharp corners.
+   ============================================================================ */
+
+/* The composer and the voice capsule sit on one calm row. */
+.home-composer-row {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.home-composer-row .composer {
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+  min-height: 44px;
+  color: var(--text-secondary);
+  flex-wrap: wrap;
+  max-width: 100%;
+}
+
+.voice-capsule.degraded {
+  color: var(--text-tertiary);
+}
+
+.voice-mic {
+  width: 36px;
+  height: 36px;
+  flex: 0 0 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.voice-mic:hover:not(:disabled) {
+  color: var(--text-primary);
+  background: var(--bg-sunken);
+}
+
+.voice-mic:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.voice-mic.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The waveform — a row of bars, flat at rest, breathing while active. */
+.voice-wave {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+}
+
+.voice-wave i {
+  display: block;
+  width: 2px;
+  height: 5px;
+  background: var(--text-tertiary);
+}
+
+.voice-wave.active i {
+  background: var(--accent);
+  animation: voice-bar 900ms ease-in-out infinite;
+}
+
+@keyframes voice-bar {
+  0%, 100% { height: 5px; }
+  50% { height: 16px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-wave.active i {
+    animation: none;
+    height: 10px;
+  }
+}
+
+.voice-status {
+  font-size: var(--text-caption);
+  color: inherit;
+}
+
+.voice-transcript {
+  font-size: var(--text-body-sm);
+  color: var(--text-primary);
+  flex-basis: 100%;
+}
+
+.voice-retry {
+  border: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--text-caption);
+  padding: 2px var(--space-2);
+  cursor: pointer;
+}
+
+.voice-retry:hover {
+  background: var(--bg-sunken);
+}
+
+@media (max-width: 600px) {
+  .home-composer-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+/* ============================================================================
+   Admin surface — list rows and a selected-card marker. Token-only.
+   ============================================================================ */
+
+.admin-list {
+  display: flex;
+  flex-direction: column;
+  border: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+}
+
+.admin-list-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.admin-list-row:last-child {
+  border-bottom: 0;
+}
+
+/* A selected scored-alternative card — the signature line marks the choice. */
+.card.is-selected {
+  border-color: var(--accent);
+}
+
+/* ============================================================================
+   Parent surface — partnership and pride. Calm, spacious, plain language. One
+   vivid accent; sharp corners; no shadows. Tones are gentle, never alarming.
+   ============================================================================ */
+
+/* The Child switcher — one-click switch that re-renders the surface. */
+.child-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.child-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-start;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.child-chip:hover {
+  color: var(--text-primary);
+}
+
+.child-chip.active {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.child-chip.locked {
+  cursor: default;
+  color: var(--text-tertiary);
+}
+
+.child-chip-label {
+  font-size: var(--text-body-sm);
+  font-weight: var(--fw-medium);
+}
+
+.child-chip-section {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-tertiary);
+}
+
+/* Navigation cards on the parent Today. */
+.parent-links {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.parent-link {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-5);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+/* The child's calm timeline. */
+.parent-timeline {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.parent-timeline-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-4);
+  padding-bottom: var(--space-4);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.parent-timeline-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.parent-timeline-marker {
+  display: flex;
+  justify-content: center;
+  padding-top: 6px;
+}
+
+.parent-timeline-marker .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 0;
+  background: var(--text-tertiary);
+}
+
+.dot.tone-celebrate {
+  background: var(--signature);
+}
+
+.dot.tone-support {
+  background: var(--amber);
+}
+
+.dot.tone-steady {
+  background: var(--success);
+}
+
+/* Report celebration / next-step points. */
+.parent-report-points {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-4);
+}
+
+.parent-report-point {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-sunken);
+}
+
+/* PTM prep list. */
+.parent-ptm-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+
+.parent-ptm-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: var(--space-3);
+}
+
+/* The Proof artifact — a proud, shareable moment. */
+.proof-artifact .proof-headline {
+  line-height: 1.2;
+}
+
+/* ============================================================================
+   Ring 2 surfaces — connector hub, AI control centre, teacher growth, network.
+   v4 only: no shadows, sharp corners, hairline rules, one accent per surface.
+   ============================================================================ */
+
+/* The connector matrix cells carry their own padding (the Matrix shares
+   hairlines via the grid gap; cells need internal breathing room). */
+.connector-cell {
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+}
+
+/* Teacher growth — the calm list of other signals. */
+.growth-list {
+  display: grid;
+  gap: var(--border-width);
+  background: var(--border);
+  border: var(--border-width) solid var(--border);
+}
+
+.growth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-surface);
+  border: none;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+  transition: background 120ms ease;
+}
+
+.growth-row:hover {
+  background: var(--bg-sunken);
+}
+
+.growth-row.active {
+  background: var(--bg-sunken);
+}
+
+/* Network rollup tree — group -> region -> campus. */
+.net-tree {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.net-region {
+  border: var(--border-width) solid var(--border);
+}
+
+.net-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-4) var(--space-5);
+  color: inherit;
+  font: inherit;
+}
+
+.net-row-region {
+  background: var(--bg-surface);
+  border: none;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.net-row-region:hover {
+  background: var(--bg-sunken);
+}
+
+.net-children {
+  border-top: var(--border-width) solid var(--border);
+}
+
+.net-row-campus {
+  background: var(--bg-sunken);
+  border-top: var(--border-width) solid var(--border);
+}
+
+.net-row-campus:first-child {
+  border-top: none;
+}
+
+.net-tick {
+  width: 16px;
+  height: var(--border-width);
+  background: var(--border-strong);
+  flex: 0 0 auto;
+}
+
+.net-summary {
+  flex: 1;
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.net-summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.net-summary-metrics {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.net-summary-metrics .progress {
+  flex: 1;
+  min-width: 80px;
+}

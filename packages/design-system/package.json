@@ -1,0 +1,33 @@
+{
+  "name": "@classess/design-system",
+  "version": "0.1.0",
+  "description": "Classess v4.1 design system — Steel + one hit of pigment. European-minimal React components, tokens, and motion.",
+  "type": "module",
+  "sideEffects": [
+    "*.css"
+  ],
+  "exports": {
+    ".": "./src/index.ts",
+    "./styles.css": "./src/styles/index.css"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "react": "^18 || ^19",
+    "react-dom": "^18 || ^19"
+  },
+  "dependencies": {
+    "lucide-react": "^0.460.0",
+    "@fontsource-variable/google-sans-code": "^5.2.4",
+    "@fontsource/caveat": "^5.2.5",
+    "@fontsource/poppins": "^5.2.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0",
+    "@types/react": "^19.0.0"
+  }
+}

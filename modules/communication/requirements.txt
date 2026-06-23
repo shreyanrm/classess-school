@@ -1,0 +1,11 @@
+# Classess School — Relationships & communication module (B9).
+#
+# The module's deterministic paths are stdlib-only and import-safe: importing the
+# package and running the degraded (in-memory) flows — the bounded companion, the
+# hub + task routing, parent partnership, the safeguarding classifier, and the
+# translation interface — needs NOTHING here.
+#
+# The only dependency is the test runner.
+
+# Test-only.
+pytest>=8.0,<9

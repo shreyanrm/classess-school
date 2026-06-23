@@ -1,0 +1,15 @@
+# Classess Institution & policy (module B1, Ring 0 minimal provisioning -> Ring 1).
+# Pure and deterministic: stdlib only in the degraded path. No DB driver and no
+# LLM client — the hierarchy, blueprint, policy inheritance, and tenancy run
+# fully offline; event emission degrades to returning the event object. Every
+# cross-service call passes the gateway when wired; the module holds no
+# credentials and never embeds a secret value.
+#
+# pydantic is OPTIONAL: the event builders validate against the spine contract
+# mirror when it is importable, and enforce the load-bearing rules by hand
+# otherwise. Listed so a wired deployment can pin it.
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+
+# Test-only.
+pytest>=8.0,<9

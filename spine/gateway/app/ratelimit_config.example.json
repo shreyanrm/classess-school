@@ -1,0 +1,49 @@
+{
+  "default": {
+    "limit": 120,
+    "window_seconds": 60,
+    "algorithm": "token_bucket"
+  },
+  "routes": {
+    "intelligence-views.read": {
+      "limit": 30,
+      "window_seconds": 60,
+      "algorithm": "token_bucket"
+    },
+    "learner-record.read": {
+      "limit": 60,
+      "window_seconds": 60,
+      "algorithm": "token_bucket"
+    },
+    "feature-store.read": {
+      "limit": 60,
+      "window_seconds": 60,
+      "algorithm": "token_bucket"
+    },
+    "feature-store.export": {
+      "limit": 5,
+      "window_seconds": 60,
+      "algorithm": "fixed_window"
+    },
+    "intelligence-views.export": {
+      "limit": 5,
+      "window_seconds": 60,
+      "algorithm": "fixed_window"
+    },
+    "learner-record.export": {
+      "limit": 5,
+      "window_seconds": 60,
+      "algorithm": "fixed_window"
+    },
+    "institution.export": {
+      "limit": 5,
+      "window_seconds": 60,
+      "algorithm": "fixed_window"
+    },
+    "communication.write": {
+      "limit": 20,
+      "window_seconds": 60,
+      "algorithm": "token_bucket"
+    }
+  }
+}

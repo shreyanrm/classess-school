@@ -1,0 +1,43 @@
+"""Capability operation -> upstream HTTP route map.
+
+The gateway exposes a single generic entrypoint
+``POST /v1/route/{capability}/{operation}`` (gateway contract). This table maps
+each contract operationId to the concrete upstream method + path template on the
+target capability service. The gateway is the ONLY caller of these upstreams.
+
+Keeping the map explicit (rather than blindly proxying any path) is part of the
+wall: an operation that is not in this table is not routable, which composes
+with the deny-by-default policy engine.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class UpstreamRoute:
+    method: str
+    path: str  # may contain {placeholders} filled from the request body/query
+    # Whether this operation is a cross-context READ that must assert a purpose.
+    purpose_required: bool = False
+
+
+# capability -> operationId -> UpstreamRoute
+ROUTE_MAP: dict[str, dict[str, UpstreamRoute]] = {
+    "identity": {
+        "resolveMemberships": UpstreamRoute("GET", "/v1/identity/memberships/resolve"),
+        "consentCheck": UpstreamRoute("POST", "/v1/identity/consent/check"),
+        "consentGrant": UpstreamRoute("POST", "/v1/identity/consent/grant"),
+        "issueCanonicalUser": UpstreamRoute("POST", "/v1/identity/internal/users"),
+    },
+    "event-store": {
+        "emitEvent": UpstreamRoute("POST", "/v1/event-store/events"),
+        "readEvents": UpstreamRoute("GET", "/v1/event-store/events", purpose_required=True),
+        "readEvent": UpstreamRoute("GET", "/v1/event-store/events/{event_id}", purpose_required=True),
+    },
+}
+
+
+def lookup(capability: str, operation: str) -> UpstreamRoute | None:
+    return ROUTE_MAP.get(capability, {}).get(operation)

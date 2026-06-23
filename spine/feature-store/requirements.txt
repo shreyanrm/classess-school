@@ -1,0 +1,16 @@
+# Classess Feature Store + Prediction Layer (spine A3, Ring 2 intelligence depth).
+# A pure, deterministic projection layer: stdlib + pydantic only. No network, no
+# LLM client, no DB driver in the degraded path — the deterministic feature and
+# forecast paths work with no provider.
+#
+# It CONSUMES the sibling intelligence engine (spine/intelligence) directly from
+# source via the interop shim; that engine has the same dependency footprint, so
+# no extra runtime deps are introduced here.
+#
+# A gateway-backed event source (when wired) reads the event store THROUGH the
+# gateway; it is not a dependency of the projection itself.
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+
+# Test-only.
+pytest>=8.0,<9

@@ -1,0 +1,5 @@
+# Classess Workflow Engine — proactive loop + permission-ladder runtime (spine A5).
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+# Tests
+pytest>=8,<9

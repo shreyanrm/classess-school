@@ -1,0 +1,15 @@
+# Classess AI fabric (spine A4) — model router + generate-and-verify substrate.
+#
+# The deterministic core (router, verifier, confidence gate, orchestrator,
+# observability) depends only on the standard library. Live providers and a
+# tracing backend are wired later behind the named env vars; they are NOT
+# required for the deterministic paths or the tests to run.
+
+# Settings loader for named env-prefixed secrets (app/config.py). OPTIONAL:
+# config.py prefers pydantic-settings when present and degrades to a
+# standard-library loader with the same prefix + fields when it is absent, so
+# the deterministic paths and tests run without it.
+pydantic-settings>=2.0
+
+# Test runner only.
+pytest>=8.0,<9

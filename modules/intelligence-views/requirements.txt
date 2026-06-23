@@ -1,0 +1,14 @@
+# Classess School — Intelligence views (capability module B11, Ring 1->2).
+# A pure, deterministic composition layer over the spine engines + the governed
+# semantic layer. stdlib + pydantic only; no network, no LLM client, no DB driver
+# in the degraded path — every deterministic path works with no provider. Cross-
+# service reads (feature store, semantic layer, consent) pass the gateway when
+# wired; they are not dependencies of the composition itself.
+#
+# The spine workflow and intelligence packages are consumed as source on the path
+# (no install/build is run); they require the same pydantic line below.
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+
+# Test-only.
+pytest>=8.0,<9

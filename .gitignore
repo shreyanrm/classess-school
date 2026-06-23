@@ -1,0 +1,38 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+build/
+.next/
+out/
+*.tsbuildinfo
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# env & secrets — NEVER commit. Values live in Infisical only.
+.env
+.env.*
+!.env.example
+*.local
+
+# editor / os
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# supabase local
+.supabase/
+
+# CI workflow held back until gh has the workflow scope
+/.github/workflows/

@@ -1,0 +1,188 @@
+/* ============================================================================
+   CLASSESS 3.0 — unified brand system
+   Consolidates the brand kit (identity), the motion lab (full motion language),
+   and the playground (complete component library) into one system of record.
+   Links on top of tokens.css + components.css + playground.css.
+   This file adds: the calm editorial shell, the foundations helpers, and every
+   motion class made global (previously trapped in the motion lab).
+   PART 1 — shell + foundations
+   ============================================================================ */
+
+/* ---- editorial shell ----------------------------------------------------- */
+.cs-top { position:sticky; top:0; z-index:70; display:flex; align-items:center; justify-content:space-between;
+  padding:14px 28px; background:var(--frost-bg); backdrop-filter:var(--frost-blur); -webkit-backdrop-filter:var(--frost-blur);
+  border-bottom:.5px solid var(--border); }
+.cs-top .right { display:flex; align-items:center; gap:10px; }
+.cs-shell { display:grid; grid-template-columns:248px 1fr; align-items:start; }
+.cs-nav { position:sticky; top:58px; height:calc(100vh - 58px); overflow:auto; padding:36px 18px; border-right:.5px solid var(--border); }
+.cs-nav .g { font-family:var(--font-mono); font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--text-tertiary); margin:24px 10px 8px; }
+.cs-nav .g:first-child { margin-top:0; }
+.cs-nav a { display:block; padding:7px 10px; border-radius:5px; font-size:13.5px; color:var(--text-secondary); text-decoration:none; transition:color var(--dur) var(--ease); }
+.cs-nav a:hover { color:var(--text-primary); }
+.cs-nav a.on { color:var(--signature); }
+.cs-main { padding:0 76px 180px; max-width:1080px; }
+
+/* ---- cover --------------------------------------------------------------- */
+.cs-cover { padding:120px 0 104px; border-bottom:.5px solid var(--border); }
+.cs-eyebrow { font-family:var(--font-mono); font-size:11px; letter-spacing:.22em; text-transform:uppercase; color:var(--signature); margin-bottom:30px; display:flex; align-items:center; gap:12px; }
+.cs-eyebrow .ig { display:inline-block; }
+.cs-cover h1 { font-size:84px; line-height:.97; font-weight:300; letter-spacing:-.035em; color:var(--text-primary); }
+.cs-cover h1 b { font-weight:500; }
+.cs-cover .lead { font-size:21px; line-height:1.6; color:var(--text-secondary); max-width:60ch; margin-top:34px; font-weight:300; }
+.cs-meta { display:flex; gap:9px; flex-wrap:wrap; margin-top:50px; }
+.cs-meta span { font-family:var(--font-mono); font-size:11px; letter-spacing:.04em; color:var(--text-tertiary); border:.5px solid var(--border); border-radius:999px; padding:7px 15px; }
+
+/* ---- sections ------------------------------------------------------------ */
+.cs-sec { padding:92px 0; border-top:.5px solid var(--border); scroll-margin-top:24px; }
+.cs-sec:first-of-type { border-top:0; }
+.cs-num { font-family:var(--font-mono); font-size:12px; letter-spacing:.12em; color:var(--signature); }
+.cs-sec h2 { font-size:42px; font-weight:300; letter-spacing:-.028em; line-height:1.02; margin-top:12px; color:var(--text-primary); }
+.cs-sec h2 b { font-weight:500; }
+.cs-lead { font-size:17px; line-height:1.7; color:var(--text-secondary); max-width:66ch; margin-top:18px; font-weight:300; }
+.cs-block { margin-top:56px; }
+.cs-sub { font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-tertiary); margin-bottom:28px; }
+.cs-flow { display:flex; flex-wrap:wrap; gap:44px 40px; align-items:flex-start; }
+.cs-item { display:flex; flex-direction:column; gap:16px; align-items:flex-start; }
+.cs-item .frame { min-height:64px; display:flex; align-items:center; }
+.cs-cap { font-size:13px; color:var(--text-tertiary); line-height:1.5; max-width:30ch; }
+.cs-cap b { display:block; color:var(--text-secondary); font-weight:500; font-size:13.5px; margin-bottom:2px; }
+.cs-cap .l { font-family:var(--font-mono); color:var(--signature); margin-right:7px; }
+.cs-stage { padding:52px; background:var(--bg-canvas); border-radius:14px; border:.5px solid var(--border); }
+.cs-stage.dark { background:var(--bg-inverse); }
+.cs-note { font-size:14px; line-height:1.7; color:var(--text-secondary); border-left:2px solid var(--signature); padding:4px 0 4px 20px; max-width:64ch; margin-top:40px; font-weight:300; }
+.cs-note b { color:var(--text-primary); font-weight:600; }
+.cs-hand { font-family:var(--font-hand); font-size:20px; color:var(--signature); display:block; margin-top:10px; transform:rotate(-1.2deg); }
+
+/* ---- foundations: color -------------------------------------------------- */
+.sw-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(124px,1fr)); gap:16px; }
+.sw .chip { height:76px; border-radius:9px; border:.5px solid var(--border); }
+.sw .nm { font-size:13px; font-weight:500; margin-top:11px; }
+.sw .hx { font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-top:1px; }
+.sw .tag-sig { font-family:var(--font-mono); font-size:9px; letter-spacing:.1em; text-transform:uppercase; color:var(--signature); margin-top:3px; }
+
+/* ---- foundations: type --------------------------------------------------- */
+.wt { display:flex; align-items:baseline; gap:24px; padding:16px 0; border-bottom:.5px solid var(--border); }
+.wt:last-child { border-bottom:0; }
+.wt .n { font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); width:128px; flex:none; }
+.wt .s { font-size:30px; letter-spacing:-.02em; color:var(--text-primary); }
+.type-scale > div { border-bottom:.5px solid var(--border); padding:18px 0; }
+.type-scale .meta { font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-bottom:6px; }
+
+/* ---- foundations: depth -------------------------------------------------- */
+.depth-row { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; }
+.depth-cell { padding:28px; border-radius:12px; background:var(--bg-surface); border:.5px solid var(--border); }
+.depth-cell .lbl { font-family:var(--font-mono); font-size:11px; letter-spacing:.06em; color:var(--text-tertiary); margin-bottom:14px; }
+.depth-stack { display:flex; flex-direction:column; gap:8px; }
+.depth-stack .s1 { height:30px; border-radius:6px; background:var(--bg-canvas); }
+.depth-stack .s2 { height:30px; border-radius:6px; background:var(--bg-sunken); }
+.depth-stack .s3 { height:30px; border-radius:6px; background:var(--bg-surface); border:.5px solid var(--border); }
+
+/* ---- foundations: the laws ----------------------------------------------- */
+.law { display:flex; gap:20px; padding:20px 0; border-bottom:.5px solid var(--border); }
+.law:last-child { border-bottom:0; }
+.law .n { font-family:var(--font-mono); font-size:12px; color:var(--signature); width:28px; flex:none; padding-top:2px; }
+.law h4 { font-size:16px; font-weight:600; margin-bottom:5px; }
+.law p { font-size:14px; color:var(--text-secondary); margin:0; line-height:1.6; max-width:70ch; }
+
+/* ---- endmark ------------------------------------------------------------- */
+.cs-end { display:flex; align-items:center; gap:14px; margin:96px 0 40px; color:var(--text-tertiary); font-family:var(--font-mono); font-size:11px; letter-spacing:.18em; }
+.cs-end::before, .cs-end::after { content:""; flex:1; height:.5px; background:var(--border); }
+
+@media (max-width:900px){
+  .cs-shell { grid-template-columns:1fr; }
+  .cs-nav { display:none; }
+  .cs-main { padding:0 28px 120px; }
+  .cs-cover h1 { font-size:52px; } .cs-sec h2 { font-size:32px; }
+  .depth-row { grid-template-columns:1fr; }
+}
+
+/* ============================================================================
+   PART 2 — the full motion language (previously trapped in the motion lab)
+   Card hovers, entrance reveals, the ignite, plus motion-demo data widgets.
+   Button motion variants (.v-*) and component styles already come from
+   playground.css; this completes the set so nothing renders unstyled.
+   ============================================================================ */
+
+/* ---- card hover treatments ---------------------------------------------- */
+.lab-card { border:.5px solid var(--border); border-radius:8px; background:var(--bg-surface); padding:22px; width:100%; max-width:248px; }
+.lab-card .k { font-family:var(--font-mono); font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--text-tertiary); }
+.lab-card .t { font-size:18px; font-weight:500; letter-spacing:-.01em; margin-top:8px; }
+.lab-card .p { font-size:13px; color:var(--text-secondary); margin-top:6px; line-height:1.5; }
+.c-lift { transition:transform .3s var(--ease), border-color .3s var(--ease), background var(--dur) var(--ease); }
+.c-lift:hover { transform:translateY(-5px); border-color:var(--signature); background:var(--bg-raised); }
+.c-tilt { transition:transform .25s var(--ease); transform-style:preserve-3d; will-change:transform; }
+.c-spot { position:relative; overflow:hidden; transition:border-color var(--dur) var(--ease); }
+.c-spot::before { content:""; position:absolute; inset:0; opacity:0; transition:opacity var(--dur) var(--ease); background:radial-gradient(180px circle at var(--mx,50%) var(--my,50%), rgba(31,53,224,.10), transparent 60%); }
+.c-spot:hover { border-color:var(--border-strong); } .c-spot:hover::before { opacity:1; }
+.c-line { position:relative; transition:background var(--dur) var(--ease); }
+.c-line::after { content:""; position:absolute; left:0; right:0; top:0; height:2px; background:var(--signature); transform:scaleX(0); transform-origin:left; transition:transform .3s var(--ease); }
+.c-line > * { transition:transform .3s var(--ease); }
+.c-line:hover { background:var(--bg-raised); } .c-line:hover::after { transform:scaleX(1); } .c-line:hover > * { transform:translateX(3px); }
+.c-draw { position:relative; }
+.c-draw .frame { position:absolute; inset:0; pointer-events:none; }
+.c-draw .frame rect { fill:none; stroke:var(--signature); stroke-width:1.5; vector-effect:non-scaling-stroke; stroke-dasharray:1; stroke-dashoffset:1; pathLength:1; transition:stroke-dashoffset .55s var(--ease); }
+.c-draw:hover .frame rect { stroke-dashoffset:0; }
+.c-reveal.run { animation:rise .55s var(--ease) both; }
+
+/* ---- entrance reveals --------------------------------------------------- */
+.rev .bar { height:46px; border-radius:5px; background:var(--bg-sunken); border:.5px solid var(--border); margin-bottom:8px; }
+.run .r-fade { animation:rise .55s var(--ease) both; }
+.run .r-casc > * { animation:rise .5s var(--ease) both; }
+.run .r-casc > *:nth-child(1){animation-delay:.05s}.run .r-casc > *:nth-child(2){animation-delay:.13s}.run .r-casc > *:nth-child(3){animation-delay:.21s}
+.run .r-clip { animation:clipup .6s var(--ease) both; }
+.run .r-blur { animation:blurin .6s var(--ease) both; }
+.run .r-mask { position:relative; overflow:hidden; }
+.run .r-mask::after { content:""; position:absolute; inset:0; background:var(--bg-canvas); animation:maskoff .6s var(--ease) both; }
+@keyframes clipup { from{clip-path:inset(100% 0 0 0)} to{clip-path:inset(0 0 0 0)} }
+@keyframes blurin { from{filter:blur(12px);opacity:0} to{filter:blur(0);opacity:1} }
+@keyframes maskoff { from{transform:translateY(0)} to{transform:translateY(-101%)} }
+
+/* ---- micro: odometer ---------------------------------------------------- */
+.odo { display:inline-flex; font-variant-numeric:tabular-nums; font-weight:500; font-size:38px; overflow:hidden; height:1em; line-height:1; }
+.odo .col { width:.62ch; overflow:hidden; height:1em; }
+.odo .col .strip { display:flex; flex-direction:column; transition:transform .9s var(--ease); }
+.odo .col .strip span { height:1em; }
+
+/* ---- data motion widgets ------------------------------------------------ */
+.barwrap { width:100%; max-width:220px; }
+.barwrap .lbl { display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-bottom:6px; }
+.lab-prog { height:6px; background:var(--bg-sunken); border-radius:999px; overflow:hidden; }
+.lab-prog > span { display:block; height:100%; width:0; background:var(--signature); border-radius:999px; }
+.run .e-out > span { animation:grow 1s var(--ease) forwards; }
+.run .e-spring > span { animation:grow 1.1s cubic-bezier(.34,1.56,.64,1) forwards; }
+@keyframes grow { to{width:var(--val,80%)} }
+.ringbox svg { transform:rotate(-90deg); }
+.ringbox .trk { fill:none; stroke:var(--bg-sunken); stroke-width:5; }
+.ringbox .fil { fill:none; stroke:var(--signature); stroke-width:5; stroke-linecap:round; stroke-dasharray:151; stroke-dashoffset:151; }
+.run .ringbox .fil { animation:ringdraw 1.1s var(--ease) forwards; }
+@keyframes ringdraw { to{stroke-dashoffset:40} }
+.spark path { fill:none; stroke:var(--signature); stroke-width:2; stroke-linecap:round; stroke-linejoin:round; stroke-dasharray:240; stroke-dashoffset:240; }
+.run .spark path { animation:linedraw2 1.2s var(--ease) forwards; }
+@keyframes linedraw2 { to{stroke-dashoffset:0} }
+
+/* ---- the ignite — signature moment -------------------------------------- */
+.ig { position:relative; width:12px; height:12px; }
+.ig .core { position:absolute; inset:0; border-radius:50%; background:var(--signature); }
+.run .ig-a .core { animation:pop .4s var(--ease) both; }
+.run .ig-a::after { content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--signature); animation:ring1 1s var(--ease) both; }
+.run .ig-b .core { animation:pop .4s var(--ease) both; }
+.run .ig-b::after, .run .ig-b::before { content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--signature); animation:ring1 1.1s var(--ease) both; }
+.run .ig-b::before { animation-delay:.18s; }
+.ig-c-cell { position:relative; overflow:hidden; }
+.ig-c-cell .flood { position:absolute; inset:0; background:var(--signature); transform:scale(0); border-radius:50%; opacity:.16; }
+.run .ig-c-cell .flood { animation:flood 1.1s var(--ease) both; }
+.run .ig-d .core { animation:pop2 .5s cubic-bezier(.34,1.56,.64,1) both; }
+.run .ig-d::after { content:""; position:absolute; inset:-5px; border-radius:50%; border:1.5px solid var(--signature); opacity:.5; animation:ring1 1.2s var(--ease) infinite; }
+@keyframes pop { 0%{transform:scale(0)} 60%{transform:scale(1.25)} 100%{transform:scale(1)} }
+@keyframes pop2 { 0%{transform:scale(0)} 100%{transform:scale(1)} }
+@keyframes ring1 { 0%{transform:scale(.5);opacity:.85} 100%{transform:scale(1.9);opacity:0} }
+@keyframes flood { 0%{transform:scale(0);opacity:.22} 100%{transform:scale(3);opacity:0} }
+
+/* shared */
+@keyframes rise { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+.replay { display:inline-flex; align-items:center; gap:6px; font-family:var(--font-mono); font-size:11px; color:var(--text-secondary); border:.5px solid var(--border); border-radius:4px; padding:6px 11px; background:var(--bg-surface); cursor:pointer; transition:border-color var(--dur) var(--ease), color var(--dur) var(--ease); }
+.replay:hover { border-color:var(--signature); color:var(--signature); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration:.001ms !important; animation-iteration-count:1 !important; transition-duration:.001ms !important; }
+}

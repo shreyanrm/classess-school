@@ -1,0 +1,12 @@
+/* ============================================================================
+   CLASSESS · DESIGN SYSTEM v4.1 — STYLES ENTRY
+   Import this once at the root of a consuming app:
+       import '@classess/design-system/styles.css';
+
+   Order matters: tokens define the variables every other file consumes; fonts
+   register the faces; components build on tokens; motion builds on both.
+   ============================================================================ */
+@import './tokens.css';
+@import './fonts.css';
+@import './components.css';
+@import './motion.css';

@@ -1,0 +1,10 @@
+# Classess Intelligence Engine (spine A3, Ring 1).
+# Pure, deterministic projection engine: stdlib + pydantic only. No network,
+# no LLM client, no DB driver in the degraded path — the deterministic paths
+# work with no provider. A gateway-backed event source (when wired) reads the
+# event store THROUGH the gateway; it is not a dependency of the engine itself.
+pydantic>=2.7,<3
+pydantic-settings>=2.3,<3
+
+# Test-only.
+pytest>=8.0,<9

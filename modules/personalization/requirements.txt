@@ -1,0 +1,3 @@
+# The personalization module's deterministic (degraded) paths are stdlib-only.
+# Tests need only pytest, which is provided by the repo dev requirements
+# (requirements-dev.txt at the repo root). No runtime third-party dependency.

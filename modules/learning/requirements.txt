@@ -1,0 +1,15 @@
+# Classess School — Learning module (B7).
+#
+# The module's deterministic paths are stdlib-only and import-safe: importing
+# the package and running the degraded (in-memory) flows needs NOTHING here.
+#
+# The dependencies below are needed only to exercise the CORE engine path:
+#   - the intelligence engine (spine A3) it consumes is pydantic-backed, so the
+#     engine-integration tests need pydantic;
+#   - the test runner is pytest.
+# Both are optional: with neither installed the package still imports and the
+# deterministic fallback paths and their tests still run.
+pydantic>=2.7,<3
+
+# Test-only.
+pytest>=8.0,<9

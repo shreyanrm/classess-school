@@ -1,0 +1,10 @@
+# Classess School — Learner-record module (B8).
+#
+# The module's deterministic paths are stdlib-only and import-safe: importing
+# the package and running the degraded (in-memory) flows needs NOTHING here.
+# Profile composition, the consent gate, portfolio curation, credential
+# issue/verify (HMAC, stdlib), and event emission all run with no third-party
+# dependency, no network, and no DB.
+#
+# The only dependency below is the test runner.
+pytest>=8.0

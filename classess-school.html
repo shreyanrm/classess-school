@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classess School — Platform & Build Document</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Inter:wght@400;450;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#FFFFFF; --cream:#F8F5EE; --cream-deep:#EFE8D8;
+  --ink:#0F0F11; --ink-2:#3A3A40; --ink-3:#6E6E78; --ink-4:#9A9AA3;
+  --line:#E6E0D0; --line-2:#D4CCB7;
+  --coral:#D97757; --coral-d:#A04E2D; --coral-soft:#FBEDE3; --coral-700:#A04E2D;
+  --math:#3057E1; --bio:#1E7A4D; --chem:#B8820A; --physics:#C84A1F; --cs:#A03C84;
+  --serif:'Fraunces',Georgia,serif; --sans:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace; --hand:'Caveat',cursive;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--page);color:var(--ink);font-family:var(--sans);line-height:1.62;font-weight:450;-webkit-font-smoothing:antialiased}
+.wrap{max-width:920px;margin:0 auto;padding:0 40px}
+p{margin:0 0 18px;color:var(--ink-2);font-size:16px}
+b,strong{color:var(--ink);font-weight:600}
+em{font-style:italic}
+a{color:var(--coral-d);text-decoration:none}
+h1,h2,h3,h4{margin:0;font-family:var(--serif);font-weight:500;color:var(--ink);letter-spacing:-0.02em}
+
+/* ---------- COVER ---------- */
+.cover{min-height:88vh;display:flex;flex-direction:column;justify-content:center;padding:80px 0 60px;border-bottom:1px solid var(--line)}
+.cover .kick{font-family:var(--mono);font-size:12px;letter-spacing:0.22em;text-transform:uppercase;color:var(--coral);margin-bottom:28px}
+.cover h1{font-size:74px;line-height:0.98;letter-spacing:-0.03em;font-weight:500;font-variation-settings:"opsz" 144}
+.cover h1 em{color:var(--coral);font-style:italic}
+.cover .dek{font-family:var(--serif);font-size:23px;line-height:1.5;color:var(--ink-2);max-width:680px;margin-top:28px;font-weight:400}
+.cover .meta{display:flex;flex-wrap:wrap;gap:10px;margin-top:44px}
+.cover .meta span{font-family:var(--mono);font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-3);background:var(--cream);border:1px solid var(--line);border-radius:100px;padding:7px 15px}
+
+/* ---------- SECTIONS ---------- */
+section{padding:64px 0;border-bottom:1px solid var(--line)}
+.snum{font-family:var(--mono);font-size:12px;letter-spacing:0.2em;color:var(--coral);margin-bottom:14px}
+.stitle{font-size:38px;line-height:1.05;letter-spacing:-0.025em;margin-bottom:8px}
+.stitle em{color:var(--coral);font-style:italic}
+.lead{font-family:var(--serif);font-size:20px;line-height:1.55;color:var(--ink-2);font-weight:400;margin:18px 0 30px;max-width:760px}
+.lead .dc{float:left;font-family:var(--serif);font-size:62px;line-height:0.78;font-weight:500;color:var(--coral);margin:6px 12px 0 0}
+h3.sub{font-size:25px;margin:42px 0 6px;letter-spacing:-0.02em}
+h4.sub{font-size:18px;font-family:var(--sans);font-weight:600;letter-spacing:0;margin:30px 0 8px;color:var(--ink)}
+.kicker{font-family:var(--mono);font-size:10.5px;font-weight:500;letter-spacing:0.16em;text-transform:uppercase;color:var(--ink-3);margin:34px 0 10px}
+
+/* ---------- LISTS ---------- */
+ul.clean{list-style:none;padding:0;margin:16px 0}
+ul.clean li{position:relative;padding:0 0 0 22px;margin-bottom:11px;color:var(--ink-2);font-size:15.5px}
+ul.clean li::before{content:"";position:absolute;left:2px;top:10px;width:6px;height:6px;border-radius:50%;background:var(--coral)}
+ul.clean li b{color:var(--ink)}
+ol.steps{counter-reset:s;list-style:none;padding:0;margin:18px 0}
+ol.steps li{position:relative;padding:0 0 0 40px;margin-bottom:14px;color:var(--ink-2);font-size:15.5px}
+ol.steps li::before{counter-increment:s;content:counter(s,decimal-leading-zero);position:absolute;left:0;top:1px;font-family:var(--mono);font-size:12px;color:var(--coral);font-weight:600}
+
+/* ---------- CARDS ---------- */
+.card{background:var(--cream);border:1px solid var(--line);border-radius:10px;padding:24px 26px;margin:22px 0}
+.card h4{font-family:var(--serif);font-size:21px;font-weight:500;margin:0 0 8px;letter-spacing:-0.015em}
+.card .tag{font-family:var(--mono);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--coral);display:block;margin-bottom:8px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:22px 0}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:22px 0}
+.mini{background:var(--cream);border:1px solid var(--line);border-radius:9px;padding:18px 20px}
+.mini h4{font-family:var(--sans);font-size:15px;font-weight:600;margin:0 0 6px;color:var(--ink)}
+.mini p{font-size:14px;margin:0;color:var(--ink-3)}
+.tech{display:block;margin-top:12px;padding-top:12px;border-top:1px dashed var(--line-2);font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--ink-3)}
+.tech b{font-family:var(--sans);font-weight:600;color:var(--coral-d);font-size:11px;letter-spacing:0.06em;text-transform:uppercase}
+
+/* ---------- FEATURE BLOCK ---------- */
+.feat{border-left:2px solid var(--line-2);padding:2px 0 2px 24px;margin:30px 0}
+.feat h4{font-family:var(--serif);font-size:20px;font-weight:500;letter-spacing:-0.015em;margin:0 0 7px;color:var(--ink)}
+.feat p{font-size:15px;margin:0 0 10px}
+.feat .how{font-size:14.5px;color:var(--ink-2)}
+.feat .how b{color:var(--ink)}
+
+/* ---------- ASIDE ---------- */
+.aside{border-left:2px solid var(--coral);padding:8px 0 8px 22px;margin:34px 0;font-family:var(--serif);font-size:17px;line-height:1.55;color:var(--ink-2);font-style:italic}
+.aside b{font-style:normal;color:var(--ink);font-weight:600}
+.handnote{display:block;font-family:var(--hand);font-size:19px;color:var(--coral-700);font-style:normal;transform:rotate(-1.5deg);margin-top:8px}
+
+/* ---------- DIAGRAMS ---------- */
+.diagram{margin:30px 0;padding:26px 22px;background:var(--cream);border:1px solid var(--line);border-radius:12px}
+.dcap{font-family:var(--mono);font-size:11px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-4);margin-bottom:20px;text-align:center}
+.drow{display:flex;align-items:stretch;justify-content:center;flex-wrap:wrap;gap:10px}
+.dstack{display:flex;flex-direction:column;gap:10px}
+.dnode{background:var(--page);border:1px solid var(--line-2);border-radius:8px;padding:13px 16px;min-width:120px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+.dnode .nl{font-family:var(--mono);font-size:9.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--coral);margin-bottom:4px}
+.dnode .nt{font-size:13.5px;font-weight:600;color:var(--ink);line-height:1.3}
+.dnode .nd{font-size:11.5px;color:var(--ink-3);margin-top:3px;line-height:1.35}
+.dnode.k{background:var(--ink);border-color:var(--ink)}
+.dnode.k .nt{color:var(--page)} .dnode.k .nd{color:#B9B9C0} .dnode.k .nl{color:var(--coral)}
+.dnode.cr{background:var(--coral-soft);border-color:var(--coral)}
+.dnode.full{width:100%}
+.darrow{display:flex;align-items:center;justify-content:center;color:var(--coral);font-size:20px;font-weight:700;padding:0 2px}
+.ddown{text-align:center;color:var(--coral);font-size:18px;font-weight:700;line-height:1;padding:2px 0}
+.dlayer{background:var(--page);border:1px solid var(--line-2);border-radius:8px;padding:14px 18px;display:flex;align-items:center;gap:18px}
+.dlayer .ll{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--coral);min-width:130px;font-weight:600}
+.dlayer .lt{font-size:13.5px;color:var(--ink-2)}
+.dlayer.k{background:var(--ink);border-color:var(--ink)} .dlayer.k .lt{color:#CFCFD6} .dlayer.k .ll{color:var(--coral)}
+.dloop{text-align:center;font-family:var(--mono);font-size:11px;letter-spacing:0.08em;color:var(--coral-d);margin:12px 0;padding:8px;border:1px dashed var(--line-2);border-radius:6px}
+
+/* ---------- TABLE ---------- */
+table{width:100%;border-collapse:collapse;margin:22px 0;font-size:14px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:0.12em;text-transform:uppercase;color:var(--ink-3);text-align:left;padding:10px 12px;border-bottom:1.5px solid var(--line-2);background:var(--cream-deep)}
+td{padding:11px 12px;border-bottom:1px solid var(--line);color:var(--ink-2);vertical-align:top}
+td b{color:var(--ink)}
+tr:last-child td{border-bottom:none}
+
+/* ---------- TOC ---------- */
+.toc{columns:2;column-gap:50px;margin:30px 0 0}
+.toc a{display:flex;justify-content:space-between;gap:14px;padding:9px 0;border-bottom:1px solid var(--line);color:var(--ink-2);font-size:14.5px;break-inside:avoid}
+.toc a:hover{color:var(--coral-d)}
+.toc a .n{font-family:var(--mono);font-size:11px;color:var(--coral);flex-shrink:0}
+.toc a span.t{flex:1}
+
+/* ---------- ENDMARK ---------- */
+.endmark{display:flex;align-items:center;gap:12px;margin:40px 0 80px;color:var(--ink-4);font-size:11px;font-family:var(--mono);letter-spacing:0.18em}
+.endmark::before,.endmark::after{content:"";flex:1;height:1px;background:var(--line)}
+
+.pill{display:inline-block;font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--coral-d);background:var(--coral-soft);border:1px solid var(--coral-100,#F4D2BD);border-radius:100px;padding:3px 11px;margin:0 4px 4px 0}
+
+@media (max-width:760px){
+  .wrap{padding:0 22px}
+  .cover h1{font-size:46px} .stitle{font-size:29px}
+  .grid2,.grid3,.toc{grid-template-columns:1fr;columns:1;display:block}
+  .grid2>*,.grid3>*{margin-bottom:14px}
+  .dlayer{flex-direction:column;align-items:flex-start;gap:6px}
+}
+@media print{
+  section{break-inside:avoid-page;border-bottom:none;padding:40px 0}
+  .cover{min-height:auto}
+  .diagram,.card,.feat,.grid2,.grid3{break-inside:avoid}
+  a{color:var(--ink)}
+}
+</style>
+</head>
+<body>
+
+<!-- ======================= COVER ======================= -->
+<div class="wrap">
+<div class="cover">
+  <div class="kick">Platform &amp; Build Document · Confidential</div>
+  <h1>Classess <em>School</em></h1>
+  <div class="dek">An agentic academic intelligence platform — one system that plans, teaches, observes, assesses, supports, and continuously improves the entire academic life of an institution.</div>
+  <div class="meta">
+    <span>Board-agnostic · multi-board</span>
+    <span>KG → PG horizon</span>
+    <span>K-12 first</span>
+    <span>AI-native</span>
+    <span>Offline-capable</span>
+    <span>Multilingual</span>
+  </div>
+</div>
+</div>
+
+<!-- ======================= CONTENTS ======================= -->
+<div class="wrap">
+<section style="border-bottom:1px solid var(--line)">
+  <div class="snum">§ 00</div>
+  <h2 class="stitle">Contents</h2>
+  <nav class="toc">
+    <a href="#vision"><span class="t">What we are building</span><span class="n">01</span></a>
+    <a href="#principles"><span class="t">Guiding principles</span><span class="n">02</span></a>
+    <a href="#architecture"><span class="t">System architecture</span><span class="n">03</span></a>
+    <a href="#spine"><span class="t">The platform spine</span><span class="n">04</span></a>
+    <a href="#intelligence"><span class="t">How the intelligence works</span><span class="n">05</span></a>
+    <a href="#roles"><span class="t">Applications &amp; roles</span><span class="n">06</span></a>
+    <a href="#features"><span class="t">The feature catalogue</span><span class="n">07</span></a>
+    <a href="#pages"><span class="t">Page inventory &amp; behaviour</span><span class="n">08</span></a>
+    <a href="#ailayer"><span class="t">The AI layer in depth</span><span class="n">09</span></a>
+    <a href="#data"><span class="t">Data &amp; event architecture</span><span class="n">10</span></a>
+    <a href="#stack"><span class="t">The full technology stack</span><span class="n">11</span></a>
+    <a href="#interconnect"><span class="t">How it all interconnects</span><span class="n">12</span></a>
+    <a href="#build"><span class="t">Build approach</span><span class="n">13</span></a>
+  </nav>
+</section>
+</div>
+
+<!-- ======================= 1. VISION ======================= -->
+<div class="wrap">
+<section id="vision">
+  <div class="snum">§ 01</div>
+  <h2 class="stitle">What we are <em>building</em></h2>
+  <p class="lead"><span class="dc">W</span>e are not building another learning-management system. We are building an <b>agentic academic intelligence platform</b> — a single, connected system that understands what is happening across an institution, identifies what needs attention, recommends what should happen next, coordinates the right people, and measures whether it worked. The platform does not wait to be asked. It observes, interprets, and acts.</p>
+
+  <p>A traditional LMS is a set of modules a school selects from: one for attendance, one for assignments, one for reports. The user is handed dashboards and left to find the problem, understand it, and decide what to do. Most people never get past "here is the data." Classess School inverts this. The modules still exist, but they are stitched into one continuous workflow — <b>Plan → Teach → Observe → Assign → Assess → Evaluate → Support → Communicate → Improve</b> — and intelligence runs across all of it.</p>
+
+  <div class="diagram">
+    <div class="dcap">Figure 1 — The continuous academic loop the platform runs on</div>
+    <div class="drow">
+      <div class="dnode"><span class="nl">01</span><span class="nt">Plan</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">02</span><span class="nt">Teach</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">03</span><span class="nt">Observe</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">04</span><span class="nt">Assign</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">05</span><span class="nt">Assess</span></div>
+    </div>
+    <div class="ddown">↓</div>
+    <div class="drow">
+      <div class="dnode"><span class="nl">09</span><span class="nt">Improve</span></div><div class="darrow">←</div>
+      <div class="dnode"><span class="nl">08</span><span class="nt">Communicate</span></div><div class="darrow">←</div>
+      <div class="dnode"><span class="nl">07</span><span class="nt">Support</span></div><div class="darrow">←</div>
+      <div class="dnode"><span class="nl">06</span><span class="nt">Evaluate</span></div>
+    </div>
+    <div class="dloop">↻ &nbsp; every cycle feeds the next — the platform learns from each outcome and sharpens the next recommendation</div>
+  </div>
+
+  <h3 class="sub">Built for every board, and for many at once</h3>
+  <p>The platform is <b>board-agnostic</b>. It is not built around a single curriculum. CBSE, ICSE, Cambridge, IB, state boards, and others are all first-class, and a single deployment can run several of them at the same time — a group with schools on different boards, or one school running multiple streams. The system adapts its curriculum structure, terminology, assessment patterns, report formats, and academic calendar to whatever the institution actually follows. Curriculum is ingested and mapped, not hard-coded.</p>
+
+  <h3 class="sub">Built for the full span of learning</h3>
+  <p>The long-term horizon is the entire learning life — kindergarten through postgraduate. The current build targets <b>K-12</b>, but the architecture is not narrowed to children: the identity model, the academic graph, the intelligence, and the experience are designed to carry a learner across stages without fracturing. The interface changes as the learner grows; the understanding underneath keeps evolving with them.</p>
+
+  <h3 class="sub">What "AI-native" actually means here</h3>
+  <p>AI-native is not an application with a chat button bolted on. It means <b>intelligence is the substrate</b>: content is generated rather than only stored, learners are understood rather than only recorded, experiences are composed per person rather than templated, and the system improves across every user and every event over time. Remove the AI from a conventional product and you still have a product. Remove it from this one and there is nothing underneath — because the intelligence is the product.</p>
+
+  <div class="aside">The platform's job is not to help users finish academic work. It is to understand what is happening, surface what matters, recommend the next best action, coordinate the right people, and measure whether it worked.<span class="handnote">that loop is the whole difference</span></div>
+</section>
+</div>
+
+<!-- ======================= 2. PRINCIPLES ======================= -->
+<div class="wrap">
+<section id="principles">
+  <div class="snum">§ 02</div>
+  <h2 class="stitle">Guiding <em>principles</em></h2>
+  <p class="lead"><span class="dc">T</span>en laws hold across every screen and every service. When a design decision is unclear, these settle it. They are the reason the product feels calm and certain while doing something genuinely complex underneath.</p>
+
+  <div class="grid2">
+    <div class="mini"><h4>One screen, one intention, one next action</h4><p>Navigation is journey-based, not module-based. No user needs to understand all the modules. Each role sees what to do now — not a wall of menus.</p></div>
+    <div class="mini"><h4>Explainable intelligence</h4><p>Every recommendation shows why it appeared, the evidence behind it, a confidence level, who is responsible, and the consequence of ignoring it. Nothing is a black box.</p></div>
+    <div class="mini"><h4>Human authority</h4><p>AI recommends, prepares, and assists. People make consequential decisions — grades, interventions, communications. The system never quietly acts on something that matters.</p></div>
+    <div class="mini"><h4>Calm on the surface, intensity underneath</h4><p>The category is red-alert noise. We are the opposite: spacious, certain, quiet. The intelligence works hard; the interface never shouts. Calm is a deliberate signal, not an absence of power.</p></div>
+    <div class="mini"><h4>Progressive disclosure</h4><p>Show the simple thing first. Advanced configuration and deep analytics appear only when asked for. Power is available, never imposed.</p></div>
+    <div class="mini"><h4>Board-agnostic &amp; adaptive</h4><p>The platform conforms to the institution's board, language, calendar, and assessment style — not the other way around. Curriculum is mapped, never assumed.</p></div>
+    <div class="mini"><h4>Evidence over assertion</h4><p>Every important conclusion about a learner is linked to the evidence behind it, and no permanent judgement is made from a single interaction.</p></div>
+    <div class="mini"><h4>Offline &amp; low-bandwidth</h4><p>Attendance, lesson access, assignments, and basic evaluation keep working when the network does not. Connectivity is assumed to be imperfect.</p></div>
+    <div class="mini"><h4>Multilingual by design</h4><p>Interface, conversation, content, and reports support local languages and code-switching while preserving subject terminology. Language is part of learning context.</p></div>
+    <div class="mini"><h4>Trust is a product layer</h4><p>Consent, source attribution, data control, and auditability are built into the architecture from the first line — not added as a compliance afterthought.</p></div>
+  </div>
+
+  <p>The most important of these is the relationship between <b>engagement and independence</b>. The platform is designed to build durable academic habits — but it only ever engineers habit toward the behaviours that make a learner <em>more independent</em>: mastery, retrieval practice, independent attempts, consistency. The day a learner needs the platform less is the day it succeeded. Habit and integrity are the same loop, never opposing forces.</p>
+</section>
+</div>
+
+<!-- ======================= 3. ARCHITECTURE ======================= -->
+<div class="wrap">
+<section id="architecture">
+  <div class="snum">§ 03</div>
+  <h2 class="stitle">System <em>architecture</em></h2>
+  <p class="lead"><span class="dc">T</span>he system is layered, top to bottom. Each layer has one job and a clean boundary with the next. This is what lets the platform scale, stay secure, and add new capabilities without rewrites — and it is the shape every part of this document refers back to.</p>
+
+  <div class="diagram">
+    <div class="dcap">Figure 2 — The whole system, top to bottom</div>
+    <div class="dstack">
+      <div class="dlayer"><span class="ll">Clients</span><span class="lt">Web (React + Vite) · Mobile (React Native / Expo, offline-first) · the interactive classroom panel · partner embeds via interoperability standards</span></div>
+      <div class="ddown">↓</div>
+      <div class="dlayer cr" style="background:var(--coral-soft);border-color:var(--coral)"><span class="ll">Identity</span><span class="lt"><b>KGtoPG</b> — the single sign-on front door. Mints one canonical identity per person. Age and consent captured here, once, for everywhere.</span></div>
+      <div class="ddown">↓</div>
+      <div class="dlayer"><span class="ll">API gateway</span><span class="lt">One wall in front of every service — authentication, rate-limiting, schema validation, audit, routing. Nothing reaches a service without passing it.</span></div>
+      <div class="ddown">↓</div>
+      <div class="dlayer"><span class="ll">App services</span><span class="lt">Feature-modular: Users · Academic · Timetable · Attendance · Assessment · Assignment · Evaluation · Communication · Calendar · Analytics · AI</span></div>
+      <div class="ddown">↓</div>
+      <div class="dlayer k"><span class="ll">AI fabric</span><span class="lt">Model router · the conversational orchestrator (Vidya) · the capability registry · the agent layer · generation + verification · observability</span></div>
+      <div class="ddown">↓</div>
+      <div class="dlayer"><span class="ll">Operational data</span><span class="lt">PostgreSQL + pgvector (relational + semantic truth) · Firestore (high-velocity: chat, AI threads, notifications, live sessions) · Redis (cache, sessions, OTP, rate-limit)</span></div>
+      <div class="ddown">↓</div>
+      <div class="dlayer k"><span class="ll">Platform intelligence</span><span class="lt">The shared, event-driven intelligence and data layer. Every app emits attributed events into it; it returns governed, scoped insight. The brain that compounds across the ecosystem.</span></div>
+      <div class="ddown">↓</div>
+      <div class="dlayer"><span class="ll">Interoperability</span><span class="lt">FLUID — two-way standards bridge: LTI 1.3 · OneRoster · xAPI / Caliper · QTI · SCORM · Clever / ClassLink · Ed-Fi · CASE · the platform SDK · MCP</span></div>
+    </div>
+  </div>
+
+  <p><b>How the services are organised.</b> App services are feature-based modules inside a single deployable with clean internal boundaries — not a tangled monolith, and not premature microservices. This keeps development fast now and lets us split any module into its own service later without re-architecting. Each app in the wider ecosystem owns its own operational database and runs independently; it shares what matters by emitting events to the platform intelligence layer, never by reaching into another app's tables. Apps share a <em>platform</em>, never tables.</p>
+
+  <p><b>Why identity sits at its own layer.</b> Authentication and the behavioural data layer are deliberately kept separate. They have different security postures and different failure modes, and they should never share a blast radius. One layer answers <em>who is this person</em>; a different layer accumulates <em>what we know about them</em>. Keeping them apart is how disciplined platforms are built.</p>
+</section>
+</div>
+
+<!-- ======================= 4. PLATFORM SPINE ======================= -->
+<div class="wrap">
+<section id="spine">
+  <div class="snum">§ 04</div>
+  <h2 class="stitle">The platform <em>spine</em></h2>
+  <p class="lead"><span class="dc">B</span>eneath the app sits a shared backbone of services. Classess School is the first product built on it, and everything built afterward inherits the same spine on day one. These are not School-specific — they are the reusable foundation of the whole ecosystem.</p>
+
+  <div class="card">
+    <span class="tag">Identity</span>
+    <h4>KGtoPG — the single front door</h4>
+    <p>One canonical identity per human, for life, across every product. The moment anyone signs up to any product in the ecosystem, a KGtoPG account is created and used everywhere after — the same pattern as "sign in with Google," owned internally. There is no app-local signup; every app delegates here. Crucially, <b>age and consent are established once, at this single point</b> — which is what makes governance consistent instead of re-implemented (and re-broken) in every app. KGtoPG answers exactly one question: who is this person, and are they who they say.</p>
+    <span class="tech"><b>Tech</b> Identity service over OIDC / OAuth 2.0; phone-OTP-first (with Google / Apple / Microsoft and institutional SSO / SAML); role-based + attribute-based access control; session, device and risk management; full access history. Firebase Auth may serve as the underlying mechanism — the contract is what matters.</span>
+  </div>
+
+  <div class="card">
+    <span class="tag">Conversational OS</span>
+    <h4>Vidya — talk to do anything</h4>
+    <p>Vidya is the conversational operating system that runs across every role. It is <b>intention-primary</b>: instead of hunting through menus, a user states what they want and Vidya summons the right surface, composes it on the fly, and operates it — a teacher saying "make a quiz on photosynthesis" gets a quiz-builder rendered in the conversation; a student saying "I don't get this" gets a tutoring surface. It is a workspace, not just a chat: conversation on one side, an editable canvas in the centre, sources and evidence alongside. It is role-shaped — the student's companion protects productive struggle and never just hands over answers; the teacher's executes and prepares; the parent's reports and reassures; the admin's commands the institution. The fixed pages remain as the stable spine; Vidya is the fast path over them.</p>
+    <span class="tech"><b>Tech</b> Orchestrator over the model router; generative-UI component library; multimodal input (text, voice, image, document, screen); persistent per-user memory; the permission ladder enforced in-conversation; a child-safety subsystem on every free-text surface (moderation, crisis detection and escalation to a responsible adult, no unmonitored channels).</span>
+  </div>
+
+  <div class="card">
+    <span class="tag">Intelligence routing</span>
+    <h4>The AI fabric &amp; model router</h4>
+    <p>Not "an LLM" — a fabric of models behind one router that chooses, per request, the right mind for the task by complexity, latency, cost, and the user's context. This single component is both quality control and margin control, and it is the most important piece of infrastructure in the company. It runs on two tracks that must never be conflated: <b>Track 1</b> is best-in-class external models, chosen per feature; <b>Track 2</b> is our own fine-tuned models and small specialised models running at the edge and offline — the long-term margin and the moat. The router exposes the slot for Track 2 now and fills it as those models come online, with no re-architecture.</p>
+    <span class="tech"><b>Tech</b> Self-hosted model gateway (LiteLLM) with per-feature routing, structured-output validation, retrieval, caching, and full cost/latency/quality observability (Langfuse). Frontier models for hard, rare reasoning; mid-tier for volume; small models at the edge for the high-frequency, latency-sensitive ocean of simple tasks.</span>
+  </div>
+
+  <div class="card">
+    <span class="tag">Action layer</span>
+    <h4>The capability registry &amp; agent layer</h4>
+    <p>Above the models sits the agent layer. Sub-agents are reasoning loops, not credentialed processes — they call named <b>capabilities</b>, which are governed server-side functions with narrowly scoped data access. An agent never holds a connection string and never writes raw queries; it can only invoke the capabilities it is permitted to. A permission ladder governs what any agent may do — <em>Recommend → Prepare → Execute-with-permission → Safe-automatic</em> — and anything that sends, submits, publishes, deletes, or charges requires explicit human approval. This is how "thousands of agents working for one user" is real and safe at once: one orchestrator commanding a registry of specialised, least-privilege capabilities.</p>
+    <span class="tech"><b>Tech</b> Capability registry with typed contracts and scoped access; agent registry recording each agent's purpose, permitted tools, and data boundaries; immutable audit trail; break-glass controls; human-approval workflows on consequential actions.</span>
+  </div>
+
+  <div class="card">
+    <span class="tag">Interoperability</span>
+    <h4>FLUID — be water</h4>
+    <p>The platform embeds cleanly into whatever a school already runs, and outside tools plug into it — both directions, nothing breaks. A school on an existing LMS keeps it; Classess School can act as the intelligence layer on top, or take over, or simply exchange data. This is not magic — it is a set of open standards plus the platform's own contract, so onboarding the next institution or the next tool is configuration, not a project.</p>
+    <span class="tech"><b>Tech</b> LTI 1.3 / Advantage (tool launch, roster, grade passback) · OneRoster 1.2 (roster / course / grade exchange) · xAPI + Caliper (learning records) · QTI (assessment portability) · SCORM · Clever / ClassLink · Ed-Fi · CASE (competency frameworks) · the platform SDK · MCP for AI-tool interoperability.</span>
+  </div>
+
+  <div class="card">
+    <span class="tag">The brain</span>
+    <h4>The platform intelligence layer</h4>
+    <p>This is the shared, event-driven intelligence and data layer that sits beneath every product. It is <b>not a database</b> — it is the system of record for who a learner is across the ecosystem and the system of intelligence for everything cross-context. Every app emits a stream of attributed events into it; it segregates, maps, and accumulates them into a unified profile, a knowledge graph, and a live feature store, and it serves back only governed, scoped views. Because the event history is immutable and replayable, when the models get smarter, the platform's understanding of <em>every past learner</em> improves with them — the intelligence compounds over time rather than starting fresh. Apps push a firehose of events <em>up</em>; they read only a controlled faucet of governed views <em>down</em>. No app ever bulk-reads the underlying store.</p>
+    <span class="tech"><b>Tech</b> Event ingestion + immutable event store; identity-separated profile store; knowledge graph; feature store; governed read APIs (scoped, consent- and purpose-gated). Apps integrate against this contract — the emission side is part of every app from line one.</span>
+  </div>
+
+  <div class="aside">The single most important rule for everyone building an app: <b>emit a clean, attributed event for every meaningful action, from the first commit.</b> The intelligence that comes later can only ever learn from what was recorded — what is not captured is lost forever.</div>
+</section>
+</div>
+
+<!-- ======================= 5. INTELLIGENCE ======================= -->
+<div class="wrap">
+<section id="intelligence">
+  <div class="snum">§ 05</div>
+  <h2 class="stitle">How the intelligence <em>works</em></h2>
+  <p class="lead"><span class="dc">T</span>his is the part that makes the platform more than software. Six mechanisms work together: a curriculum ontology, a hyperlocalization layer, an evidence-based mastery model, a learning-gap engine, a generate-and-verify content pipeline, and a proactive loop that turns all of it into action. Running through every one of them is a single goal — to help a learner understand their own learning.</p>
+
+  <h3 class="sub">1 · The academic ontology — what everything means</h3>
+  <p>Underneath the familiar names a teacher uses — chapters, topics — the platform holds a deep model of how academic knowledge connects: <b>board → curriculum → grade → subject → unit → chapter → topic → prerequisite → learning outcome → competency → skill → question → resource</b>. This is the ontology. It is what lets the system reason: this topic requires that earlier one; this question assesses that outcome; this gap traces back to a missing prerequisite. Because the platform is board-agnostic, the ontology also holds <b>cross-board equivalence</b> — the same concept mapped across CBSE, ICSE, Cambridge, IB, and state boards — plus competitive-exam mappings and school-defined local overlays. Curriculum is <em>ingested</em> from documents, publisher content, and standards feeds and mapped into this structure; it is never hard-coded to one board.</p>
+  <p>The principle behind it: <em>similarity is not intelligence — relevance is, and relevance comes from context.</em> A generic AI can find text that looks related. The platform knows what is academically relevant to <em>this</em> learner, on <em>this</em> board, at <em>this</em> grade, given what they have already mastered. The prerequisite map between topics is treated as an owned, validated artifact — proposed by the system, confirmed before it is trusted — because the mastery model, the gap engine, revision scheduling, and intervention all rest on it.</p>
+
+  <h3 class="sub">2 · Hyperlocalization — relevance, not translation</h3>
+  <p>Ontology gives the platform <em>understanding</em>. Hyperlocalization gives it <em>relevance</em>. It is far more than language. The same concept is delivered differently depending on the institution's board, language, region, calendar, assessment patterns, and culture — fractions explained with locally familiar money or food portions, examples and terminology that fit the learner's world, report formats and exam patterns that match the board. During onboarding the institution's structure, policies, curriculum, and local context are captured and converted into platform configuration and AI behaviour, so the product becomes institution-specific intelligence rather than a one-size-fits-all tool.</p>
+
+  <div class="diagram">
+    <div class="dcap">Figure 3 — Ontology and hyperlocalization are two different jobs</div>
+    <div class="drow" style="align-items:stretch">
+      <div class="dnode" style="max-width:330px"><span class="nl">Ontology · understanding</span><span class="nt">What is true and how it connects</span><span class="nd">Fractions require division. This question tests this outcome. This gap traces to a missing prerequisite.</span></div>
+      <div class="dnode" style="max-width:330px"><span class="nl">Hyperlocalization · relevance</span><span class="nt">How to deliver it here</span><span class="nd">Explain fractions in the local language, on this board's standard, using locally familiar examples and formats.</span></div>
+    </div>
+    <div class="ddown">↓ &nbsp; combined for every learner &nbsp; ↓</div>
+    <div class="drow"><div class="dnode cr full" style="max-width:560px"><span class="nl">Result</span><span class="nt">The right concept, delivered the right way, for this exact learner and institution</span></div></div>
+  </div>
+
+  <h3 class="sub">3 · The mastery model — two 80%s are not equal</h3>
+  <p>The platform never reduces a learner to an average score. A score earned with help, on easy questions, long ago, is not the same as a score earned independently, on hard questions, recently, and repeated. So mastery is computed as a weighting of several dimensions:</p>
+  <div class="card" style="text-align:center;background:var(--ink);border-color:var(--ink)">
+    <p style="font-family:var(--mono);font-size:15px;color:var(--page);margin:6px 0;line-height:1.8">Mastery = Performance × Reliability × Independence<br>× Difficulty × Recency × Consistency</p>
+  </div>
+  <p>The <b>Independence</b> dimension is the one almost no system tracks, and it is decisive: it separates what a learner can do alone from what they can only do with support. A learner scoring 90% with heavy hints and 62% unaided is not "developing at 76%" — they are <em>support-dependent</em>, and the platform says so. Learners never see the raw formula; they see plain language — "you understand this with guidance," "you can solve familiar questions independently," "you previously mastered this; revision is now due." This model feeds the knowledge profile, the gap engine, revision planning, and every intervention.</p>
+
+  <h3 class="sub">4 · The learning-gap engine — naming what is actually wrong</h3>
+  <p>A low score is a symptom, not a diagnosis. The platform distinguishes <b>ten kinds of gap</b>, because each needs a different response:</p>
+  <div class="grid2">
+    <ul class="clean">
+      <li><b>Prerequisite</b> — an earlier concept is weak</li>
+      <li><b>Conceptual</b> — the underlying idea isn't understood</li>
+      <li><b>Procedural</b> — the idea is clear but the steps fail</li>
+      <li><b>Application</b> — fine on familiar questions, lost on new ones</li>
+      <li><b>Retention</b> — understood once, now forgotten</li>
+    </ul>
+    <ul class="clean">
+      <li><b>Language</b> — the concept is fine; the wording is the barrier</li>
+      <li><b>Accuracy</b> — method is right, careless errors recur</li>
+      <li><b>Speed</b> — correct, but not within the time</li>
+      <li><b>Confidence</b> — knows it, avoids or second-guesses</li>
+      <li><b>Support-dependency</b> — strong with help, weak alone</li>
+    </ul>
+  </div>
+  <p>Detection is a disciplined process, not a guess — and a gap is never confirmed from a single bad score:</p>
+  <div class="diagram">
+    <div class="dcap">Figure 4 — The gap detection &amp; intervention loop</div>
+    <div class="dstack">
+      <div class="drow">
+        <div class="dnode"><span class="nl">01</span><span class="nt">Collect evidence</span></div><div class="darrow">→</div>
+        <div class="dnode"><span class="nl">02</span><span class="nt">Map to ontology</span></div><div class="darrow">→</div>
+        <div class="dnode"><span class="nl">03</span><span class="nt">Compare performance</span><span class="nd">supported vs unaided, recent vs old</span></div>
+      </div>
+      <div class="ddown">↓</div>
+      <div class="drow">
+        <div class="dnode"><span class="nl">06</span><span class="nt">Classify the gap</span><span class="nd">one of the ten types</span></div><div class="darrow">←</div>
+        <div class="dnode"><span class="nl">05</span><span class="nt">Validate</span><span class="nd">a diagnostic / transfer check</span></div><div class="darrow">←</div>
+        <div class="dnode"><span class="nl">04</span><span class="nt">Find the pattern</span></div>
+      </div>
+      <div class="ddown">↓</div>
+      <div class="drow">
+        <div class="dnode cr"><span class="nl">07</span><span class="nt">Intervene</span><span class="nd">targeted practice / micro-lesson</span></div><div class="darrow">→</div>
+        <div class="dnode"><span class="nl">08</span><span class="nt">Reassess unaided</span></div><div class="darrow">→</div>
+        <div class="dnode"><span class="nl">09</span><span class="nt">Update mastery</span><span class="nd">only after new evidence</span></div>
+      </div>
+    </div>
+    <div class="dloop">↻ &nbsp; the profile updates only when fresh evidence is collected — never from assumption</div>
+  </div>
+  <p>This is also what powers <b>misconception detonation</b>: when the engine identifies the specific broken mental model behind a wrong answer, it can generate the one counterexample engineered to break it — remediation that is aimed, not generic.</p>
+
+  <h3 class="sub">5 · Generate, then verify — content is made, not shelved</h3>
+  <p>Learning content is generated against the ontology and the institution's curriculum, tuned per learner — not pulled from a static question bank. But generated content reaching a learner unchecked is unacceptable: a wrong answer shown to a student is a serious failure. So generation always passes through a verification substrate before anything is served.</p>
+  <div class="diagram">
+    <div class="dcap">Figure 5 — The generate-and-verify content pipeline</div>
+    <div class="drow">
+      <div class="dnode"><span class="nl">in</span><span class="nt">Learner context</span><span class="nd">topic · level · gap · board</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">generate</span><span class="nt">Content engine</span><span class="nd">grounded on curriculum</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">check</span><span class="nt">Verification</span><span class="nd">symbolic check · second-model cross-check · numeric bounds</span></div>
+    </div>
+    <div class="ddown">↓</div>
+    <div class="drow">
+      <div class="dnode cr"><span class="nl">gate</span><span class="nt">Confidence gate</span><span class="nd">unverified content is refused</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nt">Served to learner</span></div>
+      <div class="darrow">·</div>
+      <div class="dnode"><span class="nl">cache</span><span class="nt">Verified store</span><span class="nd">reusable, near-zero cost</span></div>
+    </div>
+  </div>
+  <p>Verified artifacts are cached and reused, which keeps cost low while the experience still feels written-for-you. Deterministic checks are used wherever possible — symbolic verification for mathematics and physics, re-running tested simulations, numeric bounds — backed by a second-model cross-check and a confidence gate that simply refuses to serve anything unverified.</p>
+
+  <h3 class="sub">6 · The proactive loop — from dashboards to decisions</h3>
+  <p>Most platforms wait to be asked: <em>what do you want to know?</em> This one says: <em>here is what I found, and here is what to do about it.</em> A shared intelligence loop runs continuously over everything the platform observes, and turns patterns into recommended, approvable actions.</p>
+  <div class="diagram">
+    <div class="dcap">Figure 6 — The proactive intelligence loop (runs across every module)</div>
+    <div class="drow">
+      <div class="dnode"><span class="nl">01</span><span class="nt">Observe</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">02</span><span class="nt">Interpret</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">03</span><span class="nt">Recommend</span></div><div class="darrow">→</div>
+      <div class="dnode cr"><span class="nl">04</span><span class="nt">Approve</span><span class="nd">human, where it matters</span></div>
+    </div>
+    <div class="ddown">↓</div>
+    <div class="drow">
+      <div class="dnode"><span class="nl">07</span><span class="nt">Learn</span><span class="nd">improve next time</span></div><div class="darrow">←</div>
+      <div class="dnode"><span class="nl">06</span><span class="nt">Outcome</span><span class="nd">measure if it worked</span></div><div class="darrow">←</div>
+      <div class="dnode"><span class="nl">05</span><span class="nt">Execute</span><span class="nd">+ inform those affected</span></div>
+    </div>
+    <div class="dloop">↻ &nbsp; every recommendation carries: evidence · confidence · who is responsible · due date · consequence of ignoring it</div>
+  </div>
+  <p>Instead of "Mathematics performance dropped 8%," the platform says: <em>"Fractions mastery declined in Grade 6-B after two missed periods. Schedule a recovery lesson, assign the recommended practice set, and review on Friday."</em> The same loop serves a student ("your score dropped on these two topics — here is a 15-minute fix"), a teacher ("eight students grasp the concept but fail application questions — group them and run this activity"), and a principal ("Grade 8 Science has declined across all sections — review pacing and run moderation").</p>
+
+  <h3 class="sub">The thread through all of it — metacognition</h3>
+  <p>Every mechanism above points at one outcome: helping a learner <b>see and regulate their own thinking</b>. The mastery model shows them what they truly own versus what they only borrow with help. The gap engine names <em>why</em> something is hard, not just that it is. Confidence check-ins, reflection prompts, and an "I think I'm right" re-grade path build self-assessment. The knowledge profile is queryable — a learner can ask what they are weakest at and what to do next. The platform's deepest job is not to deliver answers; it is to make a learner a better, more independent judge of their own understanding.</p>
+</section>
+</div>
+
+<!-- ======================= 6. ROLES ======================= -->
+<div class="wrap">
+<section id="roles">
+  <div class="snum">§ 06</div>
+  <h2 class="stitle">Applications &amp; <em>roles</em></h2>
+  <p class="lead"><span class="dc">F</span>our role-experiences run on one platform: <b>Admin, Teacher, Student, and Parent</b>. They are not four separate products — they are four views of the same system, each showing only what that person needs, governed by permissions. The institution's many leadership and support positions live as permission-based roles inside the Admin experience; the many kinds of educator live inside the Teacher experience.</p>
+
+  <div class="grid2">
+    <div class="mini"><h4>Admin</h4><p>The institution's control surface — owner, principal, coordinator, HOD, examination, student-support, IT. Each sees a different, scoped slice. Manage by exception: the platform surfaces what needs attention; the admin approves and steers.</p></div>
+    <div class="mini"><h4>Teacher</h4><p>The friction killer — school teacher, faculty, tutor, mentor, special educator. The platform prepares the work; the teacher reviews and decides. Most actions take three steps or fewer.</p></div>
+    <div class="mini"><h4>Student</h4><p>The learner — never overwhelmed with administration or analytics, always shown the next step and why. The experience adapts to age and stage.</p></div>
+    <div class="mini"><h4>Parent</h4><p>Meaningful visibility and a sense of pride and partnership — not a surveillance feed. Action, explanation, and the child's progress, in the parent's own language.</p></div>
+  </div>
+
+  <p>One person can hold several roles — a teacher who is also a parent, a principal who is also a management member — under one identity, switching context cleanly. And whatever the role, the home is the same shape: a small set of surfaces rather than a wall of modules — <b>Today</b> (what needs attention now), <b>My Work</b> (tasks and approvals), <b>Ask</b> (the conversational companion), <b>People &amp; Classes</b>, <b>Insights</b> (explanations and recommended actions), and <b>Apps</b> (the deeper modules, when needed).</p>
+</section>
+</div>
+
+<!-- ======================= 7. FEATURES ======================= -->
+<div class="wrap">
+<section id="features">
+  <div class="snum">§ 07</div>
+  <h2 class="stitle">The feature <em>catalogue</em></h2>
+  <p class="lead"><span class="dc">T</span>his is the full capability surface, grouped by domain. For each, what it does, how it functions, and the tools that build it. This is the complete picture of the system — not a reduced first version. The build sequences these features onto a complete foundation; it does not strip them away.</p>
+
+  <!-- DOMAIN 1 -->
+  <h3 class="sub">1 · Institutional setup, governance &amp; hyperlocalization</h3>
+  <p>Every institution is different — a single school, a multi-campus group, a franchise, an NGO programme, a government network. The platform models all of them without forcing them into one rigid shape.</p>
+  <div class="feat"><h4>Institutional Blueprint wizard</h4><p>The institution completes a guided setup interview rather than hundreds of configuration fields.</p><p class="how"><b>How:</b> the wizard captures organisation structure, board and curriculum, academic year, working days and holidays, assessment and timetable policies, approval workflows, and communication rules, then generates the recommended structure, roles, and policies for approval. From this it builds a digital twin of how the institution operates.</p></div>
+  <div class="feat"><h4>Organisation hierarchy &amp; relationship graph</h4><p>A configurable hierarchy — group → region → campus → school → department → grade → section — plus a relationship graph for ownership, management, affiliation, and funding that a simple tree cannot express.</p><p class="how"><b>How:</b> nodes are configurable, not hard-coded levels, so an independent school, a group, a franchise, an NGO with sponsored schools, and a government district-and-block structure all fit. A single school can simultaneously belong to a group, sit in a government district, and be funded by an external programme — many-to-many relationships, each scoped and time-bound.</p></div>
+  <div class="feat"><h4>Policy inheritance &amp; governance</h4><p>Policies flow down the hierarchy and can be inherited, overridden, or locked at each level.</p><p class="how"><b>How:</b> a group sets a standard; one school inherits it, another is permitted a variation, a third is centrally locked. The same model governs curriculum, assessment, grading, attendance, communication, AI usage, and data retention — with versioning, effective dates, and audit trails. Hyperlocalization sits here too: board terminology, local language, regional calendars, and local exam formats become live configuration.</p></div>
+  <span class="tech"><b>Builds with</b> hierarchy + relationship-graph data model in PostgreSQL · policy engine with inheritance and versioning · the conversational wizard over Vidya · multi-tenancy with logical isolation (dedicated environments for large deployments).</span>
+
+  <!-- DOMAIN 2 -->
+  <h3 class="sub">2 · Identity, roles, access &amp; consent</h3>
+  <p>One identity per person, many possible roles, access scoped to exactly what each role legitimately needs.</p>
+  <div class="feat"><h4>Single identity, single sign-on</h4><p>Every user signs in once through the identity layer and carries one canonical identity everywhere.</p><p class="how"><b>How:</b> the SSO front door supports phone-OTP-first plus Google / Apple / Microsoft and institutional SSO, and provisions the identity automatically on first signup. One person can hold multiple roles and switch between them without separate accounts.</p></div>
+  <div class="feat"><h4>Role- and attribute-based access</h4><p>What a user can <em>do</em> is governed by role; <em>where</em> and <em>for whom</em> is governed by attributes.</p><p class="how"><b>How:</b> a coordinator can edit, but only for their assigned grade; a support role sees only referred students; a donor view sees aggregated outcomes but no student identity. Delegated, temporary, and substitute access are first-class, and role removal is immediate when employment or enrolment changes.</p></div>
+  <div class="feat"><h4>Consent as a primitive</h4><p>Consent for AI use, camera, microphone, recordings, and data sharing is captured, scoped, and revocable.</p><p class="how"><b>How:</b> consent is established at the identity layer and travels with the data, gating what each role and each cross-context read may use. This is built in from the first line rather than added later, and underpins the platform's trust posture.</p></div>
+  <span class="tech"><b>Builds with</b> the identity layer (OIDC / OAuth 2.0 / SAML) · RBAC + ABAC policy enforcement at the gateway · consent and permission service · full access history and audit.</span>
+
+  <!-- DOMAIN 3 -->
+  <h3 class="sub">3 · Academic structure &amp; ontology</h3>
+  <p>The curriculum backbone that everything academic hangs from — built once, board-agnostic, and reusable across the whole platform.</p>
+  <div class="feat"><h4>Board mapping &amp; curriculum ingestion</h4><p>Any board's curriculum is ingested and mapped into the ontology — subjects, units, chapters, topics, outcomes.</p><p class="how"><b>How:</b> curriculum comes from documents, standards feeds, and publisher content and is mapped to the structure described in §05, with cross-board equivalence so the same concept is recognised across boards. Teachers work with familiar chapter and topic names while the deeper relationships are managed underneath.</p></div>
+  <div class="feat"><h4>Ontology steward</h4><p>The system proposes mappings, flags duplicates, detects missing prerequisites, and recommends updates — for academic approval.</p><p class="how"><b>How:</b> the steward keeps the curriculum graph clean and current as content grows, but proposed changes are confirmed by a human before they are trusted. Curriculum is versioned, and learning-outcome coverage is tracked.</p></div>
+  <span class="tech"><b>Builds with</b> the academic ontology + prerequisite graph (PostgreSQL + graph relationships, pgvector for semantic matching) · ingestion pipeline with document understanding · CASE for competency-framework exchange.</span>
+
+  <!-- DOMAIN 4 -->
+  <h3 class="sub">4 · Academic calendar &amp; the dynamic smart timetable</h3>
+  <p>Not a document prepared once a term — a continuously optimised operational layer that keeps teaching going when the day changes.</p>
+  <div class="feat"><h4>Automatic timetable generation</h4><p>The system generates timetable options scored for compliance, workload balance, and academic quality, and explains why a recommended version is best.</p><p class="how"><b>How:</b> a constraint engine classifies every rule as <em>hard</em> (a teacher cannot be in two rooms at once), <em>soft</em> (maths is better earlier), or <em>contextual</em> (more revision near exams), then produces alternatives — best academic balance, best workload balance, best resource use — for an authorised human to compare and approve.</p></div>
+  <div class="feat"><h4>Academic continuity &amp; the substitution ladder</h4><p>When a teacher becomes unavailable, the platform doesn't just mark an absence — it keeps the class going from where the previous teacher left off.</p><p class="how"><b>How:</b> a configurable ladder searches for the best cover, in order, and picks up the lesson at the right point so students lose no continuity.</p></div>
+  <div class="diagram">
+    <div class="dcap">Figure 7 — The intelligent substitution ladder</div>
+    <div class="dstack">
+      <div class="dlayer"><span class="ll">Level 1</span><span class="lt">Same class &amp; subject teacher — knows the context and syllabus position</span></div>
+      <div class="dlayer"><span class="ll">Level 2</span><span class="lt">Same subject from another grade — competent at this level, available</span></div>
+      <div class="dlayer"><span class="ll">Level 3</span><span class="lt">Another qualified teacher in the school</span></div>
+      <div class="dlayer"><span class="ll">Level 4</span><span class="lt">Another branch / campus — taught online into the regular classroom under local supervision</span></div>
+      <div class="dlayer"><span class="ll">Level 5</span><span class="lt">An approved external substitute — granted time-bound access, removed after</span></div>
+      <div class="dlayer cr" style="background:var(--coral-soft);border-color:var(--coral)"><span class="ll">Level 6</span><span class="lt">Academic continuity alternative — a guided session, recorded lesson, or supervised practice; always academically meaningful, never a free period</span></div>
+    </div>
+  </div>
+  <div class="feat"><h4>Period swapping &amp; pacing protection</h4><p>The engine can exchange periods across the week and protects syllabus completion.</p><p class="how"><b>How:</b> it tracks planned vs. delivered periods and instructional time lost, and when a subject falls behind it recommends recovery — added periods, revision blocks, reallocated slots — so timetable decisions protect academic progress, not just fill slots. Low-risk changes can be automated within policy; high-impact changes require approval.</p></div>
+  <span class="tech"><b>Builds with</b> a constraint solver + scheduling service · the workflow engine for approvals and notifications · integration with attendance and leave so an absence triggers the ladder automatically.</span>
+
+  <!-- DOMAIN 5 -->
+  <h3 class="sub">5 · Content repository &amp; resources</h3>
+  <p>One place where a teacher finds approved school content, publisher resources, past materials that worked, and AI-generated activities.</p>
+  <div class="feat"><h4>Unified, tagged content library</h4><p>Institution content, personal teacher libraries, and publisher collections, all tagged to the ontology and learning outcomes.</p><p class="how"><b>How:</b> uploaded material passes through OCR, transcription, and document understanding; videos gain searchable transcripts and chapters; everything carries versioning, approval status, and licence metadata, and duplicates are detected. A teacher picks a topic and sees everything relevant in one view.</p></div>
+  <div class="feat"><h4>Generated supporting material</h4><p>Summaries, worksheets, mind maps, and interactive presentations generated on demand for any topic.</p><p class="how"><b>How:</b> the content engine produces these grounded on the curriculum and verified before use, and they flow straight into lessons and student modules. Mind maps render topics as visual flow with auto-generated assessment; presentations carry interactive elements and embedded media.</p></div>
+  <span class="tech"><b>Builds with</b> object storage + CDN · OCR / transcription / document-understanding pipeline · the content engine and verification substrate · pgvector for semantic search across resources.</span>
+
+  <!-- DOMAIN 6 -->
+  <h3 class="sub">6 · Teacher planning &amp; instruction design</h3>
+  <p>The teacher starts from "what am I teaching today," and the platform prepares the lesson, the likely misconceptions, the checks for understanding, and the differentiation.</p>
+  <div class="feat"><h4>Adaptive lesson &amp; course planning</h4><p>Annual, unit, weekly, and daily plans — generated from the teacher's preferences and instructional model, and adjusted day to day.</p><p class="how"><b>How:</b> plans are generated against curriculum requirements and a chosen instructional model, then the next day's plan automatically adapts to the previous day's completion, the engagement observed, and how students performed on those topics — keeping productivity high while staying on track for syllabus completion.</p></div>
+  <div class="feat"><h4>Differentiation &amp; readiness-aware planning</h4><p>Plans account for student readiness, prior evidence, available time, and resources.</p><p class="how"><b>How:</b> the planner draws on the mastery model and gap data to suggest differentiated paths and prerequisite checks, and routes plans for approval by a coordinator or head where required. An automatic teacher diary records what was actually taught versus planned.</p></div>
+  <span class="tech"><b>Builds with</b> the content engine + ontology · mastery and gap data from the intelligence layer · reusable institutional templates · approval workflow.</span>
+
+  <!-- DOMAIN 7 -->
+  <h3 class="sub">7 · Classroom delivery, live class &amp; the interactive board</h3>
+  <p>The teacher launches the day's period from the timetable — content, attendance, and assessment in one place — rather than hunting across modules. Physical, online, and hybrid are all supported.</p>
+  <div class="feat"><h4>The interactive teaching board</h4><p>An infinite canvas with subject-aware teaching content — write, draw, and annotate anywhere, with 3D explorable models, simulations, and animated explanations on the board.</p><p class="how"><b>How:</b> a fast native ink layer floats over hardware-accelerated interactive content sharing one camera, with multiple board themes, full drawing and shape tools, image and document sharing, and the ability to switch between live interaction and annotating a frozen frame. Content is generated and verified for the topic being taught that session.</p></div>
+  <div class="feat"><h4>Live polls, quizzes &amp; the in-class check</h4><p>Launch a poll or a quiz mid-lesson and see grasp immediately — including a device-free mode.</p><p class="how"><b>How:</b> where students have devices, they answer online; where they do not, each student holds a unique response card and the teacher photographs the room for instant on-the-spot evaluation and a live leaderboard. Quizzes link to the day's lesson so the teacher can quantify what was actually grasped.</p></div>
+  <div class="feat"><h4>Engagement &amp; attention signals</h4><p>The teacher receives gentle, non-punitive signals — a raised hand detected, a student appearing disengaged, no person in front of a camera in an online class — and engagement is gauged against later performance on those topics.</p><p class="how"><b>How:</b> on-device detection assists the teacher; it never grades a student from a face. Online sessions add breakout rooms (automatic or manual), a stopwatch, timer, and random-selection tools, equitable student selection, and class recording with searchable transcript and summary where permitted.</p></div>
+  <span class="tech"><b>Builds with</b> native ink engine + hardware-accelerated content host · interactive rendering (2D / 3D graphics, math visualization libraries) · realtime channels for polls / presence / leaderboards · on-device vision for attention signals · per-session recording, transcription, and summary.</span>
+
+  <!-- DOMAIN 8 -->
+  <h3 class="sub">8 · Attendance intelligence</h3>
+  <p>Not a digital register — an intelligent presence system that records quickly, adapts by stage, connects absence to the timetable, and flags risk early. One engine with configurable profiles, not separate products per level.</p>
+  <div class="feat"><h4>Fast, flexible capture</h4><p>Multiple methods so any classroom can mark attendance in seconds: a classroom photo-scan, voice roll-call, a photo roster, absent-only marking, and verified online-class presence.</p><p class="how"><b>How:</b> the scan and the voice methods <em>assist</em> the teacher — they propose, the teacher confirms; attendance is never finalised automatically. Manual marking is always a first-class option, and capture works offline and syncs later. Staff attendance, kiosks, late-arrival, and early-departure are handled in the same engine.</p></div>
+  <div class="feat"><h4>Risk, reconciliation &amp; response</h4><p>Attendance becomes an early-warning signal, not just a record.</p><p class="how"><b>How:</b> the engine detects consecutive absence, chronic-absence risk, subject-specific or post-lunch patterns, and attendance-shortage before exams; it reconciles related signals (transport boarding vs. school arrival, gate entry vs. classroom) and flags conflicts for human review rather than treating them as misconduct. A staff absence triggers the substitution ladder; repeated student absence triggers parent communication and a catch-up plan.</p></div>
+  <span class="tech"><b>Builds with</b> the attendance engine with configurable profiles · optional on-device face / liveness verification where permitted · geofencing for staff · offline capture + sync · locking, correction, and audit · the workflow engine for alerts and escalation.</span>
+
+  <!-- DOMAIN 9 -->
+  <h3 class="sub">9 · Assignments, homework, projects &amp; collaboration</h3>
+  <p>Create, assign, submit, review, and grade any kind of academic work, with the integrity layer built in.</p>
+  <div class="feat"><h4>Flexible assignments</h4><p>Online digital, online upload, and offline modes; individual, group, and differentiated; homework, worksheets, journals, portfolios, and projects.</p><p class="how"><b>How:</b> submissions accept text, image, audio, video, document, and live-camera input; drafts, revisions, and final states are tracked; reminders are sent based on risk rather than generic spam; and the platform syncs with existing classroom tools where a school already uses them.</p></div>
+  <div class="feat"><h4>Balanced group projects</h4><p>Students are grouped into balanced teams and graded on both teamwork and individual contribution.</p><p class="how"><b>How:</b> the platform composes groups of comparable capability from the mastery data, supports milestones and multiple submission types, and applies project rubrics covering contribution, collaboration, communication, leadership, quality, and problem-solving.</p></div>
+  <div class="feat"><h4>Originality, handled with care</h4><p>The platform reports an originality or similarity concern — it never declares a verdict.</p><p class="how"><b>How:</b> it can compare against the web, against classmates, and against model answers, flag sudden style shifts, and ask the student to explain or rewrite in their own words — surfacing concerns for the teacher to judge, with originality assessed separately from academic correctness.</p></div>
+  <span class="tech"><b>Builds with</b> submission + storage pipeline · the evaluation engine (below) · similarity / originality service · group-composition logic over mastery data · integration adapters for existing classroom tools.</span>
+
+  <!-- DOMAIN 10 -->
+  <h3 class="sub">10 · Assessment architecture &amp; examination management</h3>
+  <p>From question authoring to secure exams to results — formative, summative, diagnostic, and competency-based.</p>
+  <div class="feat"><h4>Blueprint-driven paper generation</h4><p>Exam papers generated from a configurable blueprint — section-wise mark distribution, cognitive-level tagging, multiple question types — with multi-set, multi-version, multi-difficulty output.</p><p class="how"><b>How:</b> the teacher defines or accepts a blueprint with section weights and cognitive-level targets and a colour-coded view of completed, untaught, and previously examined topics; the engine generates papers (no two need be alike), each question editable, regenerable, or refinable, supporting periodic, formative, summative, and slip tests. Random distribution and version control reduce malpractice surface.</p></div>
+  <div class="feat"><h4>Secure delivery &amp; proctoring</h4><p>Online, offline, and hybrid exams with question banks, moderation and approval, secure printing, scanning, scheduling, seating, and online proctoring.</p><p class="how"><b>How:</b> assessment items are portable via standards so they exchange cleanly with conformant systems; online exams add proctoring that watches for irregularities while accommodations and accessibility settings are first-class. Results flow to the gradebook and to analytics.</p></div>
+  <span class="tech"><b>Builds with</b> question-bank + item authoring · blueprint + generation engine over the ontology · QTI for item portability · OMR / scanning · proctoring service · gradebook + result publication.</span>
+
+  <!-- DOMAIN 11 -->
+  <h3 class="sub">11 · The evaluation engine</h3>
+  <p>One common evaluation service used across homework, exams, practice, and projects — consistent logic, with permissions and feedback changing by context. It runs in three distinct modes.</p>
+  <div class="diagram">
+    <div class="dcap">Figure 8 — The three evaluation modes</div>
+    <div class="drow" style="align-items:stretch">
+      <div class="dnode" style="max-width:230px"><span class="nl">Mode 1 · after submission</span><span class="nt">Evaluate submitted work</span><span class="nd">identify questions &amp; answers, score against rubric, separate wrong from incomplete from misunderstood, flag low-confidence for the teacher</span></div>
+      <div class="dnode" style="max-width:230px"><span class="nl">Mode 2 · scanned papers</span><span class="nt">Handwriting evaluation at scale</span><span class="nd">read handwritten scripts, recognise each student, map answers to questions, score by rubric, route uncertain pages to human review</span></div>
+      <div class="dnode cr" style="max-width:230px"><span class="nl">Mode 3 · before submission</span><span class="nt">Preventive — correct before you submit</span><span class="nd">the student shows work to the camera and gets graduated hints to fix it themselves; never the final answer, never forced</span></div>
+    </div>
+  </div>
+  <div class="feat"><h4>The rubric library</h4><p>Reusable, curriculum-aligned, teacher-editable rubrics — correctness, process/working, conceptual understanding, competency, descriptive, essay/language, diagram, project, practical, oral, coding, originality, and self-correction.</p><p class="how"><b>How:</b> a student can earn partial credit for sound method even with a wrong final answer; the engine maps mistakes to concepts and feeds the gap engine. Teachers own the rubrics — the platform recommends, the teacher decides.</p></div>
+  <div class="feat"><h4>Confidence-banded, human-final</h4><p>Every evaluated response carries an AI confidence level, and consequential marks always pass through a human.</p><p class="how"><b>How:</b> high-confidence responses can be provisionally scored, the middle band is flagged for moderation, and low-confidence work must be reviewed before marks publish — and marks are never reduced merely because handwriting or scan quality was poor; those are marked "needs human review." Teachers can also enter marks by voice. The student always knows whether the system is helping them learn or formally evaluating them.</p></div>
+  <span class="tech"><b>Builds with</b> the model router + structured-output validation · handwriting / document understanding · symbolic verification for quantitative subjects · the rubric service · confidence scoring + human-review thresholds · feeds mastery and gaps.</span>
+
+  <!-- DOMAIN 12 -->
+  <h3 class="sub">12 · Student learn, practice &amp; mastery</h3>
+  <p>The student sees three clear choices — continue learning, fix mistakes, prepare for what is next — over a deep adaptive engine.</p>
+  <div class="feat"><h4>Build, don't watch</h4><p>Concepts are derived, solved, or assembled by the learner — never narrated at them.</p><p class="how"><b>How:</b> the universal loop is <em>pose → let them struggle → reveal</em>, never explain-first: predict-then-check simulations, assemble-the-proof, fill-the-missing-step, and teach-it-back to the companion. Multiple explanation styles and multilingual delivery adapt to the learner, and support visibly fades as mastery grows.</p></div>
+  <div class="feat"><h4>Adaptive practice &amp; honest retrieval</h4><p>Practice is generated at the right difficulty, targets actual misconceptions, and uses spaced retrieval against the real forgetting curve.</p><p class="how"><b>How:</b> a range of practice formats keeps it varied; spaced repetition schedules review when memory is genuinely fading — accurate, not guilt-based; topic quizzes reward comprehension; and a readiness/aptitude score tracks per student. Practice contributes evidence to the mastery profile, not just a completion tick.</p></div>
+  <div class="feat"><h4>The assistance ladder</h4><p>Assistance is graduated and always protects productive struggle.</p></div>
+  <div class="diagram">
+    <div class="dcap">Figure 9 — The assistance ladder: support that fades as competence grows</div>
+    <div class="drow">
+      <div class="dnode"><span class="nt">Learn</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nt">Coach</span><span class="nd">guides, doesn't solve</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nt">Hint</span><span class="nd">smallest useful nudge</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nt">Work-with-me</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nt">Check my work</span></div><div class="darrow">→</div>
+      <div class="dnode cr"><span class="nt">Independent</span></div>
+    </div>
+    <div class="dloop">"Show me → work with me → watch me try → check my work → let me do it on my own" — the goal is to need the help less</div>
+  </div>
+  <span class="tech"><b>Builds with</b> the content engine + verification · spaced-repetition scheduler · mastery / IRT-style estimation · the companion for teach-back and hints · the mastery model gating progression.</span>
+
+  <!-- DOMAIN 13 -->
+  <h3 class="sub">13 · Revision planner, mock tests &amp; exam readiness</h3>
+  <p>A plan that changes with reality rather than nagging that tasks are overdue.</p>
+  <div class="feat"><h4>Adaptive revision planning</h4><p>An exam-date-based plan built from available time, syllabus coverage, and weakness analysis — and re-planned automatically when sessions are missed.</p><p class="how"><b>How:</b> the planner draws on mastery and gap data to prioritise weak prerequisites and distribute workload to reduce stress, and rebalances based on actual progress, not a fixed schedule. It supports school exams, board exams, and competitive-exam preparation.</p></div>
+  <div class="feat"><h4>Mock tests &amp; readiness forecasting</h4><p>Exam-specific mock tests aligned to the school's blueprint, plus a forward projection of likely outcomes.</p><p class="how"><b>How:</b> mocks mirror the real format and difficulty; predictive analysis identifies where a student is struggling, projects an outcome, and recalculates what is achievable given time left and topic weightage — turning a forecast into a plan.</p></div>
+  <span class="tech"><b>Builds with</b> the planning engine over mastery + gaps · the generation engine for mocks aligned to blueprints · predictive models from the intelligence layer.</span>
+
+  <!-- DOMAIN 14 -->
+  <h3 class="sub">14 · Learner profile, portfolio &amp; credentials</h3>
+  <p>A complete learner story — not merely marks and attendance — that travels with the learner across stages.</p>
+  <div class="feat"><h4>The evidence-linked profile</h4><p>A continuous academic timeline: concept and skill mastery, projects, achievements, teacher observations, and reflections — every conclusion linked to its evidence.</p><p class="how"><b>How:</b> the profile is built from evidence across all of the learner's activity, with source and permission controls on every item, and supports individual education plans and intervention history where needed. It shows independent versus support-dependent mastery, not just a number.</p></div>
+  <div class="feat"><h4>Portfolio &amp; portable credentials</h4><p>A year-end portfolio, a student-owned showcase, and verifiable credentials.</p><p class="how"><b>How:</b> certificates, badges, and credentials are issued and verifiable, and records are portable between permitted contexts under the learner's control — the foundation for an evidence-backed, independence-aware record that can become a trusted signal over time.</p></div>
+  <span class="tech"><b>Builds with</b> the learner profile + evidence store (intelligence layer) · credential issuance + verification · permission-scoped sharing.</span>
+
+  <!-- DOMAIN 15 -->
+  <h3 class="sub">15 · The conversational companion &amp; student care</h3>
+  <p>The companion is the conversational layer across every role — and a careful, bounded support presence, never a dependency-forming one.</p>
+  <div class="feat"><h4>One companion, role-shaped</h4><p>A student academic companion, a teacher copilot, a parent guide, an admin assistant — each shaped to the role, all over one identity and context.</p><p class="how"><b>How:</b> it answers "what do I need to do today" from the user's role, timetable, tasks, permissions, and recent progress; it helps with homework through guidance rather than answers; it works across text, voice, image, screen, and document, and across languages with code-switching.</p></div>
+  <div class="feat"><h4>Care, with clear boundaries</h4><p>Optional wellbeing check-ins and reflective support, with safe escalation to a responsible adult.</p><p class="how"><b>How:</b> the companion supports goals and habits and can route concerns to a teacher, counsellor, or parent, while age-appropriate policies keep it bounded — no manipulation, no exclusivity, no emotional dependence — and serious matters go to qualified humans. The platform does not attempt to diagnose emotional state from a face; wellbeing is voluntary and human-controlled.</p></div>
+  <span class="tech"><b>Builds with</b> the orchestrator + model router · per-user memory · the child-safety subsystem (moderation, crisis detection, escalation) · the permission ladder for any action it takes.</span>
+
+  <!-- DOMAIN 16 -->
+  <h3 class="sub">16 · Parent engagement &amp; home support</h3>
+  <p>The parent surface is built for partnership and pride, not surveillance. It answers: what needs attention, why it matters, what should I do, and lets the parent track resolution.</p>
+  <div class="feat"><h4>The unified child view</h4><p>One timeline per child with one-click switching between children — progress, strengths, support areas, attendance, upcoming exams, and teacher feedback.</p><p class="how"><b>How:</b> the dashboard updates entirely when a parent switches child, and surfaces actionable suggestions — "three things need your attention this week" — rather than raw charts. Feedback is written specifically for parents, with celebration points, growth insights, and next steps, and delivered in the parent's preferred language.</p></div>
+  <div class="feat"><h4>Learn-alongside &amp; home guidance</h4><p>Parents can ask the companion about a subject or topic and learn alongside their child, and receive concrete "what should I do at home" guidance.</p><p class="how"><b>How:</b> the parent companion explains topics and turns the child's own progress into a shareable, beautifully presented moment — converting anxiety into pride, wired to a relationship of support rather than fear.</p></div>
+  <span class="tech"><b>Builds with</b> the parent companion · parent-specific feedback generation · multilingual translation · the messaging surface · scoped reads of the child's progress.</span>
+
+  <!-- DOMAIN 17 -->
+  <h3 class="sub">17 · Parent–teacher partnership</h3>
+  <p>Meetings become a continuous partnership with measurable outcomes, not a few scheduled conversations that are forgotten afterward.</p>
+  <div class="feat"><h4>Prepared meetings, captured outcomes</h4><p>Before every meeting the companion generates a brief; during it, a silent assistant captures the conversation; after it, every meeting produces an action plan.</p><p class="how"><b>How:</b> the brief covers academic, attendance, behaviour, and wellbeing signals plus suggested discussion points and the parent's pre-submitted questions; the assistant handles transcription, notes, key-point extraction, and action items with consent; and each action gets an owner, a timeline, and a follow-up — across teacher, parent, and student.</p></div>
+  <div class="feat"><h4>Sentiment &amp; resolution</h4><p>The platform reads engagement and concern signals and routes complaints to resolution.</p><p class="how"><b>How:</b> it identifies disengaged or at-risk relationships before they become complaints, routes concerns to the responsible department with ownership and resolution tracking, and maintains a continuity trail across meetings. Virtual and multilingual meetings are first-class.</p></div>
+  <span class="tech"><b>Builds with</b> scheduling + meeting service · transcription / summarisation · the workflow engine for action plans and routing · sentiment signals from the intelligence layer.</span>
+
+  <!-- DOMAIN 18 -->
+  <h3 class="sub">18 · Communication &amp; collaboration hub</h3>
+  <p>One-to-one, group, and broadcast communication across the institution, made safe and useful by intelligence.</p>
+  <div class="feat"><h4>Communication that routes itself</h4><p>Direct messages, class and department channels, and school-wide broadcasts, with translation so every parent reads in their own language.</p><p class="how"><b>How:</b> messages can become tasks routed to the right owner with resolution tracking; sentiment and urgency are surfaced; quiet hours and communication policies apply; and a concern does not stay a stray chat message — it is identified, routed, owned, and closed.</p></div>
+  <div class="feat"><h4>Safeguarding by intelligence</h4><p>The platform understands communication patterns to protect students and staff.</p><p class="how"><b>How:</b> it watches for concerns — harassment, bullying, distress, urgency — and raises actionable, evidence-based flags to the right adult, with anonymous reporting available, focused on understanding concerns rather than storing conversations for their own sake. Student-to-adult communication is bounded by role and age.</p></div>
+  <span class="tech"><b>Builds with</b> messaging service over realtime channels (chat / push / email / SMS / a WhatsApp-class channel) · translation · conversation-to-task routing · safety classifiers + escalation.</span>
+
+  <!-- DOMAIN 19 -->
+  <h3 class="sub">19 · Academic intelligence &amp; the proactive layer</h3>
+  <p>This is where the loop from §05 becomes the dashboards and the daily "here is what I found." It serves every leadership and academic role with explanation and recommended action, not just numbers.</p>
+  <div class="feat"><h4>The intelligence dashboards</h4><p>A unified view across academics, behaviour, and care — at student, class, teacher, subject, and institution level.</p><p class="how"><b>How:</b> it covers syllabus-completion intelligence, learning-gap detection, assessment-quality analysis, attendance and engagement patterns, intervention effectiveness, and — for groups, programmes, and districts — benchmarking and outcome dashboards. A study-quadrant view sorts students into clear bands (star performers, emerging, potential, at-risk) to target teaching, and target analytics compares performance against defined goals.</p></div>
+  <div class="feat"><h4>Prediction &amp; trajectory</h4><p>Every student gets a data-driven projection of likely outcomes and a clear picture of where they have been, are, and are heading.</p><p class="how"><b>How:</b> success probability, performance trajectory (actual plotted solid, predicted dotted), cognitive-level analysis per student and subject, chapter-wise drill-down, and grade-wise progression update with every measurable academic moment — and recalculate what is achievable given time and weightage.</p></div>
+  <div class="feat"><h4>The ask-anything dashboard &amp; institution-specific assistant</h4><p>An admin asks a question and the platform generates the widgets, comparisons, and reports on the spot; every institution has its own assistant that behaves to its norms.</p><p class="how"><b>How:</b> the dynamic dashboard composes the requested view live and focuses on actionable insight rather than routine stats unless asked; the institution-specific assistant is shaped by the school's guidelines, culture, and policies through the hyperlocalization layer. Every alert carries evidence, confidence, owner, due date, and a "why am I seeing this."</p></div>
+  <span class="tech"><b>Builds with</b> the proactive intelligence loop + feature store · a governed semantic layer so every metric is defined once and computed the same everywhere · generative dashboard composition · predictive models (Track 1 now, Track 2 as it matures).</span>
+
+  <!-- DOMAIN 20 -->
+  <h3 class="sub">20 · Teacher development, continuity &amp; quality</h3>
+  <p>Support for teachers, private and constructive — and protection of the institution's intellectual continuity.</p>
+  <div class="feat"><h4>Private, evidence-based growth</h4><p>Development plans, observation, coaching, and classroom-interaction insight — delivered to the teacher first.</p><p class="how"><b>How:</b> interaction signals — talk ratio, questioning patterns, participation equity, wait time — are surfaced privately as coaching before any aggregate reaches leadership; there is no automated punitive ranking, and employment-related decisions require human review. Lesson-plan and assessment quality are reviewed to support, not to police.</p></div>
+  <div class="feat"><h4>Teacher knowledge transfer</h4><p>When a teacher leaves or takes leave, academics continue at the same pace from exactly where they left off.</p><p class="how"><b>How:</b> lesson position, plans, and class context transfer to the substitute or replacement through the continuity engine, so students do not feel the gap — a genuinely under-served capability that protects the institution's intellectual continuity.</p></div>
+  <span class="tech"><b>Builds with</b> the classroom-interaction analysis · private coaching surface · the continuity / substitution engine · plan and assessment quality review.</span>
+
+  <!-- DOMAIN 21 -->
+  <h3 class="sub">21 · The integration hub</h3>
+  <p>The platform connects to what a school already runs and never forces a rip-and-replace.</p>
+  <div class="feat"><h4>Connectors, both directions</h4><p>Student-information systems, finance and fee systems, existing LMS platforms, communication providers, attendance devices, calendars, and storage.</p><p class="how"><b>How:</b> the hub maps and transforms fields, monitors connector health, records sync history, and resolves conflicts, with institution-controlled data sharing. It can run as the intelligence layer on top of an existing system, take the lead, or simply exchange data — and a third-party tool catalogue lets approved tools plug in.</p></div>
+  <span class="tech"><b>Builds with</b> FLUID standards (LTI · OneRoster · xAPI / Caliper · QTI · SCORM · Clever / ClassLink · Ed-Fi) · REST APIs, webhooks, and event streams · the platform SDK · connector-health monitoring.</span>
+
+  <!-- DOMAIN 22 -->
+  <h3 class="sub">22 · Governance, security, audit &amp; AI safety</h3>
+  <p>The most powerful surfaces are the best-governed. Trust is engineered, not assumed.</p>
+  <div class="feat"><h4>Platform governance &amp; the control centre</h4><p>God-mode visibility and control over the institution, sitting on tiered access, immutable audit, and break-glass.</p><p class="how"><b>How:</b> every privileged action is recorded; access is scoped and reviewable; an institution-level AI control centre governs which agents run, their permitted tools, model routing, and an emergency disable switch. The most dangerous capabilities are the most accountable.</p></div>
+  <div class="feat"><h4>AI safety &amp; data governance</h4><p>Confidence, source citation, unsafe-output checks, age policies, data minimisation, encryption, tenant isolation, retention, and consent — built into the architecture.</p><p class="how"><b>How:</b> AI output carries confidence and citation; hallucination and unsafe-output checks run before serving; data is encrypted in transit and at rest with tenant isolation; every insight carries source lineage and is recalculated when permissions change; and access, export, correction, and deletion are first-class. Privacy is treated as a product layer, and the platform's posture is designed to meet the regulatory bar of the regions it serves.</p></div>
+  <span class="tech"><b>Builds with</b> the agent + capability governance layer · immutable audit + break-glass · encryption + tenant isolation · consent / retention / lineage services · safety classifiers and confidence gating across the AI fabric.</span>
+</section>
+</div>
+
+<!-- ======================= 8. PAGES ======================= -->
+<div class="wrap">
+<section id="pages">
+  <div class="snum">§ 08</div>
+  <h2 class="stitle">Page inventory &amp; <em>behaviour</em></h2>
+  <p class="lead"><span class="dc">E</span>very role's home obeys the same law — one screen, one intention, one next best action. The home is never a wall of charts; it answers what needs attention, what to do next, how long it takes, why it is recommended, and what progress it creates. The deeper modules sit behind that, reached when needed or summoned by conversation.</p>
+
+  <h3 class="sub">Admin</h3>
+  <p>Role-scoped — an owner, principal, coordinator, HOD, examination lead, support lead, or IT admin each sees a different slice. The home is a morning briefing, not a dashboard: what requires attention today, which classes are falling behind, which teachers need support, which students need intervention, which parent concerns are open, which approvals are blocking work, and what improved after the last intervention.</p>
+  <ul class="clean">
+    <li><b>Institutional setup &amp; hierarchy</b> — the blueprint wizard, structure, roles, policies. <em>Behaves as:</em> guided setup, recommended configurations to approve.</li>
+    <li><b>Calendar &amp; dynamic timetable</b> — generation, substitution, pacing. <em>Behaves as:</em> approve recommended changes; the engine handles low-risk ones within policy.</li>
+    <li><b>School-wide intelligence</b> — academics / behaviour / care, the study quadrant, target analytics, curriculum coverage, the ask-anything dashboard. <em>Behaves as:</em> surfaces actionable insight and recommended action, not routine stats.</li>
+    <li><b>The proactive feed</b> — "here is what I found today" with evidence, owner, and recommended action. <em>Behaves as:</em> manage by exception — review, approve, track outcome.</li>
+    <li><b>Governance &amp; audit</b> — policy, permissions, the AI control centre, audit, break-glass. <em>Behaves as:</em> powerful and fully accountable.</li>
+  </ul>
+
+  <h3 class="sub">Teacher</h3>
+  <p>The home is the day: next class, a ready-to-use lesson, pending evaluations, students needing attention, messages to answer, tomorrow's preparation, and one private coaching insight. Every action is designed to take three steps or fewer.</p>
+  <ul class="clean">
+    <li><b>Class diary &amp; planning</b> — the day's schedule, the lesson generated and adapted to yesterday's progress. <em>Behaves as:</em> the platform prepares; the teacher refines.</li>
+    <li><b>Classroom delivery</b> — the interactive board, live polls and quizzes, the device-free check, attention signals, breakout rooms. <em>Behaves as:</em> launch the period from the timetable; everything is already in place.</li>
+    <li><b>Attendance</b> — voice, photo-scan, photo-roster, absent-only. <em>Behaves as:</em> assists and proposes; the teacher confirms — never auto-finalises.</li>
+    <li><b>Assignments &amp; papers</b> — generation from blueprint, worksheets, projects, multi-set papers. <em>Behaves as:</em> generate, edit, assign.</li>
+    <li><b>Evaluation</b> — the three modes, the rubric library, voice mark entry, confidence-banded review. <em>Behaves as:</em> AI prepares the evaluation; the teacher is the final authority.</li>
+    <li><b>Student insights, grades &amp; reports, PTM prep, remedial</b> — the per-student picture and the work that follows from it. <em>Behaves as:</em> evidence-linked, with recommended next actions.</li>
+  </ul>
+
+  <h3 class="sub">Student</h3>
+  <p>The home answers: your next step, why, how long, and what it will build — "revise this for twenty minutes; your last practice showed difficulty here and your exam is in six days." Never overwhelmed with administration or analytics; the experience adapts to age and stage.</p>
+  <ul class="clean">
+    <li><b>Learn</b> — topic modules built on pose-struggle-reveal, multiple explanation styles, multilingual. <em>Behaves as:</em> build it, don't watch it.</li>
+    <li><b>Practice</b> — adaptive, mistake-based, spaced retrieval, varied formats. <em>Behaves as:</em> the right difficulty, targeting real gaps.</li>
+    <li><b>Progress / the knowledge profile</b> — mastery shown as independent vs. support-dependent, evidence-linked, in plain language; queryable. <em>Behaves as:</em> a mirror of the learner's own thinking, not a scoreboard.</li>
+    <li><b>Assignments, assessments &amp; feedback</b> — submitted work, paper analysis, personalised feedback. <em>Behaves as:</em> shows where it went wrong and what to do about it.</li>
+    <li><b>Study planner &amp; mock tests</b> — an exam-aware plan that rebalances, and realistic mocks. <em>Behaves as:</em> changes with reality, never nags.</li>
+    <li><b>The companion</b> — ask or do anything, by text, voice, image, or document. <em>Behaves as:</em> guides; protects struggle; never just hands over answers.</li>
+  </ul>
+
+  <h3 class="sub">Parent</h3>
+  <p>The home is partnership, not surveillance: what needs attention, why it matters, what to do, and how to track resolution — "three actions need your attention this week," in the parent's language.</p>
+  <ul class="clean">
+    <li><b>The child view</b> — one timeline per child, one-click switching, progress, strengths, support areas. <em>Behaves as:</em> actionable suggestions, not raw charts.</li>
+    <li><b>Assignments, exams &amp; reports</b> — status, scores, and parent-specific feedback with celebration points and next steps. <em>Behaves as:</em> pride and clarity, never fear.</li>
+    <li><b>Learn-alongside &amp; PTM</b> — ask the companion about a topic, prepare for and follow up on meetings. <em>Behaves as:</em> a partner in the child's learning.</li>
+  </ul>
+
+  <p>The precise content and behaviour of each page is pinned in the page-level specification, where the current working knowledge of the application meets the intent in this document. The rule that governs all of them stays constant: the page exists to surface the next right thing and make it easy — never to display data for its own sake.</p>
+</section>
+</div>
+
+<!-- ======================= 9. AI LAYER ======================= -->
+<div class="wrap">
+<section id="ailayer">
+  <div class="snum">§ 09</div>
+  <h2 class="stitle">The AI layer in <em>depth</em></h2>
+  <p class="lead"><span class="dc">T</span>he AI is not one model behind a chat box. It is a fabric of many minds, a per-learner intelligence layer, a generate-and-verify content pipeline, and a governed agent system — routed and observed so quality stays high and cost stays controlled.</p>
+
+  <h3 class="sub">Many minds, one router</h3>
+  <p>The fabric uses different models for different work, chosen per request:</p>
+  <div class="grid2">
+    <div class="mini"><h4>Frontier models</h4><p>The hard, rare, high-stakes work — generating a genuinely novel problem, diagnosing a subtle misconception, deep reasoning. Used sparingly, where quality is decisive.</p></div>
+    <div class="mini"><h4>Mid-tier models</h4><p>The workhorse volume — explanations, feedback, summaries.</p></div>
+    <div class="mini"><h4>Small specialised models</h4><p>The high-frequency, latency- and cost-sensitive ocean — quick classification, routing, intent detection, simple checks. This is where margin is won.</p></div>
+    <div class="mini"><h4>Our own fine-tuned models</h4><p>The moat — trained on the platform's own academic data, ontology, and rubrics; tuned to the curricula, languages, and gap taxonomy the platform serves. Pedagogy-tuned models outperform raw frontier models at teaching.</p></div>
+  </div>
+  <p>This is the two-track strategy in practice: <b>Track 1</b> (external models) carries the load today; <b>Track 2</b> (our own models and edge / offline small models) fills in over time for margin and defensibility. The router decides per request by complexity, latency, cost, and context — and the slot for Track 2 exists from the start, so adding our own models requires no re-architecture.</p>
+
+  <h3 class="sub">A mind for every learner</h3>
+  <p>Personalisation does not mean a separate model per student — that would be wasteful and pointless. It means a persistent <b>per-learner intelligence layer</b> — the knowledge profile, behavioural signals, learning style, history — that every model call is conditioned on. The model is shared; the context is uniquely theirs. The same model, fed a learner's cognitive fingerprint, behaves like a tutor that has known only them for years. The artifact that makes this real is a learned representation of how that specific learner thinks, drawn from the event history.</p>
+
+  <h3 class="sub">Generate, verify, and the agent system</h3>
+  <p>Content is generated against the ontology and verified before serving, as in §05 — deterministic checks where possible, a second-model cross-check, and a confidence gate that refuses unverified work. Above the models, the orchestrator interprets intent, pulls context, decides which capability and which model to invoke, acts within the permission ladder, verifies, and remembers. Capabilities are governed, least-privilege functions; agents never hold credentials or touch data directly. Everything is observed — cost, latency, and quality per route — because without that, AI spend silently erodes margin. Removing any one of these layers collapses the system back into ordinary software; their interdependence is what makes it AI-native.</p>
+</section>
+</div>
+
+<!-- ======================= 10. DATA ======================= -->
+<div class="wrap">
+<section id="data">
+  <div class="snum">§ 10</div>
+  <h2 class="stitle">Data &amp; event <em>architecture</em></h2>
+  <p class="lead"><span class="dc">T</span>his is the part that makes the platform an ecosystem rather than a folder of apps, and it rests on one rule that every developer must internalise. Each app owns its own operational data and runs independently. It joins the ecosystem by doing three things, and only three.</p>
+
+  <ol class="steps">
+    <li><b>Authenticate through the identity layer</b> — one sign-in, one canonical identity, valid everywhere.</li>
+    <li><b>Emit its data upward as attributed events</b> — a firehose of everything meaningful, each event stamped with which app, which canonical user, which purpose, which consent, and what type. The app can emit bluntly; the contract makes it clean on arrival.</li>
+    <li><b>Read only governed, scoped views downward</b> — a controlled faucet, never bulk access to the underlying store.</li>
+  </ol>
+
+  <div class="diagram">
+    <div class="dcap">Figure 10 — The event flow: firehose up, faucet down</div>
+    <div class="drow">
+      <div class="dnode"><span class="nl">owns</span><span class="nt">App's operational DB</span><span class="nd">fast, independent</span></div>
+      <div class="darrow">→</div>
+      <div class="dnode cr"><span class="nl">push · firehose</span><span class="nt">Attributed events</span><span class="nd">app · user · purpose · consent · type</span></div>
+      <div class="darrow">→</div>
+      <div class="dnode k"><span class="nl">ingests &amp; segregates</span><span class="nt">Platform intelligence layer</span><span class="nd">event store · profile · graph · features</span></div>
+    </div>
+    <div class="dloop">↑ &nbsp; pull · faucet — only governed, scoped, consent- and purpose-gated views &nbsp; ↑</div>
+    <div class="drow" style="justify-content:flex-end">
+      <div class="dnode k"><span class="nt">Intelligence layer</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nl">gate</span><span class="nt">Consent + purpose</span></div><div class="darrow">→</div>
+      <div class="dnode"><span class="nt">App reads its slice</span></div>
+    </div>
+  </div>
+
+  <p><b>The direction of flow is the safety rule.</b> App-to-platform is a firehose — push everything, raw, attributed. Platform-to-app is a faucet — only the scoped views the contract grants. No app ever bulk-reads the canonical store. This single asymmetry gives the ecosystem three things at once: independence (an app keeps running if the platform is briefly unreachable), a clean security boundary (an app sees only its own slice, never across the platform), and durable value (the data stays with the platform; an app that leaves loses access while the accumulated intelligence remains).</p>
+
+  <p><b>Why this must be in place from line one.</b> Because the event history is immutable and replayable, the intelligence layer can be enriched at any time and re-process the whole stream — so understanding of every past learner improves as the models improve. But that only works if clean, attributed events were emitted in the first place. An app that merely writes to its operational tables and moves on cannot be retrofitted later without losing the behavioural history forever. The emission side is therefore part of every app from the first commit; the heavier intelligence that consumes it can mature alongside, but the contract cannot be deferred.</p>
+
+  <p><b>Retention and deletion are clean by design.</b> Raw personal data is the learner's and is removed on deletion; de-identified, aggregated learning — the patterns dissolved into the model across many learners — is retained, because the link to the individual is severed and their contribution already lives in aggregate. Every derived insight carries source lineage and is recalculated when permissions change. No personal data is ever sold, and private academic data is never used for advertising.</p>
+</section>
+</div>
+
+<!-- ======================= 11. STACK ======================= -->
+<div class="wrap">
+<section id="stack">
+  <div class="snum">§ 11</div>
+  <h2 class="stitle">The full technology <em>stack</em></h2>
+  <p class="lead"><span class="dc">E</span>verything is built as a first-class system, not a stub. The stack is chosen so a small team can operate a genuinely advanced product — managed and composable where possible, with build effort spent where the value is: the intelligence.</p>
+
+  <h4 class="sub">Clients &amp; experience</h4>
+  <ul class="clean">
+    <li><b>Web</b> — React + Vite + TypeScript, with the design system as code tokens (never generic defaults).</li>
+    <li><b>Mobile</b> — React Native + Expo, offline-first (attendance, lessons, assignments, basic evaluation survive a dead network).</li>
+    <li><b>Classroom panel</b> — the native interactive teaching surface (fast native ink over a hardware-accelerated content host).</li>
+    <li><b>Interactive content &amp; motion</b> — math visualization and graphing libraries, 2D / 3D rendering, and animation tooling for build-it content and the teaching board.</li>
+  </ul>
+
+  <h4 class="sub">Identity &amp; gateway</h4>
+  <ul class="clean">
+    <li><b>Identity</b> — the SSO front door over OIDC / OAuth 2.0 / SAML; phone-OTP-first plus Google / Apple / Microsoft and institutional SSO; RBAC + ABAC; consent, session, device, and risk.</li>
+    <li><b>API gateway</b> — one wall: authentication (verified identity tokens), rate-limiting, schema validation, audit, routing.</li>
+  </ul>
+
+  <h4 class="sub">Application services</h4>
+  <ul class="clean">
+    <li><b>Backend</b> — Python (FastAPI) services, typed and schema-validated, OpenAPI-documented and versioned, feature-modular in a single deployable with clean boundaries (splittable into separate services later).</li>
+    <li><b>The workflow engine</b> — the signal → interpret → recommend → approve → execute → outcome → learn pattern that every module's proactive behaviour runs on.</li>
+  </ul>
+
+  <h4 class="sub">The AI fabric</h4>
+  <ul class="clean">
+    <li><b>Model router</b> — a self-hosted gateway (LiteLLM) with per-feature routing, the two-track strategy, structured-output validation, retrieval, and caching.</li>
+    <li><b>Orchestration &amp; agents</b> — the conversational orchestrator, the capability registry, the agent layer, and per-user memory.</li>
+    <li><b>Generation &amp; verification</b> — the content engine plus the verification substrate (symbolic checks, second-model cross-check, confidence gate).</li>
+    <li><b>Own models</b> — fine-tuned models and edge / offline small models, filled into the router's Track-2 slot as they mature.</li>
+    <li><b>Observability</b> — LLM cost / latency / quality tracing (Langfuse).</li>
+  </ul>
+
+  <h4 class="sub">Operational data</h4>
+  <ul class="clean">
+    <li><b>PostgreSQL + pgvector</b> — relational truth (users, academics, attendance, assessment, billing) and semantic search / embeddings in one managed store.</li>
+    <li><b>Firestore</b> — high-velocity data: chat, AI threads, notifications, live class and session events.</li>
+    <li><b>Redis</b> — cache, sessions, OTP, rate-limiting, ephemeral state.</li>
+    <li><b>Object storage + CDN</b> — documents, media, generated assets, recordings.</li>
+  </ul>
+
+  <h4 class="sub">The platform intelligence layer</h4>
+  <ul class="clean">
+    <li><b>Event ingestion + immutable event store</b> · identity-separated profile store · knowledge graph · feature store · governed, scoped read APIs. Apps integrate against this contract.</li>
+  </ul>
+
+  <h4 class="sub">Integrations &amp; channels</h4>
+  <ul class="clean">
+    <li><b>Interoperability (FLUID)</b> — LTI 1.3 · OneRoster 1.2 · xAPI / Caliper · QTI · SCORM · Clever / ClassLink · Ed-Fi · CASE · the platform SDK · MCP.</li>
+    <li><b>Communication</b> — email, SMS, push, and a WhatsApp-class channel via one trigger layer; lifecycle orchestration.</li>
+    <li><b>Payments</b> — region-appropriate gateways plus app-store billing where relevant.</li>
+    <li><b>Documents</b> — OCR, transcription, and document understanding for ingestion, scanning, and handwriting.</li>
+  </ul>
+
+  <h4 class="sub">Platform, analytics &amp; operations</h4>
+  <ul class="clean">
+    <li><b>Product analytics &amp; experimentation</b> — every lever feature-flagged and A/B-testable.</li>
+    <li><b>Error monitoring &amp; logging</b> — full observability across services.</li>
+    <li><b>Secrets</b> — a managed secrets store; environment variables only, never in code or chat.</li>
+    <li><b>Hosting &amp; delivery</b> — managed application hosting + edge CDN; containerised services; CI/CD from the source repository.</li>
+  </ul>
+
+  <h3 class="sub">Capability → tooling, at a glance</h3>
+  <table>
+    <tr><th>Capability</th><th>Built with</th></tr>
+    <tr><td><b>Sign-in &amp; identity</b></td><td>Identity service (OIDC / OAuth 2.0 / SAML), phone-OTP-first, RBAC + ABAC, consent service</td></tr>
+    <tr><td><b>Conversational OS</b></td><td>Orchestrator over the model router, generative-UI components, multimodal input, per-user memory, safety subsystem</td></tr>
+    <tr><td><b>Model intelligence</b></td><td>Self-hosted router (LiteLLM), frontier + mid + small + own models, structured outputs, Langfuse observability</td></tr>
+    <tr><td><b>Content generation</b></td><td>Content engine over the ontology + verification substrate (symbolic checks, cross-check, confidence gate)</td></tr>
+    <tr><td><b>Evaluation &amp; handwriting</b></td><td>Model router + structured outputs, document / handwriting understanding, rubric service, confidence banding</td></tr>
+    <tr><td><b>Timetable &amp; continuity</b></td><td>Constraint solver + scheduling service, the workflow engine, attendance / leave integration</td></tr>
+    <tr><td><b>Attendance</b></td><td>Attendance engine with profiles, optional on-device face / liveness, offline capture + sync, audit</td></tr>
+    <tr><td><b>Live class &amp; board</b></td><td>Native ink + content host, realtime channels, on-device vision, recording + transcription</td></tr>
+    <tr><td><b>Intelligence &amp; dashboards</b></td><td>Proactive loop + feature store, governed semantic layer, generative dashboards, predictive models</td></tr>
+    <tr><td><b>Relational &amp; semantic data</b></td><td>PostgreSQL + pgvector</td></tr>
+    <tr><td><b>High-velocity data</b></td><td>Firestore (chat, threads, notifications, live events) + Redis (cache / sessions / OTP)</td></tr>
+    <tr><td><b>Cross-app intelligence</b></td><td>The platform intelligence layer — event store, profile, knowledge graph, feature store, governed views</td></tr>
+    <tr><td><b>Interoperability</b></td><td>FLUID standards + the platform SDK + MCP</td></tr>
+    <tr><td><b>Communication &amp; lifecycle</b></td><td>Email / SMS / push / WhatsApp-class channel via one trigger layer + lifecycle orchestration</td></tr>
+    <tr><td><b>Governance &amp; safety</b></td><td>Agent + capability governance, immutable audit, break-glass, encryption, tenant isolation, lineage</td></tr>
+  </table>
+</section>
+</div>
+
+<!-- ======================= 12. INTERCONNECT ======================= -->
+<div class="wrap">
+<section id="interconnect">
+  <div class="snum">§ 12</div>
+  <h2 class="stitle">How it all <em>interconnects</em></h2>
+  <p class="lead"><span class="dc">E</span>very part of this document is one system. A person signs in once and is known everywhere. They act inside an app. The app emits what happened. The intelligence layer learns from it and hands back understanding. That understanding becomes a recommendation, a human approves it, the app carries it out, and the outcome flows back in to sharpen the next one. That single circuit is the entire platform.</p>
+
+  <div class="diagram">
+    <div class="dcap">Figure 11 — The whole circuit, end to end</div>
+    <div class="dstack">
+      <div class="drow">
+        <div class="dnode cr"><span class="nl">who</span><span class="nt">Identity</span><span class="nd">one canonical person, consented</span></div>
+        <div class="darrow">→</div>
+        <div class="dnode"><span class="nl">where</span><span class="nt">The app &amp; its surfaces</span><span class="nd">a teacher teaches, a student learns</span></div>
+        <div class="darrow">→</div>
+        <div class="dnode"><span class="nl">do</span><span class="nt">A capability runs</span><span class="nd">governed, least-privilege, verified</span></div>
+      </div>
+      <div class="ddown">↓ &nbsp; every meaningful action emits an attributed event</div>
+      <div class="drow">
+        <div class="dnode k"><span class="nl">learn</span><span class="nt">Platform intelligence</span><span class="nd">event store · profile · graph · features</span></div>
+        <div class="darrow">→</div>
+        <div class="dnode"><span class="nl">see</span><span class="nt">Mastery, gaps, patterns</span><span class="nd">independent vs. supported · the ten gap types</span></div>
+        <div class="darrow">→</div>
+        <div class="dnode cr"><span class="nl">act</span><span class="nt">Recommend → approve → execute</span><span class="nd">evidence · confidence · owner</span></div>
+      </div>
+      <div class="dloop">↻ &nbsp; the outcome is measured and fed back — the system gets sharper with every cycle, for every learner</div>
+    </div>
+  </div>
+
+  <h3 class="sub">One event, traced all the way through</h3>
+  <p>Follow a single moment. A student submits a worksheet. <b>The app</b> stores it and emits an attributed event. <b>The evaluation engine</b> scores it against the rubric, separates a wrong answer from an incomplete one from a misunderstood one, and attaches a confidence level. <b>The intelligence layer</b> records the evidence, updates mastery on the affected topics — weighting that the work was unaided and recent — and the gap engine notices the same procedural slip across several students. <b>The proactive loop</b> raises one recommendation to the teacher: these eight students share this specific gap; here is a fifteen-minute activity and a practice set. <b>The teacher</b> approves. <b>The app</b> assigns the work and tells the student what to do next and why. <b>The parent</b> sees, in their language, that the school spotted something and acted. Days later the reassessment flows back in, mastery updates on real evidence, and the next recommendation is a little better. No part of this is a separate product — it is one circuit turning once.</p>
+
+  <p>This is why the foundation cannot be skipped and the event contract cannot be deferred. Remove identity and nothing is connected. Remove the event emission and the intelligence has nothing to learn from. Remove verification and the content cannot be trusted. Remove the permission ladder and the system cannot be allowed to act. Each layer depends on the others; together they are an academic intelligence platform, and apart they are ordinary software.</p>
+</section>
+</div>
+
+<!-- ======================= 13. BUILD ======================= -->
+<div class="wrap">
+<section id="build">
+  <div class="snum">§ 13</div>
+  <h2 class="stitle">Build <em>approach</em></h2>
+  <p class="lead"><span class="dc">O</span>ne principle governs the order of work: <b>sequence the features, never the foundation</b>. The platform spine is built complete and correct from the start, even where a consumer for it does not yet exist. Features are then layered onto that stable base in a deliberate order. The capability surface in this document is the full target, not a reduced first version — the phases are about sequence, not subtraction.</p>
+
+  <div class="card">
+    <span class="tag">Phase 0</span>
+    <h4>Foundation — the platform spine</h4>
+    <p>Identity, consent, and roles. The canonical data model and the event contract. The academic ontology and prerequisite graph. The AI fabric and model router. The capability registry skeleton. The API gateway. The unified home and the workflow engine that powers every proactive behaviour. The interoperability contract surface.</p>
+    <p class="how"><b>Why first:</b> nothing below works without it. This is the highest-stakes work in the system; it is built to be complete and stable, because everything else rests on it — and because the event contract, once live, lets all later intelligence learn retroactively from day one.</p>
+  </div>
+
+  <div class="card">
+    <span class="tag">Phase 1</span>
+    <h4>The academic loop — School becomes real</h4>
+    <p>The dynamic timetable and academic continuity. The content and resource layer. Teacher planning. Classroom delivery. Attendance intelligence. Assignments. Assessment architecture. The evaluation engine. Learn and practice. Revision and mocks.</p>
+    <p class="how"><b>Why next:</b> this is the complete teaching-and-learning cycle — the thing an institution actually runs on every day, and the thing that proves the platform in real classrooms.</p>
+  </div>
+
+  <div class="card">
+    <span class="tag">Phase 2</span>
+    <h4>Intelligence &amp; relationships</h4>
+    <p>The unified learner profile and evidence graph. The conversational companion across every role. The parent experience. The communication hub. Parent–teacher partnership. The academic intelligence and proactive layer at full strength. Teacher development and continuity.</p>
+    <p class="how"><b>Why here:</b> these capabilities are richest once real academic activity is flowing and the intelligence layer has evidence to reason over. They turn a working system into an intelligent one.</p>
+  </div>
+
+  <div class="card">
+    <span class="tag">Phase 3</span>
+    <h4>Ecosystem scale</h4>
+    <p>Multi-tenancy across school, group, franchise, programme, and network. The full organisational hierarchy and relationship graph with programme and funding overlays. The partner and content marketplace. Group, district, and network control centres. Advanced operations for the agent and intelligence layers.</p>
+    <p class="how"><b>Why last:</b> scale is layered on once the single-institution product is excellent. Correct architecture stretched too thin too early is the failure mode we avoid; depth first, breadth after.</p>
+  </div>
+
+  <p>Across all four phases, one discipline holds the whole build together, and it is worth stating plainly one last time: <b>every app emits clean, attributed events from the first commit.</b> The features can arrive in sequence and the heavier intelligence can mature over time — but the contract that makes all of it possible is in place from line one, because the understanding the platform will one day have can only ever be built from what was recorded along the way.</p>
+
+  <div class="aside">Build the foundation as if everything depends on it, because everything does. Sequence the features with patience. Hold the standard on every screen. <span class="handnote">this is the one we don't get wrong</span></div>
+</section>
+</div>
+
+<!-- ======================= CLOSE ======================= -->
+<div class="wrap">
+  <div class="endmark"><span>End of document</span></div>
+</div>
+
+</body>
+</html>

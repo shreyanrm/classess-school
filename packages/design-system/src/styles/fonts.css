@@ -1,0 +1,56 @@
+/* ============================================================================
+   CLASSESS · DESIGN SYSTEM v4.1 — FONTS
+   One sans. Weight and size carry the whole hierarchy. Mono and script appear
+   only on demand. All families are OFL (free for commercial use).
+
+   PRODUCTION RULE (from FONTS.md): NO CDN dependencies in shipped artifacts.
+   Self-host / bundle via Fontsource (npm) or direct woff2 @font-face.
+   ============================================================================ */
+
+/* ---------------------------------------------------------------------------
+   GOOGLE SANS FLEX — the system face (display, UI, body — everything).
+
+   IMPORTANT: Google Sans Flex is NOT yet published on Fontsource, so it cannot
+   be imported the way the others are below. To self-host it, follow Route B of
+   FONTS.md:
+     1. Download the variable woff2 from Google Fonts ("Get font" -> download)
+        or the googlefonts/* GitHub releases.
+     2. Place it in your app at e.g. /public/assets/fonts/GoogleSansFlex.woff2.
+     3. Uncomment and adjust the @font-face block below (the url() must resolve
+        from the consuming app, not this package).
+
+   Until that woff2 is present, the --font-sans stack in tokens.css falls back
+   to Poppins (imported below), then to system-ui. Layout never breaks.
+
+   @font-face {
+     font-family: 'Google Sans Flex';
+     src: url('/assets/fonts/GoogleSansFlex.woff2') format('woff2-variations');
+     font-weight: 300 700;
+     font-display: swap;
+   }
+--------------------------------------------------------------------------- */
+
+/* ---------------------------------------------------------------------------
+   POPPINS — the designated fallback for Google Sans Flex. Geometric, slightly
+   rounded, fully open (OFL). Sits second in --font-sans, so any environment
+   that cannot load Google Sans Flex degrades to Poppins before system fonts.
+--------------------------------------------------------------------------- */
+@import '@fontsource/poppins/300.css';
+@import '@fontsource/poppins/400.css';
+@import '@fontsource/poppins/500.css';
+@import '@fontsource/poppins/600.css';
+
+/* ---------------------------------------------------------------------------
+   GOOGLE SANS CODE — mono, on demand (data, code, timestamps). Variable.
+--------------------------------------------------------------------------- */
+@import '@fontsource-variable/google-sans-code';
+
+/* ---------------------------------------------------------------------------
+   CAVEAT — script, for the rare human annotation. Used sparingly.
+--------------------------------------------------------------------------- */
+@import '@fontsource/caveat/400.css';
+@import '@fontsource/caveat/500.css';
+
+/* DM Serif Display is opt-in only (a single editorial moment, never a default).
+   It is intentionally NOT bundled here; add @fontsource/dm-serif-display in the
+   consuming app if and only if a surface genuinely uses the opt-in serif. */
