@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { Button, Cell, Icon, Matrix, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { useStore } from '@/lib/useStore';
-import { restartOnboarding, signOut } from '@/lib/store';
+import { restartOnboarding } from '@/lib/store';
+import { signOut } from '@/lib/auth';
 
 interface Toggle {
   key: string;
@@ -26,12 +27,11 @@ export default function SettingsPage() {
 
   function reonboard() {
     restartOnboarding();
-    router.push('/welcome');
+    router.push('/welcome/personalise');
   }
 
   function endSession() {
-    signOut();
-    router.replace('/welcome');
+    void signOut().then(() => router.replace('/sign-in'));
   }
 
   const [toggles, setToggles] = useState<Toggle[]>([

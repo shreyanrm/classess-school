@@ -38,6 +38,7 @@ export interface VidyaTurn {
 /** The real, navigable routes Vidya may direct the client to. The orchestrator
  *  validates against this set; an unknown target is dropped, never followed. */
 export const NAV_TARGETS = [
+  '/',
   '/loop',
   '/teacher',
   '/teacher/assign',
@@ -151,12 +152,40 @@ export interface ExplainCardSpec {
   body: string;
 }
 
+/**
+ * One step in a self-assembling derivation/explanation. Each step is generate-
+ * and-verified: when it carries a deterministic arithmetic claim (`check`), the
+ * client (and the pure verifier) confirms it before it is ever revealed.
+ */
+export interface DerivationStep {
+  /** The plain-language line spoken/shown for this step. */
+  text: string;
+  /**
+   * Optional deterministic arithmetic check for this step, e.g.
+   * { lhs: '1/2 + 1/4', rhs: '3/4' }. When present it MUST verify, or the step
+   * is dropped — nothing unverified is ever shown or taught (generate-and-verify).
+   */
+  check?: { lhs: string; rhs: string };
+}
+
+/**
+ * A self-assembling derivation — ordered steps that reveal one-by-one, synced to
+ * the spoken reply. Each step is generate-and-verified before it is shown.
+ */
+export interface StepsCardSpec {
+  kind: 'steps';
+  title: string;
+  topic?: string;
+  steps: DerivationStep[];
+}
+
 export type RenderSpec =
   | MasteryCardSpec
   | GapsCardSpec
   | DraftCardSpec
   | RecommendationCardSpec
-  | ExplainCardSpec;
+  | ExplainCardSpec
+  | StepsCardSpec;
 
 // ---------------------------------------------------------------------------
 // Client actions — the directives the route returns alongside Vidya's text.
@@ -174,7 +203,65 @@ export interface RenderAction {
   spec: RenderSpec;
 }
 
-export type VidyaAction = NavigateAction | RenderAction;
+// ---------------------------------------------------------------------------
+// Speak-and-show — the structured visual actions Vidya returns so it can TEACH
+// while it speaks: ring a region on the page, pin a calm margin note, or
+// self-assemble a verified derivation step-by-step inside the orb panel.
+// ---------------------------------------------------------------------------
+
+/**
+ * A named, highlightable on-screen region. The orb resolves a region to a real
+ * element by its data-testid (preferred) or id, then rings/spotlights it. The
+ * map is closed: an unknown region is dropped, never highlighted, so "look at
+ * your trigonometry mastery" can only land on a registered, real target.
+ */
+export const HIGHLIGHT_REGIONS = {
+  'mastery-band': 'The mastery band on the current view.',
+  'topic-card': 'A topic card on the learn/practice surface.',
+  'gap-list': 'The list of detected gaps.',
+  'progress-stat': 'A headline progress statistic.',
+  'recommendation': 'A proactive recommendation.',
+  'approval-queue': 'The pending-approval queue.',
+  'class-roster': 'The class roster / student list.',
+  'attendance': 'The attendance capture.',
+  'assignment': 'An assignment in the work inbox.',
+  'portfolio-item': 'A portfolio credential or mastered-topic entry.',
+  'vidya-steps': 'The self-assembling derivation inside the Vidya panel.',
+} as const;
+
+export type HighlightRegion = keyof typeof HIGHLIGHT_REGIONS;
+
+export function isHighlightRegion(value: unknown): value is HighlightRegion {
+  return typeof value === 'string' && Object.prototype.hasOwnProperty.call(HIGHLIGHT_REGIONS, value);
+}
+
+/**
+ * Ring / spotlight a named on-screen region while Vidya speaks about it. Visual
+ * only — it never mutates anything, so it is always safe on the voice path too.
+ */
+export interface HighlightAction {
+  type: 'highlight';
+  region: HighlightRegion;
+  /** A calm one-liner shown beside the ring, e.g. "this is where you stand". */
+  label?: string;
+}
+
+/**
+ * Pin a small, calm margin note near a region — the human-note "Caveat" feel.
+ * Used sparingly, for a single load-bearing aside. Visual only, always safe.
+ */
+export interface AnnotateAction {
+  type: 'annotate';
+  region: HighlightRegion;
+  /** The short note text (one calm line; no emoji, no exclamation). */
+  note: string;
+}
+
+export type VidyaAction =
+  | NavigateAction
+  | RenderAction
+  | HighlightAction
+  | AnnotateAction;
 
 /** The orchestrator's reply. `degraded` signals the caller to fall back. */
 export interface VidyaChatResult {
@@ -195,7 +282,7 @@ export interface VidyaChatRequest {
 // client crash-proof against a malformed action (drops unknown targets/specs).
 // ---------------------------------------------------------------------------
 
-const RENDER_KINDS = new Set(['mastery', 'gaps', 'draft', 'recommendation', 'explain']);
+const RENDER_KINDS = new Set(['mastery', 'gaps', 'draft', 'recommendation', 'explain', 'steps']);
 
 export function parseActions(raw: unknown): VidyaAction[] {
   if (!Array.isArray(raw)) return [];
@@ -212,11 +299,169 @@ export function parseActions(raw: unknown): VidyaAction[] {
     } else if (action.type === 'render' && action.spec && typeof action.spec === 'object') {
       const spec = action.spec as Record<string, unknown>;
       if (typeof spec.kind === 'string' && RENDER_KINDS.has(spec.kind)) {
-        out.push({ type: 'render', spec: spec as unknown as RenderSpec });
+        // A steps spec is generate-and-verified at the boundary: any step that
+        // carries a deterministic check that does NOT verify is dropped, so the
+        // client never reveals an unverified teaching step.
+        if (spec.kind === 'steps') {
+          out.push({ type: 'render', spec: sanitiseSteps(spec) });
+        } else {
+          out.push({ type: 'render', spec: spec as unknown as RenderSpec });
+        }
       }
+    } else if (action.type === 'highlight' && isHighlightRegion(action.region)) {
+      out.push({
+        type: 'highlight',
+        region: action.region,
+        label: typeof action.label === 'string' ? action.label : undefined,
+      });
+    } else if (
+      action.type === 'annotate' &&
+      isHighlightRegion(action.region) &&
+      typeof action.note === 'string' &&
+      action.note.trim().length > 0
+    ) {
+      out.push({ type: 'annotate', region: action.region, note: action.note.trim() });
     }
   }
   return out;
+}
+
+/** Drop any derivation step whose deterministic check fails — generate-and-verify
+ *  at the boundary so an unverified teaching step is never revealed. */
+function sanitiseSteps(spec: Record<string, unknown>): StepsCardSpec {
+  const rawSteps = Array.isArray(spec.steps) ? spec.steps : [];
+  const steps: DerivationStep[] = [];
+  for (const s of rawSteps) {
+    if (!s || typeof s !== 'object') continue;
+    const step = s as Record<string, unknown>;
+    if (typeof step.text !== 'string' || step.text.trim().length === 0) continue;
+    const check =
+      step.check && typeof step.check === 'object'
+        ? (step.check as { lhs?: unknown; rhs?: unknown })
+        : undefined;
+    if (check && typeof check.lhs === 'string' && typeof check.rhs === 'string') {
+      if (!verifyStep(check.lhs, check.rhs)) continue; // unverified -> dropped
+      steps.push({ text: step.text, check: { lhs: check.lhs, rhs: check.rhs } });
+    } else {
+      steps.push({ text: step.text });
+    }
+  }
+  return {
+    kind: 'steps',
+    title: typeof spec.title === 'string' ? spec.title : 'Step by step',
+    topic: typeof spec.topic === 'string' ? spec.topic : undefined,
+    steps,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic step verification — the generate-and-verify gate for a taught
+// step. A pure, safe arithmetic evaluator (no eval): it parses + evaluates a
+// rational arithmetic expression (digits, + - * /, parentheses, fractions) and
+// confirms lhs == rhs exactly under rational arithmetic. Anything it cannot
+// parse is treated as UNVERIFIED (returns false) — never trusted by default.
+// ---------------------------------------------------------------------------
+
+type Rational = { n: number; d: number };
+
+const gcd = (a: number, b: number): number => (b === 0 ? Math.abs(a) : gcd(b, a % b));
+
+function norm(r: Rational): Rational {
+  if (r.d === 0) return { n: NaN, d: 1 };
+  let { n, d } = r;
+  if (d < 0) {
+    n = -n;
+    d = -d;
+  }
+  const g = gcd(n, d) || 1;
+  return { n: n / g, d: d / g };
+}
+
+/** Evaluate a rational arithmetic expression. Returns null if it cannot parse
+ *  (which the verifier treats as unverified). */
+export function evalRational(expr: string): Rational | null {
+  const src = expr.replace(/\s+/g, '');
+  if (src.length === 0) return null;
+  if (!/^[0-9+\-*/().]+$/.test(src)) return null;
+  let i = 0;
+
+  function parseExpr(): Rational | null {
+    let left = parseTerm();
+    if (!left) return null;
+    while (i < src.length && (src[i] === '+' || src[i] === '-')) {
+      const op = src[i++];
+      const right = parseTerm();
+      if (!right) return null;
+      left =
+        op === '+'
+          ? norm({ n: left.n * right.d + right.n * left.d, d: left.d * right.d })
+          : norm({ n: left.n * right.d - right.n * left.d, d: left.d * right.d });
+    }
+    return left;
+  }
+
+  function parseTerm(): Rational | null {
+    let left = parseFactor();
+    if (!left) return null;
+    while (i < src.length && (src[i] === '*' || src[i] === '/')) {
+      const op = src[i++];
+      const right = parseFactor();
+      if (!right) return null;
+      if (op === '*') left = norm({ n: left.n * right.n, d: left.d * right.d });
+      else {
+        if (right.n === 0) return null; // division by zero -> unverified
+        left = norm({ n: left.n * right.d, d: left.d * right.n });
+      }
+    }
+    return left;
+  }
+
+  function parseFactor(): Rational | null {
+    if (src[i] === '+') {
+      i++;
+      return parseFactor();
+    }
+    if (src[i] === '-') {
+      i++;
+      const f = parseFactor();
+      return f ? { n: -f.n, d: f.d } : null;
+    }
+    if (src[i] === '(') {
+      i++;
+      const e = parseExpr();
+      if (!e || src[i] !== ')') return null;
+      i++;
+      return e;
+    }
+    // a number (integer or decimal)
+    const start = i;
+    while (i < src.length && /[0-9.]/.test(src[i]!)) i++;
+    if (i === start) return null;
+    const tok = src.slice(start, i);
+    if ((tok.match(/\./g)?.length ?? 0) > 1) return null;
+    if (tok.includes('.')) {
+      const [whole, frac = ''] = tok.split('.');
+      const d = Math.pow(10, frac.length);
+      return norm({ n: Number(whole + frac), d });
+    }
+    return { n: Number(tok), d: 1 };
+  }
+
+  const result = parseExpr();
+  if (!result || i !== src.length || Number.isNaN(result.n)) return null;
+  return result;
+}
+
+/**
+ * The deterministic generate-and-verify gate for one taught step: is lhs == rhs
+ * under exact rational arithmetic? Returns false for anything it cannot parse,
+ * so an unverifiable claim is never presented as verified.
+ */
+export function verifyStep(lhs: string, rhs: string): boolean {
+  const a = evalRational(lhs);
+  const b = evalRational(rhs);
+  if (!a || !b) return false;
+  return a.n * b.d === b.n * a.d;
 }
 
 // ---------------------------------------------------------------------------
@@ -292,9 +537,56 @@ export function specToInline(spec: RenderSpec): InlineCard | null {
         title: `A nudge — ${spec.concept}`,
         body: spec.body,
       };
+    case 'steps':
+      return {
+        title: spec.title,
+        body: spec.topic
+          ? `Step by step, ${spec.topic}. Each step is checked before it is shown.`
+          : 'Step by step. Each step is checked before it is shown.',
+        items: spec.steps.map((s) => s.text),
+        confidence: 'high',
+      };
     default:
       return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// The TUTOR pure helper — the assistance ladder, as a deterministic state
+// machine, so the rule "never reveal before a posed attempt" is testable and
+// holds on BOTH the typed and the voice path. Vidya poses a step, waits for the
+// learner's attempt, scaffolds on a wrong answer (misconception detonation),
+// and only reveals once an attempt has been made (or the learner is clearly
+// stuck after enough scaffolding).
+// ---------------------------------------------------------------------------
+
+export type TutorPhase = 'pose' | 'scaffold' | 'reveal';
+
+export interface TutorState {
+  /** How many attempts the learner has made on the current step. */
+  attempts: number;
+  /** Whether the latest attempt was correct. */
+  lastCorrect: boolean;
+  /** Whether the learner explicitly asked to be shown / gave up. */
+  gaveUp: boolean;
+}
+
+export const TUTOR_START: TutorState = { attempts: 0, lastCorrect: false, gaveUp: false };
+
+/** The maximum scaffolds before a reveal is allowed even without a correct attempt. */
+export const TUTOR_MAX_SCAFFOLDS = 2;
+
+/**
+ * Decide the next tutoring phase from the state. INVARIANT (generate-and-verify
+ * of pedagogy): a reveal is NEVER returned before the learner has made at least
+ * one posed attempt — unless they explicitly gave up. With no attempt yet we
+ * pose; after a wrong attempt we scaffold (detonate the misconception); once the
+ * learner is correct, has tried enough times, or gave up, we may reveal.
+ */
+export function tutorReveal(state: TutorState): TutorPhase {
+  if (state.attempts === 0 && !state.gaveUp) return 'pose';
+  if (state.lastCorrect || state.gaveUp || state.attempts > TUTOR_MAX_SCAFFOLDS) return 'reveal';
+  return 'scaffold';
 }
 
 /**

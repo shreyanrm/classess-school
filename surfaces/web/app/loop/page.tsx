@@ -13,6 +13,9 @@ import { SurfaceShell } from '../_components/SurfaceShell';
 import { DimensionBars } from '../_components/DimensionBars';
 import { GapChips } from '../_components/GapChips';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
+import { SavedAffordance } from '../_components/SavedAffordance';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 import {
   computeMastery,
   detectGaps,
@@ -99,6 +102,11 @@ export default function LoopPage() {
   const [decision, setDecision] = useState<Decision>('pending');
   const [reassessOutcome, setReassessOutcome] = useState<'unknown' | 'transferred'>('unknown');
 
+  // The live event seam: a real loop attempt is emitted (best-effort) to the
+  // immutable platform.events store. It never blocks the cycle; on no-database
+  // it stays on the local store and the affordance reads "kept on this device".
+  const { saved, savedNote, emit } = useEmit();
+
   const asof = SCENARIO_NOW;
 
   // The engine reads, recomputed on every event change. Deterministic.
@@ -133,6 +141,17 @@ export default function LoopPage() {
     const second = buildAttempt({ independent: !supported, correct: true, score: supported ? 0.85 : 1, daysAgo: 5 });
     setEvents((prev) => [...prev, first, second]);
     setStage('classify');
+    // Emit the real attempt to the live, immutable event store — best-effort.
+    void emit({
+      type: 'attempt.recorded',
+      purpose: EVENT_PURPOSE.learning,
+      canonicalUuid: SUBJECT,
+      payload: {
+        topic_id: LOOP_TOPIC_ID,
+        mode: supported ? 'supported' : 'independent',
+        attempts: 2,
+      },
+    });
   }
 
   // 3: add one unaided attempt that exposes whether it transfers.
@@ -171,9 +190,9 @@ export default function LoopPage() {
       dockIntro="This runs the whole Student to Teacher cycle in your browser. Every reading you see is computed live by the same engine the spine uses — no mock numbers. Drive it from the buttons, or ask me what each stage proves."
       dockChips={['Why is independence the keystone', 'Explain the gap that fired', 'What does a confirmed gap mean']}
     >
-      <section className="stack">
+      <section className="stack reveal reveal-2" data-testid="loop-controls">
         <p className="overline">The cycle</p>
-        <div className="loop-steps">
+        <div className="loop-steps" data-testid="loop-steps">
           {STAGES.map((s, i) => {
             const idx = STAGES.findIndex((x) => x.id === stage);
             const cls = s.id === stage ? 'active' : i < idx ? 'done' : '';
@@ -196,7 +215,7 @@ export default function LoopPage() {
       </section>
 
       {/* The split: the cycle drivers on the left, the live engine read on the right. */}
-      <div className="cols-2">
+      <div className="cols-2 reveal reveal-3" data-testid="loop-stage">
         {/* ----- The narrative / driver column ----- */}
         <SpotlightCard padLg>
           {stage === 'assign' ? (
@@ -271,6 +290,7 @@ export default function LoopPage() {
                 <Button variant="primary" size="sm" onClick={onProbeUnaided}>
                   Try one unaided
                 </Button>
+                <SavedAffordance state={saved} note={savedNote} />
               </div>
             </div>
           ) : null}

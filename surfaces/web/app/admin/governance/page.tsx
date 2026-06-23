@@ -26,6 +26,7 @@ export default function AdminGovernancePage() {
           always require an explicit human decision and never auto-fire.
         </p>
         <SpotlightCard>
+          <div className="table-scroll">
           <table className="eval-table">
             <thead>
               <tr>
@@ -50,6 +51,7 @@ export default function AdminGovernancePage() {
               ))}
             </tbody>
           </table>
+          </div>
         </SpotlightCard>
       </section>
 

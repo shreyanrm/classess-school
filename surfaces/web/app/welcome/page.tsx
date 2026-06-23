@@ -3,9 +3,11 @@ import { OnboardingFlow } from './OnboardingFlow';
 export const metadata = { title: 'Welcome — Classess School' };
 
 /**
- * The first-run entry. When the store holds no account and no institution, the
- * app routes here (see app/_components/FirstRunGate). The whole flow is calm,
- * implicit, and Vidya-narrated — no questionnaire, no marketing wall.
+ * The legacy implicit-profiling onboarding (kept reachable for the admin
+ * school-setup narrative). The primary first-run is now the familiar auth flow
+ * (/sign-in, /sign-up) gated by app/_components/AuthGate, with the short
+ * personalise step at /welcome/personalise. The whole flow stays calm, implicit,
+ * and Vidya-narrated — no questionnaire, no marketing wall.
  */
 export default function WelcomePage() {
   return <OnboardingFlow />;

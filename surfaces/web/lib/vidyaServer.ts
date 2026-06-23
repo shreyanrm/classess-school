@@ -54,8 +54,16 @@ import type {
   GapsCardSpec,
   DraftCardSpec,
   RecommendationCardSpec,
+  StepsCardSpec,
+  DerivationStep,
 } from './vidya';
-import { NAV_TARGETS, isNavTarget } from './vidya';
+import {
+  NAV_TARGETS,
+  isNavTarget,
+  HIGHLIGHT_REGIONS,
+  isHighlightRegion,
+  verifyStep,
+} from './vidya';
 
 export const KEY_ENV = 'CLSS_AIFABRIC_DEV_GEMINI_API_KEY';
 const BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
@@ -77,21 +85,95 @@ export const SYSTEM = [
   'on. Never use emoji or exclamation marks. Do not lecture; guide.',
   'When you show mastery or gaps, describe them in plain language and never',
   'mention a number, score, percentage, or formula to a learner.',
-  'If a learner asks for an answer outright, prefer a hint that protects the',
-  'struggle (explain_step), unless they are clearly stuck.',
-  'Anything consequential (publishing a check, sending a message) is only ever',
-  'prepared for a human to approve, never done automatically.',
-  'You can shortcut common jobs with tools: take_attendance opens fast capture',
-  '(you propose, the teacher confirms), draft_plan prepares a lesson plan,',
-  'open_mock opens the student mocks and revision plan, start_live_class opens',
-  'the classroom, and message_compose opens a draft in the communication hub —',
-  'never sending it. open_library opens the content / resource library (only',
-  'verified content is servable), open_work opens the student assignment inbox',
-  'and group projects, and open_portfolio opens the learner portfolio and',
-  'credentials — issuing or sharing a credential is the learner’s decision.',
-  'When a request is best served on a dedicated page, call',
-  'navigate to take the person there. Keep the reply itself under 80 words; let',
-  'the rendered cards carry the detail.',
+  'Anything consequential (publishing a check, sending a message, grading,',
+  'submitting) is only ever prepared for a human to approve, never done',
+  'automatically.',
+  '',
+  'CHOOSE THE RIGHT CAPABILITY FROM PLAIN LANGUAGE, then perform it for real with',
+  'a tool and speak the result. Map intent to capability:',
+  '- TUTOR: "I don\'t get adding fractions", "help me with X", "I\'m stuck on X",',
+  '  "teach me X", "I want to learn X". You MUST call tutor_step — this OUTRANKS',
+  '  explaining or navigating. NEVER explain first. Your spoken reply must POSE',
+  '  the next small step AS A QUESTION; do NOT state the method, the rule, or the',
+  '  answer in your text. Wait for the learner to try; scaffold on a wrong answer',
+  '  (name the misconception); reveal only after they have attempted or are',
+  '  clearly stuck. Protect the struggle. (Routing to the learn PAGE is only for',
+  '  "open the learn page" / "go to learn", never for "teach me / I don\'t get X".)',
+  '- EXPLAIN: "explain X", "show me how X works", "derive X", "walk me through X".',
+  '  Use explain_steps to build a step-by-step derivation. Each arithmetic step',
+  '  carries a deterministic check and is verified before it is shown.',
+  '- CREATE: "draft a quick check", "make an assignment", "build a blueprint',
+  '  paper", "a revision plan". Use draft_quick_check / draft_plan / create_study_plan.',
+  '  Everything created is returned for a human to approve, never auto-published.',
+  '- READ & EXPLAIN: "where am I", "how am I doing", "my mastery", "my gaps".',
+  '  Use show_mastery / detect_gaps and explain in plain language (independent vs',
+  '  with guidance) with the evidence and why they are seeing it.',
+  '- ASSESS: "why this mark", "what does this confidence band mean". Explain the',
+  '  marking and band in plain language; the human is always final.',
+  '- ANSWER: ask-anything over the data; plain language, never a raw formula to a',
+  '  learner.',
+  '- ACT: advance the loop or prepare an intervention, permission-laddered.',
+  '- NAVIGATE: only when routing is the right response.',
+  '',
+  'SPEAK AND SHOW. Teach visually in sync with your words. Alongside your reply',
+  'you may return visual actions the surface renders: highlight_target rings a',
+  'named on-screen region (so "look at your trigonometry mastery" visibly',
+  'highlights it); annotate_target pins one short calm margin note near a region',
+  '(use sparingly); explain_steps self-assembles a verified derivation that',
+  'reveals one step at a time as you speak. Use highlight when you are pointing at',
+  'something already on screen; use explain_steps when you are deriving or',
+  'teaching a method. Keep it tasteful.',
+  '',
+  'NAVIGATION IS A FIRST-CLASS ACTION. When the intent is actionable — when the',
+  'person wants to go somewhere, do something, or see a specific view — call the',
+  'right tool or navigate IMMEDIATELY rather than chatting about it. Bias toward',
+  'acting. Only stay conversational when the person is genuinely asking a',
+  'question, is unsure, or no destination fits. Map everyday, colloquial human',
+  'language to intent — do not require exact page names. Examples of intent ->',
+  'destination/tool:',
+  '"show me where I am struggling" / "what am I weak at" / "my weak spots" ->',
+  'navigate /student/progress (a learner) or show_mastery / detect_gaps.',
+  '"how am I doing" / "my progress" -> /student/progress.',
+  '"I want to set up my school" / "configure the school" / "add classes and',
+  'sections" -> navigate /admin/setup.',
+  '"let me take attendance" / "mark the roll" / "who is here today" ->',
+  'take_attendance.',
+  '"draft a quick check on fractions" / "make me a quiz on X" / "test them on X"',
+  '-> draft_quick_check.',
+  '"how is my class doing" / "where does the class stand" / "class overview" ->',
+  'navigate /teacher/students or show_mastery.',
+  '"open the live class" / "start class" / "go to the classroom" / "run the',
+  'board" -> start_live_class.',
+  '"plan tomorrow\'s lesson" / "lesson plan for X" / "what should I teach" ->',
+  'draft_plan.',
+  '"let me practise" / "give me practice" -> navigate /student/practice.',
+  '"teach me X" / "I want to learn X" / "I don\'t understand X" -> tutor_step',
+  '(teach inline, pose first). Only "open the learn page" / "go to learn" ->',
+  'navigate /student/learn.',
+  '"my mocks" / "exam prep" / "revision plan" -> open_mock.',
+  '"my assignments" / "homework" / "what is due" -> open_work.',
+  '"my portfolio" / "my credentials" / "my certificates" -> open_portfolio.',
+  '"message a parent" / "email the class" / "send a note" -> message_compose.',
+  '"the library" / "resources" / "find materials on X" -> open_library.',
+  '"the loop" / "show me the cycle" -> navigate /loop.',
+  '"what needs my approval" / "the approval queue" / "pending actions" ->',
+  'navigate /proactive.',
+  '"my messages" / "inbox" -> navigate /messages.',
+  '"school-wide data" / "across sections" / "pacing and mastery" -> navigate',
+  '/admin/intelligence.',
+  '"settings" -> /settings; "my profile" / "my account" -> /profile;',
+  '"home" / "take me back" / "the start" -> navigate /.',
+  '',
+  'Tool reminders: take_attendance opens fast capture (you propose, the teacher',
+  'confirms), draft_plan prepares a lesson plan, open_mock opens the student',
+  'mocks and revision plan, start_live_class opens the classroom, and',
+  'message_compose opens a draft in the communication hub — never sending it.',
+  'open_library opens the content / resource library (only verified content is',
+  'servable), open_work opens the student assignment inbox and group projects,',
+  'and open_portfolio opens the learner portfolio and credentials — issuing or',
+  'sharing a credential is the learner’s decision.',
+  'Shape the destination to the person\'s role when a route is role-specific.',
+  'Keep the reply itself under 80 words; let the rendered cards carry the detail.',
 ].join(' ');
 
 // ---------------------------------------------------------------------------
@@ -104,7 +186,7 @@ export const TOOLS = [
       {
         name: 'navigate',
         description:
-          'Direct the person to one of the real pages. Use when the request is best handled on a dedicated workspace. Does not navigate by itself — it returns a directive the client follows.',
+          'Take the person to one of the real pages. Use this WHENEVER they express intent to go somewhere or see a specific view, even in casual, indirect, or colloquial language ("show me where I am struggling" -> /student/progress, "set up my school" -> /admin/setup, "how is my class doing" -> /teacher/students, "what needs my approval" -> /proactive, "take me home" -> /). Prefer navigating over only describing the page. Match the destination to the person\'s role when a route is role-specific. It does not navigate by itself — it returns a directive the client follows, so it is always safe.',
         parameters: {
           type: 'object',
           properties: {
@@ -172,6 +254,100 @@ export const TOOLS = [
             concept: { type: 'string', description: 'The concept to explain plainly.' },
           },
           required: ['concept'],
+        },
+      },
+      {
+        name: 'tutor_step',
+        description:
+          'TUTOR on the assistance ladder: pose -> struggle -> reveal. Use this when a learner does not understand something or is stuck ("I don\'t get adding fractions", "help me with X"). NEVER explain first. With no attempt yet, pose ONE small step and wait. After a wrong attempt, scaffold and name the misconception. Reveal only once the learner has attempted it or is clearly stuck. Returns the phase so your reply matches it.',
+        parameters: {
+          type: 'object',
+          properties: {
+            concept: { type: 'string', description: 'What the learner is working on, e.g. "adding fractions".' },
+            attempts: { type: 'integer', description: 'How many attempts the learner has made on this step (0 if they have not tried yet).' },
+            lastCorrect: { type: 'boolean', description: 'Whether their latest attempt was correct.' },
+            gaveUp: { type: 'boolean', description: 'True only if the learner explicitly asked to be shown or gave up.' },
+          },
+          required: ['concept'],
+        },
+      },
+      {
+        name: 'explain_steps',
+        description:
+          'EXPLAIN by self-assembling a step-by-step derivation that reveals one step at a time as you speak. Use for "explain X", "derive X", "walk me through X". Each arithmetic step may carry a deterministic check { lhs, rhs } that is VERIFIED before it is shown — only verified steps appear (generate-and-verify). Plain language; never a bare formula to a learner.',
+        parameters: {
+          type: 'object',
+          properties: {
+            topic: { type: 'string', description: 'The concept or problem being derived.' },
+            title: { type: 'string', description: 'A short title for the derivation.' },
+            steps: {
+              type: 'array',
+              description: 'Ordered steps. Each has plain-language text and, where the step makes a concrete arithmetic claim, a deterministic check.',
+              items: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string', description: 'The plain-language line for this step.' },
+                  check: {
+                    type: 'object',
+                    description: 'Optional deterministic arithmetic check; lhs must equal rhs exactly (e.g. lhs "1/2 + 1/4", rhs "3/4").',
+                    properties: {
+                      lhs: { type: 'string', description: 'Left-hand arithmetic expression.' },
+                      rhs: { type: 'string', description: 'Right-hand arithmetic expression it should equal.' },
+                    },
+                  },
+                },
+                required: ['text'],
+              },
+            },
+          },
+          required: ['topic', 'steps'],
+        },
+      },
+      {
+        name: 'highlight_target',
+        description:
+          'SPEAK AND SHOW: ring/spotlight a named on-screen region while you talk about it, so the learner sees what you mean ("look at your trigonometry mastery"). Visual only — it never changes anything, so it is always safe.',
+        parameters: {
+          type: 'object',
+          properties: {
+            region: {
+              type: 'string',
+              enum: Object.keys(HIGHLIGHT_REGIONS),
+              description: 'The on-screen region to ring.',
+            },
+            label: { type: 'string', description: 'A calm one-line caption shown by the ring.' },
+          },
+          required: ['region'],
+        },
+      },
+      {
+        name: 'annotate_target',
+        description:
+          'SPEAK AND SHOW: pin ONE short, calm margin note near a named region (the human-note feel). Use sparingly, for a single load-bearing aside. Visual only — always safe.',
+        parameters: {
+          type: 'object',
+          properties: {
+            region: {
+              type: 'string',
+              enum: Object.keys(HIGHLIGHT_REGIONS),
+              description: 'The region the note pins to.',
+            },
+            note: { type: 'string', description: 'One calm line; no emoji, no exclamation.' },
+          },
+          required: ['region', 'note'],
+        },
+      },
+      {
+        name: 'create_study_plan',
+        description:
+          'CREATE a draft study / spaced-revision plan from the ontology topics a learner is working on. CONSEQUENTIAL: prepared for a human to review and adopt, never auto-applied. Returns a draft that requires approval.',
+        parameters: {
+          type: 'object',
+          properties: {
+            topic: { type: 'string', description: 'The focus topic for the plan.' },
+            days: { type: 'integer', description: 'How many days the plan spans (defaults to 5).' },
+          },
+          required: ['topic'],
         },
       },
       {
@@ -581,10 +757,149 @@ function toolOpenPortfolio(): ToolOutcome {
   };
 }
 
+/** TUTOR: decide the assistance-ladder phase and tell the model how to reply.
+ *  Never reveals before a posed attempt (mirrors the pure tutorReveal helper). */
+function toolTutorStep(args: Record<string, unknown>): ToolOutcome {
+  const concept = String(args.concept ?? 'this');
+  const attempts = Math.max(0, Number(args.attempts) || 0);
+  const lastCorrect = args.lastCorrect === true;
+  const gaveUp = args.gaveUp === true;
+
+  let phase: 'pose' | 'scaffold' | 'reveal';
+  if (attempts === 0 && !gaveUp) phase = 'pose';
+  else if (lastCorrect || gaveUp || attempts > 2) phase = 'reveal';
+  else phase = 'scaffold';
+
+  const guidance: Record<typeof phase, string> = {
+    pose:
+      'Pose ONE small step toward the answer and ask the learner to try it. Do NOT explain the method or give the answer yet. One short prompt, plain language.',
+    scaffold:
+      'Their attempt was off. Name the likely misconception gently, give ONE targeted nudge toward the next step, and invite them to try again. Still do not give the full answer.',
+    reveal:
+      'They have earned the reveal. Walk the step through plainly and confirm the idea, then offer one more to check it stuck. No numbers-as-scores, no formula dump.',
+  };
+
+  return {
+    result: { ok: true, concept, phase, attempts, guidance: guidance[phase] },
+  };
+}
+
+/** EXPLAIN: build a verified, self-assembling derivation. Any step whose
+ *  deterministic check fails is dropped — only verified steps are taught. */
+function toolExplainSteps(args: Record<string, unknown>): ToolOutcome {
+  const topic = typeof args.topic === 'string' && args.topic.trim() ? args.topic.trim() : 'this';
+  const title = typeof args.title === 'string' && args.title.trim() ? args.title.trim() : `Step by step — ${topic}`;
+  const rawSteps = Array.isArray(args.steps) ? args.steps : [];
+  const verified: DerivationStep[] = [];
+  let dropped = 0;
+  for (const s of rawSteps) {
+    if (!s || typeof s !== 'object') continue;
+    const step = s as Record<string, unknown>;
+    if (typeof step.text !== 'string' || step.text.trim().length === 0) continue;
+    const check =
+      step.check && typeof step.check === 'object'
+        ? (step.check as { lhs?: unknown; rhs?: unknown })
+        : undefined;
+    if (check && typeof check.lhs === 'string' && typeof check.rhs === 'string') {
+      if (!verifyStep(check.lhs, check.rhs)) {
+        dropped++;
+        continue; // generate-and-verify: never teach an unverified step
+      }
+      verified.push({ text: step.text.trim(), check: { lhs: check.lhs, rhs: check.rhs } });
+    } else {
+      verified.push({ text: step.text.trim() });
+    }
+  }
+  if (verified.length === 0) {
+    return {
+      result: {
+        verified: false,
+        dropped,
+        note: 'No step passed the deterministic check, so nothing is shown. Re-derive with correct arithmetic.',
+      },
+    };
+  }
+  const spec: StepsCardSpec = { kind: 'steps', title, topic, steps: verified };
+  return {
+    result: { verified: true, stepCount: verified.length, dropped, title },
+    action: { type: 'render', spec },
+  };
+}
+
+/** SPEAK AND SHOW: ring an on-screen region. Visual only; always safe. */
+function toolHighlightTarget(args: Record<string, unknown>): ToolOutcome {
+  if (!isHighlightRegion(args.region)) {
+    return { result: { highlighted: false, note: 'Unknown region; not highlighting.' } };
+  }
+  const label = typeof args.label === 'string' ? args.label : undefined;
+  return {
+    result: { highlighted: true, region: args.region },
+    action: { type: 'highlight', region: args.region, label },
+  };
+}
+
+/** SPEAK AND SHOW: pin one calm margin note near a region. Visual only. */
+function toolAnnotateTarget(args: Record<string, unknown>): ToolOutcome {
+  if (!isHighlightRegion(args.region)) {
+    return { result: { annotated: false, note: 'Unknown region; not annotating.' } };
+  }
+  const note = typeof args.note === 'string' ? args.note.trim() : '';
+  if (!note) return { result: { annotated: false, note: 'No note text.' } };
+  return {
+    result: { annotated: true, region: args.region },
+    action: { type: 'annotate', region: args.region, note },
+  };
+}
+
+/** CREATE: a draft spaced-revision study plan, prepared for human approval. */
+function toolCreateStudyPlan(args: Record<string, unknown>): ToolOutcome {
+  const name = String(args.topic ?? 'this topic');
+  const days = Math.max(3, Math.min(14, Number(args.days) || 5));
+  const topicId = resolveTopicId(name);
+  const info = topicId ? topicInfo(topicId) : null;
+  const topicName = info?.name ?? name;
+  const spec: DraftCardSpec = {
+    kind: 'draft',
+    title: `Study plan — ${topicName}`,
+    topic: topicName,
+    body: `A ${days}-day spaced-revision plan, sequenced from the prerequisites and paced for retrieval. Prepared for you to review and adopt.`,
+    items: [
+      'Day one: re-anchor the prior outcome with a short worked example',
+      'Mid: retrieval practice on the topic in a fresh context',
+      'Spaced: a low-stakes self-check after a rest day',
+      'Close: a final confidence check before you move on',
+    ],
+    confidence: 'middle',
+    requiresApproval: true,
+    openHref: '/student/mocks',
+    openLabel: 'Open the revision planner',
+  };
+  return {
+    result: {
+      prepared: true,
+      requires_approval: true,
+      note: 'A study plan is prepared for the learner to review and adopt; it is not applied automatically.',
+      title: spec.title,
+      days,
+    },
+    action: { type: 'render', spec },
+  };
+}
+
 export function runTool(name: string, args: Record<string, unknown>): ToolOutcome {
   switch (name) {
     case 'navigate':
       return toolNavigate(args);
+    case 'tutor_step':
+      return toolTutorStep(args);
+    case 'explain_steps':
+      return toolExplainSteps(args);
+    case 'highlight_target':
+      return toolHighlightTarget(args);
+    case 'annotate_target':
+      return toolAnnotateTarget(args);
+    case 'create_study_plan':
+      return toolCreateStudyPlan(args);
     case 'show_mastery':
       return toolShowMastery(args);
     case 'detect_gaps':

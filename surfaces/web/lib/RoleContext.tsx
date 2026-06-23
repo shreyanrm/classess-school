@@ -11,6 +11,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Role } from './mock';
+import { readStore, setAccountRole } from './store';
 
 interface RoleContextValue {
   role: Role;
@@ -23,36 +24,67 @@ const RoleContext = createContext<RoleContextValue | null>(null);
 const STORAGE_KEY = 'clss.web.role';
 const ORDER: Role[] = ['teacher', 'student', 'admin', 'parent'];
 
+/**
+ * Mirror the chosen role to sessionStorage (survives route changes in this tab)
+ * AND into the localStorage account (survives a full restart). The account is the
+ * durable home: a returning, authenticated user must land on THEIR role, not the
+ * hard-coded default. Both writes are guarded — neither is fatal when storage is
+ * unavailable (private mode / SSR).
+ */
+function persistRole(next: Role): void {
+  try {
+    window.sessionStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    // Non-fatal: the role still updates in memory for this session.
+  }
+  // Persist into the same localStorage store as the account so it survives a
+  // restart; only writes when an account exists (setAccountRole is a no-op
+  // otherwise), so it never resurrects a signed-out identity.
+  try {
+    setAccountRole(next);
+  } catch {
+    // Non-fatal.
+  }
+}
+
 export function RoleProvider({ children }: { children: ReactNode }) {
   const [role, setRoleState] = useState<Role>('teacher');
 
-  // Hydrate the chosen role from sessionStorage after mount (avoids SSR drift).
+  // Hydrate the chosen role after mount (avoids SSR drift). Prefer the
+  // sessionStorage value (the role chosen earlier in this tab); when absent —
+  // e.g. after a full restart — seed it from the persisted account role so an
+  // authenticated non-teacher lands on their own surface, not the default.
   useEffect(() => {
     try {
       const stored = window.sessionStorage.getItem(STORAGE_KEY) as Role | null;
-      if (stored && ORDER.includes(stored)) setRoleState(stored);
+      if (stored && ORDER.includes(stored)) {
+        setRoleState(stored);
+        return;
+      }
     } catch {
-      // sessionStorage may be unavailable (private mode); default role stands.
+      // sessionStorage may be unavailable (private mode); fall through to store.
+    }
+    const accountRole = readStore().account?.role;
+    if (accountRole && ORDER.includes(accountRole)) {
+      setRoleState(accountRole);
+      // Seed sessionStorage so the rest of this tab's navigation is stable.
+      try {
+        window.sessionStorage.setItem(STORAGE_KEY, accountRole);
+      } catch {
+        // Non-fatal.
+      }
     }
   }, []);
 
   const setRole = useCallback((next: Role) => {
     setRoleState(next);
-    try {
-      window.sessionStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      // Non-fatal: the role still updates in memory for this session.
-    }
+    persistRole(next);
   }, []);
 
   const cycleRole = useCallback(() => {
     setRoleState((prev) => {
       const next = ORDER[(ORDER.indexOf(prev) + 1) % ORDER.length] ?? 'teacher';
-      try {
-        window.sessionStorage.setItem(STORAGE_KEY, next);
-      } catch {
-        // Non-fatal.
-      }
+      persistRole(next);
       return next;
     });
   }, []);

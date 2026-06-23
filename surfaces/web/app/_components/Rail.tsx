@@ -7,6 +7,7 @@ import { Icon, type IconName } from '@classess/design-system';
 import { useRole } from '@/lib/RoleContext';
 import type { Role } from '@/lib/mock';
 import { ROLE_LABELS } from '@/lib/mock';
+import { newVidyaConversation } from './VidyaOrb';
 
 interface RailItem {
   href: string;
@@ -115,7 +116,7 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
 
   return (
     <>
-      <nav className="rail" aria-label="Primary">
+      <nav className="rail" aria-label="Primary" data-testid="rail">
         <Link href={ROLE_HOME[role]} className="rail-mark" aria-label="Classess home" title="Classess">
           C
         </Link>
@@ -125,7 +126,12 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
           className={`rail-btn${pathname === '/' ? ' active' : ''}`}
           aria-label="New conversation"
           title="New conversation"
-          onClick={onNewConversation}
+          onClick={() => {
+            // Start a fresh Vidya thread (the orb owns it) AND navigate home, so
+            // the button actually begins a new conversation, not just routes.
+            newVidyaConversation();
+            onNewConversation?.();
+          }}
         >
           <Icon name="plus" size="md" />
         </Link>
@@ -150,6 +156,8 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
               className={`rail-btn${active ? ' active' : ''}`}
               aria-label={item.label}
               title={item.label}
+              data-testid="rail-item"
+              data-rail-href={item.href}
             >
               <Icon name={item.icon} size="md" />
             </Link>

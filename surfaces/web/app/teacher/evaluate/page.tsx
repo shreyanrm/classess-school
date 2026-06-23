@@ -111,6 +111,7 @@ export default function EvaluatePage() {
         </div>
 
         <SpotlightCard>
+          <div className="table-scroll">
           <table className="eval-table">
             <thead>
               <tr>
@@ -178,6 +179,7 @@ export default function EvaluatePage() {
               })}
             </tbody>
           </table>
+          </div>
         </SpotlightCard>
 
         <p className="caption quiet">

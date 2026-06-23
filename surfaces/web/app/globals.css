@@ -46,6 +46,67 @@ a {
   flex-direction: column;
 }
 
+/* ----------------------------------------------------------------------------
+   Route transitions — every navigation re-mounts app/template.tsx, which wraps
+   the routed surface in .route-enter. A calm fade + small rise; quick and
+   certain. Honors reduced-motion (instant opacity, no movement).
+   -------------------------------------------------------------------------- */
+@keyframes route-rise {
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: none; }
+}
+
+.route-enter {
+  animation: route-rise var(--dur-slow) var(--ease) both;
+  /* The routed surface owns the full frame; never collapse its height. */
+  display: contents;
+}
+
+/* display:contents drops the wrapper from layout but also from animation in
+   some engines; promote it back to a flex child while animating by making the
+   child carry the animation directly. We therefore re-declare without contents
+   on a nested .app-frame so the frame still fills the viewport. */
+.route-enter > .app-frame,
+.route-enter > .auth-shell,
+.route-enter > .surface,
+.route-enter > main {
+  animation: route-rise var(--dur-slow) var(--ease) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-enter,
+  .route-enter > .app-frame,
+  .route-enter > .auth-shell,
+  .route-enter > .surface,
+  .route-enter > main {
+    animation: none;
+  }
+}
+
+/* Buttons and links press in subtly — quick, certain, never bouncy. Scoped to
+   the interactive primitives so it never fights component-level transitions. */
+.btn:active:not(:disabled),
+.rail-btn:active,
+.auth-role-row:active,
+.voice-mic:active:not(:disabled),
+.composer-send:active:not(:disabled),
+.suggestion-chip:active,
+.child-chip:active:not(.locked) {
+  transform: scale(0.985);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn:active:not(:disabled),
+  .rail-btn:active,
+  .auth-role-row:active,
+  .voice-mic:active:not(:disabled),
+  .composer-send:active:not(:disabled),
+  .suggestion-chip:active,
+  .child-chip:active:not(.locked) {
+    transform: none;
+  }
+}
+
 /* The calm, centred home canvas. */
 .home-canvas {
   flex: 1;
@@ -176,8 +237,20 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  padding: var(--space-5) var(--space-7);
+  padding: var(--space-5) clamp(var(--space-5), 4vw, var(--space-8, 64px));
   border-bottom: var(--border-width) solid var(--border);
+}
+
+/* The topbar centres on the same column as the body on ultra-wide so the title
+   and the body stay visually aligned and lines never run to 2560px. */
+.surface-topbar-inner {
+  width: 100%;
+  max-width: var(--surface-measure, 1040px);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
 }
 
 .surface-split {
@@ -190,15 +263,24 @@ a {
   flex: 1;
   min-width: 0;
   overflow: auto;
-  padding: var(--space-7);
+  padding: clamp(var(--space-5), 3.5vw, var(--space-8, 64px));
 }
 
 .surface-body-inner {
-  max-width: 980px;
+  /* A sensible measure that grows a little on wide screens but never lets line
+     lengths blow out at 1920/2560. Centred so ultra-wide reads as a calm column. */
+  max-width: var(--surface-measure, clamp(960px, 72vw, 1280px));
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+}
+
+/* Page-aware Vidya entry: a quiet row of chips that open the orb with context. */
+.surface-vidya-chips {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
 /* The docked, collapsible Vidya panel on destination pages. */
@@ -431,9 +513,16 @@ a {
 
 .dim {
   display: grid;
-  grid-template-columns: 150px 1fr;
+  grid-template-columns: minmax(110px, 150px) 1fr;
   align-items: center;
   gap: var(--space-4);
+}
+
+@media (max-width: 540px) {
+  .dim {
+    grid-template-columns: 1fr;
+    gap: var(--space-2);
+  }
 }
 
 .dim .dim-label {
@@ -1106,3 +1195,754 @@ a {
   flex: 1;
   min-width: 80px;
 }
+
+/* ============================================================================
+   Vidya orb — the floating, Siri-style assistant present on every page.
+   A small circular orb fixed bottom-right; tapping it expands a COMPACT panel
+   anchored at the bottom-right (not a full-height side dock). Calm v4: a subtle
+   living pulse in the SURFACE accent (var(--accent)); ultramarine is reserved
+   for the brand mark + ignite, never the idle orb. No shadows; sharp corners.
+   ============================================================================ */
+
+.vidya-orb-root {
+  position: fixed;
+  right: clamp(var(--space-4), 2vw, var(--space-6));
+  bottom: clamp(var(--space-4), 2vw, var(--space-6));
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  /* The root is a positioning anchor only; it never blocks the page beneath. */
+  pointer-events: none;
+}
+
+.vidya-orb-root > * {
+  pointer-events: auto;
+}
+
+/* The idle orb. A living, breathing aura in the SURFACE accent — never frantic. */
+.vidya-orb {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  border-radius: 999px;
+  border: var(--border-width) solid var(--accent);
+  background: var(--bg-surface);
+  color: var(--accent-ink, var(--accent));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  overflow: visible;
+  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+
+/* A soft aura ring that breathes outward — the "alive" tell, very subtle. */
+.vidya-orb::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  opacity: 0;
+  animation: vidya-orb-aura 4.2s var(--ease) infinite;
+  pointer-events: none;
+}
+
+.vidya-orb:hover {
+  border-color: var(--accent);
+  transform: scale(1.04);
+}
+
+.vidya-orb:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.vidya-orb.is-open {
+  transform: scale(0.94);
+}
+
+/* The living gradient core — a calm, slow breathing pulse in the surface accent. */
+.vidya-orb-core {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: radial-gradient(circle at 30% 30%, var(--accent-tint), transparent 70%);
+  opacity: 0.9;
+  animation: vidya-orb-pulse 3.6s ease-in-out infinite;
+}
+
+.vidya-orb .icon,
+.vidya-orb svg {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes vidya-orb-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.1); opacity: 0.9; }
+}
+
+@keyframes vidya-orb-aura {
+  0% { transform: scale(1); opacity: 0; }
+  35% { opacity: 0.35; }
+  100% { transform: scale(1.5); opacity: 0; }
+}
+
+/* The compact assistant panel — small, bottom-right anchored. A smooth, calm
+   open: scale + fade + rise, ~200ms with the certain ease. */
+.vidya-orb-panel {
+  width: 360px;
+  max-width: calc(100vw - 2 * var(--space-5));
+  max-height: min(70vh, 560px);
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  transform-origin: bottom right;
+  animation: vidya-orb-open var(--dur-slow, 200ms) var(--ease) both;
+}
+
+@keyframes vidya-orb-open {
+  from { transform: translateY(10px) scale(0.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+.vidya-orb-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.vidya-orb-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+}
+
+.vidya-orb-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.vidya-orb-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-4);
+}
+
+.vidya-orb-greeting {
+  margin: 0;
+}
+
+.vidya-orb-foot {
+  border-top: var(--border-width) solid var(--border);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+/* A transparent passthrough wrapper around the composer (carries a test hook). */
+.vidya-orb-composer {
+  display: contents;
+}
+
+@media (max-width: 480px) {
+  .vidya-orb-panel {
+    width: calc(100vw - 2 * var(--space-4));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .vidya-orb-core { animation: none; }
+  .vidya-orb::after { animation: none; opacity: 0; }
+  .vidya-orb:hover { transform: none; }
+  .vidya-orb-panel { animation: none; }
+}
+
+/* The mic, while listening, carries a calm pulse (not the frantic waveform —
+   that lives on the bars). A quiet breathing ring tells the user Vidya hears. */
+.voice-mic.active::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border: 1.5px solid var(--accent);
+  opacity: 0;
+  animation: vidya-orb-aura 2.4s var(--ease) infinite;
+  pointer-events: none;
+}
+
+.voice-mic {
+  position: relative;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-mic.active::after { animation: none; opacity: 0; }
+}
+
+/* ============================================================================
+   Voice-first + speak-and-show — the type-instead affordance, the self-
+   assembling derivation, and the on-page spotlight ring + margin note.
+   Calm, certain, never bouncy; reduced-motion safe.
+   ============================================================================ */
+
+/* Text is the fallback: a quiet "type instead" link beneath the mic. */
+.vidya-type-instead {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--text-secondary);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.vidya-type-instead:hover { color: var(--text-primary); }
+.vidya-type-instead:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The composer is mounted but collapsed until the learner types instead.
+   (display:contents on the wrapper would defeat [hidden], so force it off.) */
+.vidya-orb-composer[hidden] { display: none; }
+
+/* While listening, the panel carries the same calm listening tell as the mic. */
+.vidya-orb-panel[data-voice-state="listening"] {
+  border-color: var(--accent);
+}
+
+/* --- The self-assembling derivation (verified steps, one-by-one). --- */
+.vidya-steps {
+  margin-top: var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-subtle, var(--bg-surface));
+}
+.vidya-steps-head {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+.vidya-steps-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.vidya-step {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  animation: vidya-step-in var(--dur-slow, 220ms) var(--ease) both;
+}
+.vidya-step-index {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  border: var(--border-width) solid var(--accent);
+  border-radius: 999px;
+  color: var(--accent-ink, var(--accent));
+  font-size: 0.72rem;
+  line-height: 18px;
+  text-align: center;
+}
+.vidya-step-text { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.vidya-step-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  color: var(--text-secondary);
+  font-size: 0.72rem;
+}
+@keyframes vidya-step-in {
+  from { transform: translateY(4px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vidya-step { animation: none; }
+}
+
+/* --- The on-page spotlight ring + calm margin note. --- */
+.vidya-spotlight-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 999; /* under the orb (1000), over the page */
+  pointer-events: none;
+}
+.vidya-spotlight-ring {
+  position: fixed;
+  border: 2px solid var(--accent);
+  border-radius: var(--radius-sm, 6px);
+  box-sizing: border-box;
+  transition: top var(--dur) var(--ease), left var(--dur) var(--ease),
+    width var(--dur) var(--ease), height var(--dur) var(--ease);
+  animation: vidya-spotlight-pulse 2.4s var(--ease) infinite;
+}
+.vidya-spotlight-label,
+.vidya-spotlight-note {
+  position: fixed;
+  max-width: 220px;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-sm, 6px);
+  padding: var(--space-1) var(--space-2);
+  color: var(--text-primary);
+}
+@keyframes vidya-spotlight-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 var(--accent-tint, transparent); }
+  50% { box-shadow: 0 0 0 4px var(--accent-tint, transparent); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .vidya-spotlight-ring { animation: none; }
+}
+
+/* ============================================================================
+   The role landing (home) — greeting + chips + briefings + quick links.
+   Calm and spacious; no central chat space (the conversation lives in the orb).
+   ============================================================================ */
+
+.landing {
+  flex: 1;
+  width: 100%;
+  max-width: clamp(880px, 64vw, 1120px);
+  margin: 0 auto;
+  padding: clamp(var(--space-6), 4vw, var(--space-9, 72px))
+    clamp(var(--space-5), 4vw, var(--space-8, 64px)) var(--space-10);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(var(--space-6), 3vw, var(--space-7));
+}
+
+.landing-head {
+  text-align: left;
+}
+
+.landing-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.landing-briefings {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.landing-links {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-4);
+}
+
+.landing-link {
+  display: block;
+  height: 100%;
+}
+
+.landing-link > * {
+  height: 100%;
+}
+
+@media (max-width: 560px) {
+  .landing-links {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================================
+   The familiar auth surface — sign-in / sign-up / forgot / personalise.
+   A calm, centred card carrying the Classess mark. v4: sharp corners, no
+   shadows, per-surface accent via data-surface, plain language, no emoji.
+   ============================================================================ */
+
+.auth-shell {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-7) var(--space-5);
+  background: var(--bg-canvas);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-7) var(--space-6);
+}
+
+.auth-card-wide {
+  max-width: 560px;
+}
+
+.auth-head {
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* The Classess mark — the one place ultramarine (signature) is right here. */
+.auth-mark {
+  width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--signature);
+  color: var(--signature-ink);
+  font-weight: 700;
+  margin-bottom: var(--space-2);
+}
+
+.auth-title {
+  margin: 0;
+}
+
+.auth-sub {
+  margin: 0;
+  max-width: 36ch;
+}
+
+.auth-roles {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.auth-roles legend {
+  padding: 0;
+}
+
+.auth-role-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.auth-role-chip {
+  border: var(--border-width) solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.auth-role-chip:hover {
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+.auth-role-chip.selected {
+  border-color: var(--accent);
+  color: var(--accent-ink, var(--accent));
+  background: var(--accent-tint);
+}
+
+.auth-role-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.auth-password {
+  position: relative;
+}
+
+.auth-password-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  cursor: pointer;
+  padding: 2px var(--space-1);
+}
+
+.auth-password-toggle:hover {
+  color: var(--text-primary);
+}
+
+.auth-row-end {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: calc(-1 * var(--space-2));
+}
+
+.auth-link {
+  color: var(--accent-ink, var(--accent));
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.auth-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.auth-error {
+  margin: 0;
+  font-size: var(--text-body-sm);
+  color: var(--danger);
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: '';
+  flex: 1;
+  height: var(--border-width);
+  background: var(--border);
+}
+
+.auth-social {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.auth-social-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: var(--border-width) solid var(--border);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-body-sm);
+  cursor: pointer;
+}
+
+.auth-social-btn:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.auth-social-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-social-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.auth-switch {
+  margin: 0;
+  text-align: center;
+  font-size: var(--text-body-sm);
+  color: var(--text-secondary);
+}
+
+.auth-note {
+  margin: 0;
+  text-align: center;
+}
+
+.auth-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+
+.auth-personalise-actions {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+/* ── Stepped auth flow (one focused view at a time) ───────────────────────── */
+.auth-stepped { display: flex; flex-direction: column; }
+.auth-progress { display: flex; gap: 6px; margin-left: auto; }
+.auth-dot { width: 18px; height: 3px; border-radius: 2px; background: var(--border-strong); transition: background var(--dur) var(--ease); }
+.auth-dot.on { background: var(--accent, var(--signature)); }
+.auth-dot.done { background: var(--accent, var(--signature)); opacity: .5; }
+.auth-steps { position: relative; }
+@keyframes authStepIn { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+.auth-step { display: flex; flex-direction: column; gap: var(--space-4); animation: authStepIn var(--dur-slow) var(--ease) both; min-height: 220px; }
+.auth-role-stack { display: flex; flex-direction: column; gap: var(--space-2); margin-top: var(--space-2); }
+.auth-role-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: 14px 16px; border: var(--border-width) solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--bg-surface); color: var(--text-primary); font-size: var(--text-body); font-weight: var(--fw-medium);
+  cursor: pointer; transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease); text-align: left; }
+.auth-role-row:hover { border-color: var(--accent, var(--signature)); background: var(--bg-raised); }
+.auth-role-row.selected { border-color: var(--accent, var(--signature)); }
+.auth-advance { width: 100%; justify-content: center; margin-top: var(--space-2); }
+.auth-foot { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); margin-top: var(--space-4); min-height: 34px; }
+.auth-back { display: inline-flex; align-items: center; gap: 4px; }
+.auth-alts { display: flex; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
+@media (prefers-reduced-motion: reduce) { .auth-step { animation: none; } }
+
+/* ============================================================================
+   FULL RESPONSIVENESS — desktop widths 1024 -> 2560 and graceful below.
+
+   No fixed pixel walls: grids reflow with minmax, tables scroll inside their
+   own track, content keeps a calm measure on ultra-wide, and the shell (rail +
+   surface + floating orb) never overlaps. Everything below is token-driven and
+   honours reduced-motion (motion lives elsewhere; this section is layout only).
+   ============================================================================ */
+
+/* Nothing may push a horizontal scrollbar onto the whole page. The rail is
+   sticky and the body scrolls internally, so the frame itself stays clamped. */
+html,
+body {
+  overflow-x: hidden;
+}
+
+/* Wide tables (evaluation review, governance audit) get their own horizontal
+   scroll track so a narrow viewport never clips columns or breaks the layout.
+   Wrap the <table> in <div class="table-scroll"> — the table keeps its natural
+   table layout; only the wrapper scrolls. */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-scroll > .eval-table {
+  min-width: 520px;
+}
+
+/* Generic two-column page grids already use auto-fit; keep the floor sane so
+   cards never squish below a legible width on mid widths. */
+.cols-2 {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+}
+
+/* The why-grid and rec-meta should collapse cleanly rather than crush. */
+@media (max-width: 560px) {
+  .rec-meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* The design-system .matrix children should never force horizontal overflow:
+   give every cell a zero min so long content wraps instead of pushing wide. */
+.matrix > * {
+  min-width: 0;
+}
+
+/* The connector matrix sets inline 2-up columns; below a comfortable width it
+   reflows to a single column. The !important is needed to beat the component's
+   inline grid-template-columns (the only safe override from this surface). */
+@media (max-width: 720px) {
+  .connector-matrix {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Network rollup rows keep their summary flexible and never overflow. */
+.net-summary-head {
+  flex-wrap: wrap;
+}
+
+/* ── Ultra-wide (>= 1680px): widen the calm measure a touch, never blow out. ── */
+@media (min-width: 1680px) {
+  .landing {
+    max-width: 1180px;
+  }
+  .surface-body-inner {
+    --surface-measure: 1200px;
+  }
+  .surface-topbar-inner {
+    --surface-measure: 1200px;
+  }
+}
+
+@media (min-width: 2200px) {
+  .landing {
+    max-width: 1280px;
+  }
+  .surface-body-inner {
+    --surface-measure: 1320px;
+  }
+  .surface-topbar-inner {
+    --surface-measure: 1320px;
+  }
+}
+
+/* ── Below 1024: degrade gracefully. The rail stays usable; the docked Vidya
+   side panel (legacy) is already hidden at 860px. Tighten gutters. ── */
+@media (max-width: 1024px) {
+  .surface-topbar {
+    padding: var(--space-4) var(--space-5);
+  }
+  .surface-body {
+    padding: var(--space-5);
+  }
+}
+
+/* ── Narrow (tablet / small): the slim rail can shrink its hit targets a touch;
+   the drawer should not exceed the viewport. ── */
+@media (max-width: 600px) {
+  .rail-drawer {
+    width: min(320px, calc(100vw - 64px));
+  }
+  .landing-head .display-sm {
+    font-size: clamp(1.4rem, 6vw, 2rem);
+  }
+}
+
+/* ============================================================================
+   ENTRANCE — calm, staggered assembly of a page's key sections. Pages opt in
+   by adding .reveal / .reveal-1..n (from the design-system motion.css) to their
+   sections; this block only guarantees the wrapper does not clip the rise and
+   that reduced-motion shows everything instantly (handled in motion.css).
+   ============================================================================ */
+.landing-section,
+.surface-vidya-chips {
+  /* Allow the reveal rise to play without clipping against the scroll edge. */
+  will-change: opacity, transform;
+}
+

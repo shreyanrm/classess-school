@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, forwardRef } from 'react';
 import {
   converse as defaultConverse,
   startRecording,
@@ -25,6 +25,17 @@ export interface VoiceCapsuleProps {
   role?: Role;
   /** Injectable for tests/stories — defaults to the real /api/voice/converse client. */
   converseFn?: typeof defaultConverse;
+  /** Notifies the parent of the live voice state (so the orb pulse can match). */
+  onStateChange?: (state: VoiceState) => void;
+}
+
+/** An imperative handle so the orb can drive voice-first: tap the orb to go
+ *  STRAIGHT into listening, without a second tap on the mic. */
+export interface VoiceCapsuleHandle {
+  /** Begin listening if the mic is available; no-op while busy. */
+  start: () => void;
+  /** Whether the mic is supported in this environment. */
+  available: () => boolean;
 }
 
 /** Plain-language status per state — calm, no exclamation, no emoji. */
@@ -67,7 +78,10 @@ function Waveform({ active }: { active: boolean }) {
  * returns spoken audio — the provider key never reaches the browser. With no key
  * configured (or no mic), the capsule reads "unavailable" and typing still works.
  */
-export function VoiceCapsule({ onReply, role, converseFn = defaultConverse }: VoiceCapsuleProps) {
+export const VoiceCapsule = forwardRef<VoiceCapsuleHandle, VoiceCapsuleProps>(function VoiceCapsule(
+  { onReply, role, converseFn = defaultConverse, onStateChange }: VoiceCapsuleProps,
+  ref,
+) {
   const [state, setState] = useState<VoiceState>('idle');
   const [message, setMessage] = useState<string>('');
   const [reply, setReply] = useState<string>('');
@@ -75,6 +89,12 @@ export function VoiceCapsule({ onReply, role, converseFn = defaultConverse }: Vo
 
   const active = state === 'listening' || state === 'speaking';
   const isDegraded = state === 'unavailable' || state === 'error';
+
+  // Keep the parent (the orb) in step with the live voice state so its aura can
+  // mirror listening / thinking / speaking.
+  useEffect(() => {
+    onStateChange?.(state);
+  }, [state, onStateChange]);
 
   const sendTurn = useCallback(
     async (blob: Blob) => {
@@ -106,14 +126,9 @@ export function VoiceCapsule({ onReply, role, converseFn = defaultConverse }: Vo
     [converseFn, onReply, role],
   );
 
-  const toggle = useCallback(async () => {
-    if (state === 'listening') {
-      const rec = recRef.current;
-      recRef.current = null;
-      if (rec) await sendTurn(await rec.stop());
-      return;
-    }
-    if (state === 'thinking' || state === 'speaking') return;
+  // Begin listening. Shared by the mic tap and the orb's voice-first auto-start.
+  const beginListening = useCallback(async () => {
+    if (state === 'thinking' || state === 'speaking' || state === 'listening') return;
     if (!micSupported()) {
       setState('unavailable');
       return;
@@ -125,16 +140,39 @@ export function VoiceCapsule({ onReply, role, converseFn = defaultConverse }: Vo
     } catch {
       setState('unavailable'); // permission denied / no device
     }
-  }, [state, sendTurn]);
+  }, [state]);
+
+  const toggle = useCallback(async () => {
+    if (state === 'listening') {
+      const rec = recRef.current;
+      recRef.current = null;
+      if (rec) await sendTurn(await rec.stop());
+      return;
+    }
+    await beginListening();
+  }, [state, sendTurn, beginListening]);
+
+  // Voice-first: the orb can tap us straight into listening on open.
+  useImperativeHandle(
+    ref,
+    () => ({
+      start: () => {
+        void beginListening();
+      },
+      available: () => micSupported(),
+    }),
+    [beginListening],
+  );
 
   return (
-    <div className={`voice-capsule${isDegraded ? ' degraded' : ''}`} role="group" aria-label="Voice">
+    <div className={`voice-capsule${isDegraded ? ' degraded' : ''}`} role="group" aria-label="Voice" data-testid="vidya-voice">
       <button
         type="button"
         className={`voice-mic${active ? ' active' : ''}`}
         aria-pressed={state === 'listening'}
         aria-label={state === 'idle' ? 'Speak with Vidya' : state === 'listening' ? 'Send' : STATUS[state]}
         disabled={state === 'thinking'}
+        data-testid="vidya-mic"
         onClick={toggle}
       >
         <MicGlyph muted={isDegraded} />
@@ -159,4 +197,4 @@ export function VoiceCapsule({ onReply, role, converseFn = defaultConverse }: Vo
       ) : null}
     </div>
   );
-}
+});

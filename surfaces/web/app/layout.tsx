@@ -1,7 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { ThemeProvider } from '@classess/design-system';
 import { RoleProvider } from '@/lib/RoleContext';
-import { FirstRunGate } from './_components/FirstRunGate';
+import { AuthGate } from './_components/AuthGate';
+import { VidyaOrb } from './_components/VidyaOrb';
 import '@classess/design-system/styles.css';
 import './globals.css';
 
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body>
         <ThemeProvider defaultTheme="light">
           <RoleProvider>
-            <FirstRunGate>{children}</FirstRunGate>
+            <AuthGate>{children}</AuthGate>
+            {/* Vidya floats on every route, persisting across navigation. */}
+            <VidyaOrb />
           </RoleProvider>
         </ThemeProvider>
       </body>

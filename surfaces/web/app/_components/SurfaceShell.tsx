@@ -3,9 +3,9 @@
 import { type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Icon } from '@classess/design-system';
+import { Icon, SuggestionChip } from '@classess/design-system';
 import { Rail } from './Rail';
-import { VidyaDock } from './VidyaDock';
+import { openVidya } from './VidyaOrb';
 import { useOnline } from '@/lib/useOnline';
 import { useRole } from '@/lib/RoleContext';
 import type { Role } from '@/lib/mock';
@@ -27,24 +27,27 @@ function surfaceFromPath(pathname: string, role: Role): Role {
 export interface SurfaceShellProps {
   title: string;
   eyebrow?: string;
-  /** Quiet chips for the docked Vidya, shaped to this page. */
+  /**
+   * Page-aware Vidya entry points. The old full-height dock is gone — Vidya now
+   * floats as a single global orb — but these chips restore per-page context:
+   * each opens the orb and seeds the conversation with that prompt (the same
+   * openVidya path the role landing uses), so a destination page can route the
+   * user straight into a relevant ask without bringing the dock back.
+   */
   dockChips?: string[];
+  /** A short, calm intro shown above the chips when present. */
   dockIntro?: string;
   children: ReactNode;
 }
 
 /**
  * The destination-page shell: the same slim rail, a top bar with the one
- * intention, the page body, and a docked, collapsible Vidya so the conversation
- * keeps driving the page. Big task -> route, Vidya stays docked.
+ * intention, and the page body. Vidya is no longer docked here — it floats as a
+ * global orb on every page (app/_components/VidyaOrb, mounted in the layout) —
+ * but the page's dockChips surface as a quiet row of Vidya entry points at the
+ * top of the body, seeding the orb with page context.
  */
-export function SurfaceShell({
-  title,
-  eyebrow,
-  dockChips,
-  dockIntro,
-  children,
-}: SurfaceShellProps) {
+export function SurfaceShell({ title, eyebrow, dockChips, dockIntro, children }: SurfaceShellProps) {
   const online = useOnline();
   const { role } = useRole();
   const pathname = usePathname();
@@ -68,27 +71,47 @@ export function SurfaceShell({
         ) : null}
 
         <div className="surface-topbar">
-          <div>
-            {eyebrow ? (
-              <p className="overline" style={{ margin: 0 }}>
-                {eyebrow}
-              </p>
-            ) : null}
-            <h1 className="display-sm" style={{ margin: '4px 0 0' }}>
-              {title}
-            </h1>
+          <div className="surface-topbar-inner">
+            <div>
+              {eyebrow ? (
+                <p className="overline" style={{ margin: 0 }}>
+                  {eyebrow}
+                </p>
+              ) : null}
+              <h1 className="display-sm" style={{ margin: '4px 0 0' }}>
+                {title}
+              </h1>
+            </div>
+            <Link href="/" className="btn btn-ghost btn-sm row" style={{ gap: 'var(--space-2)' }}>
+              <Icon name="home" size="sm" />
+              Back to the conversation
+            </Link>
           </div>
-          <Link href="/" className="btn btn-ghost btn-sm row" style={{ gap: 'var(--space-2)' }}>
-            <Icon name="home" size="sm" />
-            Back to the conversation
-          </Link>
         </div>
 
-        <div className="surface-split">
-          <div className="surface-body">
-            <div className="surface-body-inner">{children}</div>
+        <div className="surface-body">
+          <div className="surface-body-inner">
+            {dockChips && dockChips.length > 0 ? (
+              <div className="surface-vidya-chips reveal reveal-1">
+                <p className="overline" style={{ margin: 0 }}>
+                  Ask Vidya
+                </p>
+                {dockIntro ? (
+                  <p className="body-sm muted" style={{ margin: 0, maxWidth: 640 }}>
+                    {dockIntro}
+                  </p>
+                ) : null}
+                <div className="row" style={{ flexWrap: 'wrap', gap: 'var(--space-2)' }}>
+                  {dockChips.map((chip) => (
+                    <SuggestionChip key={chip} spark onClick={() => openVidya(chip)}>
+                      {chip}
+                    </SuggestionChip>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+            {children}
           </div>
-          <VidyaDock chips={dockChips} intro={dockIntro} />
         </div>
       </div>
     </div>
