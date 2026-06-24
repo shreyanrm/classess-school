@@ -27,8 +27,28 @@ interface Body {
   channelId?: string;
   senderRef?: string;
   body?: string;
+  /** Which surface/thread kind the channel belongs to (e.g. 'parent'). */
+  surface?: string;
   flagged?: boolean;
   requiresHuman?: boolean;
+}
+
+/**
+ * Make the channel EXIST before a message references it. The messages table's
+ * channel_id FK references operational.channels, so a fresh channel ref would
+ * otherwise fail the constraint and the message would silently never persist.
+ * We upsert (ON CONFLICT DO NOTHING) so the same stable channel ref the client
+ * reuses for a conversation is created once and then reused — the durable
+ * history can read the thread back. Opaque refs only; no PII.
+ */
+async function ensureChannel(pool: PoolLike, body: Body): Promise<void> {
+  if (!isUuid(body.channelId)) return;
+  await pool.query(
+    `INSERT INTO operational.channels (channel_id, institution_id, surface)
+       VALUES ($1, $2, $3)
+     ON CONFLICT (channel_id) DO NOTHING`,
+    [body.channelId, body.institutionId, str(body.surface).slice(0, 60) || 'message'],
+  );
 }
 
 async function appendMessage(pool: PoolLike, body: Body, screened: SafetyVerdict): Promise<string | null> {
@@ -94,6 +114,9 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   try {
+    // The channel must exist first (FK), so the message persists and the thread
+    // can be read back. The same stable channel ref is upserted once, then reused.
+    await ensureChannel(pool, body);
     const id = await appendMessage(pool, body, screened);
     return ok({
       persisted: Boolean(id),

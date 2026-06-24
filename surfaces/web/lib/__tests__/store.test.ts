@@ -13,6 +13,7 @@ import {
   createMemoryStorage,
   type StorageLike,
   mintId,
+  channelRef,
   maskContact,
   signIn,
   signOut,
@@ -322,5 +323,36 @@ describe('store — school setup persists across reloads', () => {
     saveSchool(SCHOOL);
     clearSchool();
     expect(readStore().school).toBeNull();
+  });
+});
+
+describe('channelRef — one STABLE channel ref per conversation', () => {
+  const UUID_RE =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+  it('produces a well-formed v4-shaped uuid', () => {
+    expect(channelRef('inst:teacher:c1')).toMatch(UUID_RE);
+    // Even an empty seed yields a valid, stamped uuid.
+    expect(channelRef('')).toMatch(UUID_RE);
+  });
+
+  it('is deterministic — the same seed always yields the same id', () => {
+    const a = channelRef('inst-1:parent:c3');
+    const b = channelRef('inst-1:parent:c3');
+    expect(a).toBe(b);
+  });
+
+  it('different conversations get different channel refs', () => {
+    const c1 = channelRef('inst-1:teacher:c1');
+    const c2 = channelRef('inst-1:teacher:c2');
+    const otherRole = channelRef('inst-1:parent:c1');
+    const otherInst = channelRef('inst-2:teacher:c1');
+    expect(new Set([c1, c2, otherRole, otherInst]).size).toBe(4);
+  });
+
+  it('is not the random per-call mintId (a fresh ref per send is the bug)', () => {
+    // mintId is random each call; channelRef is stable for a stable seed.
+    expect(mintId()).not.toBe(mintId());
+    expect(channelRef('x')).toBe(channelRef('x'));
   });
 });

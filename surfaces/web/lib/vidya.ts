@@ -562,6 +562,16 @@ export interface VidyaAttachment {
 /** The accepted attachment mime prefixes — anything else is rejected server-side. */
 export const ATTACHMENT_MIME_PREFIXES = ['image/', 'application/pdf', 'text/'] as const;
 
+/**
+ * The hard upper bound on a single attachment's base64 payload length. The whole
+ * staged set is POSTed inline to /api/vidya/chat and pushed verbatim as Gemini
+ * inlineData, so an oversized image/PDF balloons the request body and risks a 413
+ * from the Next/Vercel body-size limit (~4MB default). We cap a single base64
+ * payload at ~5MB of characters (~3.7MB of raw bytes) so the orb never silently
+ * stalls on a huge read; the route rejects anything above this too.
+ */
+export const MAX_ATTACH_BYTES = 5_000_000 as const;
+
 /** Validate a multimodal attachment shape (defensive, used on both sides). */
 export function isValidAttachment(value: unknown): value is VidyaAttachment {
   if (!value || typeof value !== 'object') return false;
@@ -570,6 +580,8 @@ export function isValidAttachment(value: unknown): value is VidyaAttachment {
   if (typeof a.mimeType !== 'string') return false;
   if (!ATTACHMENT_MIME_PREFIXES.some((p) => (a.mimeType as string).startsWith(p))) return false;
   if (typeof a.dataBase64 !== 'string' || a.dataBase64.length === 0) return false;
+  // Bound the payload so a large attachment can never balloon the request body.
+  if (a.dataBase64.length > MAX_ATTACH_BYTES) return false;
   return true;
 }
 

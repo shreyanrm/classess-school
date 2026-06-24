@@ -7,9 +7,9 @@ import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { useRole } from '@/lib/RoleContext';
 import type { Role } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
-import { mintId } from '@/lib/store';
+import { mintId, channelRef as deriveChannelRef } from '@/lib/store';
 import { joinChannel, type ChannelHandle, type LiveMessage, type LivePresence } from '@/lib/realtime';
-import { saveMessageLive } from '@/lib/opData';
+import { saveMessageLive, loadMessagesLive } from '@/lib/opData';
 import { openVidya } from '../_components/VidyaOrb';
 
 /**
@@ -98,8 +98,28 @@ export default function MessagesPage() {
   const baseThread = useMemo(() => THREADS[activeId] ?? [], [activeId]);
 
   // This client's opaque ref + a non-identifying handle (a role label, no PII).
-  const selfRef = account?.id ?? 'anon';
+  // A stable fallback uuid is minted once per mount for an anonymous viewer so
+  // the route's uuid guard passes and the safety verdict (incl. a crisis) is
+  // never dropped on the no-account edge.
+  const fallbackSelf = useRef<string>(mintId());
+  const selfRef = account?.id ?? fallbackSelf.current;
   const selfHandle = role.charAt(0).toUpperCase() + role.slice(1);
+
+  // The live institution ref this conversation persists under. When no real
+  // institution is set we mint one once per mount (stable across sends) so a
+  // thread still keys consistently on the degraded/local path.
+  const fallbackInstitution = useRef<string>(mintId());
+  const liveInstitution = school?.institution.liveId ?? fallbackInstitution.current;
+
+  // ONE stable channel ref per conversation, derived deterministically from the
+  // institution + role + active id. Every send in this thread reuses it, so the
+  // durable history (operational.messages WHERE channel_id = ...) can read the
+  // thread back. It is a pure hash of opaque ids — never random per send, never
+  // PII — shaped like a uuid so it satisfies the route guard and the channels FK.
+  const channelId = useMemo(
+    () => deriveChannelRef(`${liveInstitution}:${role}:${activeId}`),
+    [liveInstitution, role, activeId],
+  );
 
   // Join a live channel for the active conversation. Two open clients on the
   // same channel see each other's messages + presence; a remote message raises
@@ -140,6 +160,33 @@ export default function MessagesPage() {
     };
   }, [activeId, role, selfRef, selfHandle]);
 
+  // Durable history: when a real institution is set, re-read the persisted thread
+  // for this conversation's STABLE channel ref so a reload (or a switch back to a
+  // channel) shows what was sent. No-op / empty on the degraded (no-db) path —
+  // the surface stays on its local seed thread and never blanks or crashes.
+  useEffect(() => {
+    if (!school?.institution.liveId) return;
+    let cancelled = false;
+    void loadMessagesLive(channelId, liveInstitution).then((res) => {
+      if (cancelled || !res.persisted || !res.rows) return;
+      const history: LiveMessage[] = res.rows.map((r) => ({
+        id: String(r.message_id),
+        senderRef: String(r.sender_ref),
+        body: String(r.body),
+        flagged: r.flagged === true,
+        postedAt: typeof r.posted_at === 'string' ? r.posted_at : new Date().toISOString(),
+      }));
+      setLiveMsgs((prev) => {
+        const seen = new Set(prev.map((m) => m.id));
+        const merged = [...history.filter((m) => !seen.has(m.id)), ...prev];
+        return merged;
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [channelId, liveInstitution, school]);
+
   // The calm supportive line shown when the safety gate detects a crisis. A
   // crisis is NEVER silenced — it is held, escalated to a human, and the surface
   // shows this supportive response rather than a blank send.
@@ -154,13 +201,16 @@ export default function MessagesPage() {
       const messageId = mintId();
       // Screen through the live messages route (the server-only safety gate). The
       // route validates uuids; when a real institution is set it persists too. We
-      // always read the safety verdict back, and never silence a crisis.
-      const liveInstitution = school?.institution.liveId;
+      // always read the safety verdict back, and never silence a crisis. The
+      // channel ref is STABLE for this conversation (channelId) so the durable
+      // history can read the thread back, and the route upserts the channel row
+      // first so the FK is satisfied.
       const screened = await saveMessageLive({
-        institutionId: liveInstitution ?? mintId(),
-        channelId: mintId(), // a stable per-conversation channel ref (demo)
+        institutionId: liveInstitution,
+        channelId,
         senderRef: selfRef,
         body: text,
+        surface: role,
       });
 
       const escalated = screened.escalate === true;
@@ -195,7 +245,7 @@ export default function MessagesPage() {
       setLiveMsgs((prev) => [...prev, message]);
       if (!flagged) void channelRef.current?.send(message);
     },
-    [selfRef, school],
+    [selfRef, liveInstitution, channelId, role],
   );
 
   // A calm, illustrative quiet-hours read (after 9pm, before 7am locally).

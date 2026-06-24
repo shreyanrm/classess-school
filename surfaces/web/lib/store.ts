@@ -330,6 +330,44 @@ export function mintId(): string {
 }
 
 /**
+ * Derive a STABLE, deterministic v4-shaped opaque id from a seed string. The
+ * same seed always yields the same id, so a conversation keeps one channel ref
+ * across every send (and across reloads) — this is what lets the durable
+ * history read a thread back. It is NOT random and NOT PII: it is a pure hash of
+ * the opaque seed, shaped like a uuid so it satisfies the routes' uuid guard and
+ * the channels FK. Uses a small FNV-style mix so it is identical in the browser,
+ * SSR, and tests without needing crypto.subtle.
+ */
+export function channelRef(seed: string): string {
+  // Build 16 deterministic bytes from the seed with a rolling FNV-1a mix. A typed
+  // Uint8Array keeps indexed access as a number and self-wraps modulo 256.
+  const bytes = new Uint8Array(16);
+  let h = 0x811c9dc5;
+  for (let i = 0; i < seed.length; i += 1) {
+    h ^= seed.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+    const a = i % 16;
+    const b = (i + 7) % 16;
+    bytes[a] = (bytes[a]! + (h & 0xff)) & 0xff;
+    // Stir each step into the whole array so short seeds still spread out.
+    bytes[b] = (bytes[b]! ^ ((h >>> 8) & 0xff)) & 0xff;
+  }
+  // Fold the final accumulator across every byte so empty/short seeds differ.
+  for (let i = 0; i < 16; i += 1) {
+    h = Math.imul(h ^ (i + 1), 0x01000193) >>> 0;
+    bytes[i] = (bytes[i]! ^ (h & 0xff)) & 0xff;
+  }
+  // Stamp the v4 version + RFC-4122 variant bits so it is a well-formed uuid.
+  bytes[6] = (bytes[6]! & 0x0f) | 0x40;
+  bytes[8] = (bytes[8]! & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0'));
+  return (
+    `${hex.slice(0, 4).join('')}-${hex.slice(4, 6).join('')}-` +
+    `${hex.slice(6, 8).join('')}-${hex.slice(8, 10).join('')}-${hex.slice(10, 16).join('')}`
+  );
+}
+
+/**
  * Turn a raw phone shape into a NON-identifying masked hint. We keep only the
  * last two visible glyphs, the way a vault exposes a handle. The full input is
  * never stored. An empty/odd input yields a neutral masked placeholder.

@@ -23,8 +23,20 @@ import { Icon } from '@classess/design-system';
 import {
   isValidAttachment,
   ATTACHMENT_MIME_PREFIXES,
+  MAX_ATTACH_BYTES,
   type VidyaAttachment,
 } from '@/lib/vidya';
+
+/**
+ * A practical raw-bytes ceiling on a picked file, before reading it. base64
+ * inflates bytes by ~4/3, so we cap the raw file at 3/4 of the base64 budget so
+ * the encoded payload still lands under MAX_ATTACH_BYTES. This stops a huge file
+ * from being read fully into memory only to be rejected afterwards.
+ */
+export const MAX_FILE_BYTES = Math.floor((MAX_ATTACH_BYTES * 3) / 4);
+
+/** Longest edge (px) a captured screen still is clamped to, to bound the PNG. */
+const MAX_CAPTURE_EDGE = 1600;
 
 /** Strip the `data:<mime>;base64,` prefix a FileReader/dataURL carries. */
 export function stripDataUrlPrefix(dataUrl: string): string {
@@ -41,6 +53,9 @@ export function kindForMime(mime: string): VidyaAttachment['kind'] {
 export async function fileToAttachment(file: File): Promise<VidyaAttachment | null> {
   const mime = file.type || 'application/octet-stream';
   if (!ATTACHMENT_MIME_PREFIXES.some((p) => mime.startsWith(p))) return null;
+  // Guard the raw size BEFORE reading, so a huge file is never read fully into
+  // memory only to be rejected by the base64 cap afterwards.
+  if (typeof file.size === 'number' && file.size > MAX_FILE_BYTES) return null;
   const dataUrl = await new Promise<string>((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(String(reader.result ?? ''));
@@ -115,6 +130,11 @@ export function VidyaAttach({ attachments, onChange, max = 4 }: VidyaAttachProps
     const next = [...attachments];
     for (const file of Array.from(files)) {
       if (next.length >= max) break;
+      // Distinguish "too large" from "unsupported" so the note is honest.
+      if (typeof file.size === 'number' && file.size > MAX_FILE_BYTES) {
+        setNote('That file is too large to attach. Try one under about 3 MB.');
+        continue;
+      }
       const att = await fileToAttachment(file).catch(() => null);
       if (att) next.push(att);
       else setNote('That file type is not supported. Try an image, a PDF, or text.');
@@ -143,6 +163,7 @@ export function VidyaAttach({ attachments, onChange, max = 4 }: VidyaAttachProps
         name: 'screen.png',
       };
       if (isValidAttachment(att)) onChange([...attachments, att]);
+      else setNote('That screen capture was too large to attach.');
     } catch {
       // Cancelled or unsupported — stay calm, no error theatre.
       setNote('Screen share was not started.');
@@ -240,8 +261,13 @@ async function captureStillFromStream(stream: MediaStream): Promise<string> {
     // Safety: resolve after a short tick even if metadata never fires.
     window.setTimeout(() => resolve(), 300);
   });
-  const w = video.videoWidth || 1280;
-  const h = video.videoHeight || 720;
+  const srcW = video.videoWidth || 1280;
+  const srcH = video.videoHeight || 720;
+  // Clamp the longest edge so a 4K capture does not produce a multi-MB PNG that
+  // would balloon the request body. We scale down proportionally; never up.
+  const scale = Math.min(1, MAX_CAPTURE_EDGE / Math.max(srcW, srcH));
+  const w = Math.max(1, Math.round(srcW * scale));
+  const h = Math.max(1, Math.round(srcH * scale));
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;

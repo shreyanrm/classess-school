@@ -4,7 +4,7 @@ import {
   kindForMime,
   fileToAttachment,
 } from '@/app/_components/VidyaAttach';
-import { isValidAttachment } from '../vidya';
+import { isValidAttachment, MAX_ATTACH_BYTES } from '../vidya';
 
 /* ============================================================================
    Multimodal intake helpers — the BOUNDARY that reads a picked file into the
@@ -55,5 +55,25 @@ describe('fileToAttachment', () => {
     const file = new File(['MZ'], 'app.exe', { type: 'application/x-msdownload' });
     const att = await fileToAttachment(file);
     expect(att).toBeNull();
+  });
+});
+
+describe('isValidAttachment — bounds the inline payload', () => {
+  const ok = {
+    kind: 'image' as const,
+    mimeType: 'image/png',
+    dataBase64: 'AAAB',
+  };
+
+  it('accepts a small, well-formed attachment', () => {
+    expect(isValidAttachment(ok)).toBe(true);
+  });
+
+  it('rejects an oversized base64 payload (would balloon the request body)', () => {
+    const huge = { ...ok, dataBase64: 'A'.repeat(MAX_ATTACH_BYTES + 1) };
+    expect(isValidAttachment(huge)).toBe(false);
+    // Exactly at the cap is still allowed.
+    const atCap = { ...ok, dataBase64: 'A'.repeat(MAX_ATTACH_BYTES) };
+    expect(isValidAttachment(atCap)).toBe(true);
   });
 });

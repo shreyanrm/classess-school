@@ -195,6 +195,9 @@ export interface MessageWire {
   channelId: string;
   senderRef: string;
   body: string;
+  /** Which surface/thread kind this channel belongs to (e.g. 'parent'). Used by
+   *  the route to upsert the channel row before the message references it. */
+  surface?: string;
   flagged?: boolean;
   requiresHuman?: boolean;
 }
