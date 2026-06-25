@@ -20,6 +20,25 @@ export const STORE_VERSION = 1;
 export type Role = 'student' | 'teacher' | 'admin' | 'parent';
 
 /**
+ * Mint a v4-shaped UUID, mirroring lib/store.mintId (the real app's opaque
+ * canonical_uuid). The seeded account id MUST be a real UUID: the live event
+ * seam (/api/events) validates `canonical_uuid` against the UUID grammar and
+ * rejects a non-UUID with 400 — a 400 the console-error gate would (rightly)
+ * flag. A plain `e2e-<role>` string is NOT a UUID, so we generate one here so
+ * the seeded session behaves exactly like a real minted account.
+ */
+function uuidV4(): string {
+  // crypto.randomUUID is present in the Node the harness runs on; the manual
+  // fallback keeps this resilient if it is ever absent.
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+/**
  * Seed a signed-in demo session directly into localStorage, so a spec that is
  * not testing auth can start on a signed-in shell. Mirrors the Account shape
  * lib/auth.localSignIn writes. Must be called before navigating to a page that
@@ -43,9 +62,9 @@ export async function seedSession(page: Page, role: Role = 'teacher'): Promise<v
     }
   });
   await page.addInitScript(
-    ([key, r, version]) => {
+    ([key, r, version, id]) => {
       const account = {
-        id: `e2e-${r}-${Date.now()}`,
+        id, // a real v4 UUID — the live event seam validates canonical_uuid
         role: r,
         method: 'phone-otp',
         contactHint: 'Demo account',
@@ -58,12 +77,18 @@ export async function seedSession(page: Page, role: Role = 'teacher'): Promise<v
         // version MUST be present or the store adapter discards the blob.
         state.version = version;
         state.account = account;
+        // A seeded session is a returning, already-onboarded user — never make
+        // it re-walk the first-run finale. (Mirrors store.OnboardingState shape.)
+        state.onboarding = { completed: true, step: 'welcome', choices: {} };
         window.localStorage.setItem(key, JSON.stringify(state));
       } catch {
-        window.localStorage.setItem(key, JSON.stringify({ version, account }));
+        window.localStorage.setItem(
+          key,
+          JSON.stringify({ version, account, onboarding: { completed: true, step: 'welcome', choices: {} } }),
+        );
       }
     },
-    [STORE_KEY, role, STORE_VERSION] as const,
+    [STORE_KEY, role, STORE_VERSION, uuidV4()] as const,
   );
 }
 

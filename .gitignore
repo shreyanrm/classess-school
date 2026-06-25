@@ -34,6 +34,4 @@ venv/
 # supabase local
 .supabase/
 
-# CI workflow held back until gh has the workflow scope
-/.github/workflows/
 .vercel

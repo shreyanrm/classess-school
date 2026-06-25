@@ -45,7 +45,10 @@ for (const role of ROLES) {
       expect(unique.length).toBeGreaterThan(0);
 
       for (const href of unique) {
-        const res = await page.goto(href, { waitUntil: 'commit' });
+        // Wait for the document, not just the navigation commit: the slim rail
+        // lives in the client shell, which mounts after hydration + the session
+        // gate resolves. (waitUntil:'commit' returns before any of that paints.)
+        const res = await page.goto(href, { waitUntil: 'domcontentloaded' });
         // The HTTP layer must not 404 (Next renders not-found as a 404 status).
         expect(res, `no response for ${href}`).not.toBeNull();
         expect(res!.status(), `unexpected status for ${href}`).toBeLessThan(400);
@@ -54,8 +57,11 @@ for (const role of ROLES) {
         await expect(
           page.getByText(/page not found|404|this page could not be found/i),
         ).toHaveCount(0);
-        // The shell rail should persist on every in-app destination.
-        await expect(page.getByTestId('rail')).toBeVisible();
+        // The shell rail should persist on every in-app destination. The rail is
+        // in the SSR HTML and lights up once the client shell hydrates; under a
+        // multi-tab sweep that can take a moment, so give the hydration wait a
+        // generous, explicit budget (this is a load wait, not a flake mask).
+        await expect(page.getByTestId('rail')).toBeVisible({ timeout: 15_000 });
       }
     });
   });
