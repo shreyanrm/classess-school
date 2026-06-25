@@ -18,13 +18,16 @@
      - We ask the wall to authorize the write via callCapability. The wall
        enforces RBAC/ABAC/consent/approval/child-safety and records the attributed
        audit row. Nothing here re-implements that policy — one engine, one truth.
-     - DENY (the wall answered 401/403): the write is REFUSED. A student cannot
-       write attendance, a non-member cannot write to an institution, a
-       consequential op without an approval token does not execute.
-     - DEGRADE (gateway unconfigured / unreachable / timeout / non-2xx): we
-       PROCEED to the existing direct path so the live app never breaks. This is
-       the SAME degrade contract the gateway client already documents — the wall
-       powers the decision when reachable; otherwise the local path runs.
+     - REFUSE (the wall reached a verdict the write is NOT confirmed by — 401 /
+       403 / 404 / any other 4xx, incl. unknown_*): the write is REFUSED. A
+       student cannot write attendance, a non-member cannot write to an
+       institution, a consequential op without an approval token does not
+       execute, and a write the wall could not resolve (404 / unknown_*) NEVER
+       reports committed:true. The caller surfaces failed / needs-approval.
+     - DEGRADE (TRUE infra only — gateway unconfigured / unreachable / timeout /
+       5xx / unparseable body): we PROCEED to the existing direct path so the
+       live app never breaks when the wall itself is unavailable. A 4xx is a
+       REAL answer, not a degrade — only genuine infra failure falls through.
 
    Confidentiality: every id here is an opaque canonical ref. No PII, no secret.
    ============================================================================ */
@@ -88,9 +91,11 @@ function identityFromRequest(req: Request): CallerIdentity | null {
  *   - the approval token    is read from the request header -> the permission
  *                           ladder (the wall enforces it on send/submit/grade/...).
  *
- * Returns { proceed: true } on a wall ADMIT and on every DEGRADE outcome
- * (unconfigured/network/timeout/http/bad-response). Returns { proceed: false }
- * ONLY on an explicit wall DENY (401/403). NEVER throws.
+ * Returns { proceed: true } on a wall ADMIT and on TRUE infra-degrade only
+ * (unconfigured / network / timeout / 5xx / bad-response). Returns
+ * { proceed: false } on any 4xx verdict (401/403 deny, 404/unknown_* not
+ * resolved) — a consequential write the wall did not confirm must NEVER commit.
+ * NEVER throws.
  */
 export async function authorizeWrite(
   req: Request,
@@ -118,11 +123,24 @@ export async function authorizeWrite(
     fetchImpl: opts.fetchImpl,
   });
 
-  // The wall explicitly DENIED -> refuse the write.
-  if (!result.ok && result.reason === 'unauthorized') {
-    return { proceed: false, detail: result.detail };
+  // ADMIT -> proceed to the existing write path.
+  if (result.ok) return { proceed: true };
+
+  // The wall reached a 4xx VERDICT the write is not confirmed by -> REFUSE.
+  // 401/403 are the explicit deny; a 4xx 'http' outcome (404 unknown_recommendation,
+  // 409/422, etc.) is the wall answering that this consequential write cannot be
+  // resolved/committed. None of these may fall through to a committed:true — that
+  // is the CRITICAL drift this gate exists to stop.
+  const status = result.status;
+  if (
+    result.reason === 'unauthorized' ||
+    (result.reason === 'http' && typeof status === 'number' && status >= 400 && status < 500)
+  ) {
+    return { proceed: false, detail: result.detail ?? (status ? `http_${status}` : undefined) };
   }
-  // ADMIT, or any DEGRADE outcome -> proceed to the existing path.
+
+  // TRUE infra-degrade only (unconfigured / network / timeout / 5xx /
+  // bad-response) -> proceed to the existing path so the live app never breaks.
   return { proceed: true };
 }
 

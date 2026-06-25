@@ -10,6 +10,7 @@ import { ReadStates } from '../../_components/ReadStates';
 import { useParentRead } from '@/lib/useParentRead';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
+import { useT } from '@/lib/i18n';
 import {
   DEFAULT_CHILD_ID,
   findChild,
@@ -31,6 +32,7 @@ export default function ParentChildPage() {
   // child re-reads the whole timeline. Five designed states via the hook.
   const { phase, data, source } = useParentRead(childId);
   const { emit } = useEmit();
+  const { t } = useT();
 
   useEffect(() => {
     if (phase === 'ready') {
@@ -45,13 +47,13 @@ export default function ParentChildPage() {
 
   return (
     <SurfaceShell
-      eyebrow={child ? child.section : 'The child view'}
-      title={child ? `How ${child.label} is doing` : 'The child view'}
-      dockIntro="Ask about a strength, a place to support, or how a topic has grown over time."
-      dockChips={['What is going well', 'Where can I help', 'What changed this month']}
+      eyebrow={child ? child.section : t('parent.child.eyebrow')}
+      title={child ? t('parent.child.titleChild', { child: child.label }) : t('parent.child.title')}
+      dockIntro={t('parent.child.dockIntro')}
+      dockChips={[t('parent.child.chip1'), t('parent.child.chip2'), t('parent.child.chip3')]}
     >
       <section className="stack">
-        <p className="overline">Choose a child</p>
+        <p className="overline">{t('parent.child.choose')}</p>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
@@ -67,13 +69,13 @@ export default function ParentChildPage() {
               child's own learning. Child-triggerable; shareable by the parent. */}
           {data.proof.length > 0 ? (
             <section className="stack">
-              <p className="overline">A moment to be proud of</p>
+              <p className="overline">{t('parent.child.proud')}</p>
               <ProofArtifact proof={data.proof[0]!} />
             </section>
           ) : null}
 
           <section className="stack">
-            <p className="overline">This child&apos;s timeline</p>
+            <p className="overline">{t('parent.child.timeline')}</p>
             <div className="parent-timeline">
               {data.timeline.map((m) => (
                 <TimelineRow key={m.id} moment={m} />
@@ -82,9 +84,9 @@ export default function ParentChildPage() {
           </section>
 
           <section className="stack">
-            <p className="overline">What is going well</p>
+            <p className="overline">{t('parent.child.goingWell')}</p>
             {data.strengths.length === 0 ? (
-              <p className="body-sm muted">More strengths will appear here as the term unfolds.</p>
+              <p className="body-sm muted">{t('parent.child.noStrengths')}</p>
             ) : (
               <div className="stack">
                 {data.strengths.map((p) => (
@@ -95,13 +97,10 @@ export default function ParentChildPage() {
           </section>
 
           <section className="stack">
-            <p className="overline">Where a little support helps</p>
-            <p className="caption quiet">
-              These are not problems — they are the next small steps. Every one comes with something
-              you can do together.
-            </p>
+            <p className="overline">{t('parent.child.support')}</p>
+            <p className="caption quiet">{t('parent.child.supportNote')}</p>
             {data.supportAreas.length === 0 ? (
-              <p className="body-sm muted">Nothing needs extra support right now.</p>
+              <p className="body-sm muted">{t('parent.child.noSupport')}</p>
             ) : (
               <div className="stack">
                 {data.supportAreas.map((p) => (
@@ -113,8 +112,7 @@ export default function ParentChildPage() {
 
           <p className="caption quiet row" style={{ gap: 'var(--space-2)' }}>
             <Icon name="info" size="sm" />
-            Everything here is in plain language and drawn from {child.label}&apos;s own work, shared
-            with you by the school. You see only what consent permits.
+            {t('parent.child.note', { child: child.label })}
           </p>
         </>
       )}
@@ -144,12 +142,15 @@ function TimelineRow({ moment }: { moment: TimelineMoment }) {
 
 /** A plain-language strength or support area. */
 function PlainPointRow({ point, kind }: { point: PlainPoint; kind: 'strength' | 'support' }) {
+  const { t } = useT();
   return (
     <SpotlightCard>
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
         <div>
           <div className="row" style={{ gap: 'var(--space-2)' }}>
-            {point.independent ? <CrystallizeNode variant="b" inline resolved label="Now independent" /> : null}
+            {point.independent ? (
+              <CrystallizeNode variant="b" inline resolved label={t('parent.child.independent')} />
+            ) : null}
             <span className="body">{point.topic}</span>
           </div>
           <p className="body-sm muted" style={{ marginTop: 'var(--space-2)' }}>
@@ -157,7 +158,7 @@ function PlainPointRow({ point, kind }: { point: PlainPoint; kind: 'strength' | 
           </p>
         </div>
         <Tag tone={kind === 'strength' ? TONE_TAG.celebrate : TONE_TAG.support}>
-          {kind === 'strength' ? 'Going well' : 'Next step'}
+          {kind === 'strength' ? t('parent.child.goingWellTag') : t('parent.child.nextStepTag')}
         </Tag>
       </div>
     </SpotlightCard>

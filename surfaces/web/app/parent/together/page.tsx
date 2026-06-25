@@ -9,6 +9,8 @@ import { ReadStates } from '../../_components/ReadStates';
 import { useParentRead } from '@/lib/useParentRead';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
+import { requestPtm } from '@/lib/commData';
+import { useT } from '@/lib/i18n';
 import {
   DEFAULT_CHILD_ID,
   findChild,
@@ -28,6 +30,7 @@ export default function ParentTogetherPage() {
   // child re-reads. Five designed states via the hook.
   const { phase, data, source } = useParentRead(childId);
   const { emit } = useEmit();
+  const { t } = useT();
 
   useEffect(() => {
     if (phase === 'ready') {
@@ -42,13 +45,13 @@ export default function ParentTogetherPage() {
 
   return (
     <SurfaceShell
-      eyebrow={child ? child.section : 'Together'}
-      title={child ? `Learning alongside ${child.label}` : 'Learn alongside and PTM'}
-      dockIntro="Ask for a short activity to do together, or help preparing for the parent-teacher meeting."
-      dockChips={['A 10-minute activity', 'Help me prepare for the meeting', 'What to ask the teacher']}
+      eyebrow={child ? child.section : t('parent.together.eyebrow')}
+      title={child ? t('parent.together.titleChild', { child: child.label }) : t('parent.together.title')}
+      dockIntro={t('parent.together.dockIntro')}
+      dockChips={[t('parent.together.chip1'), t('parent.together.chip2'), t('parent.together.chip3')]}
     >
       <section className="stack">
-        <p className="overline">Choose a child</p>
+        <p className="overline">{t('parent.together.choose')}</p>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
@@ -61,13 +64,12 @@ export default function ParentTogetherPage() {
       ) : (
         <>
           <section className="stack">
-            <p className="overline">Do this together at home</p>
+            <p className="overline">{t('parent.together.atHome')}</p>
             <p className="caption quiet">
-              Short, warm activities — each tied to where {child.label} is growing right now. No
-              pressure, just time together.
+              {t('parent.together.atHomeNote', { child: child.label })}
             </p>
             {data.learnAlongside.length === 0 ? (
-              <p className="body-sm muted">New activities will appear here as topics move on.</p>
+              <p className="body-sm muted">{t('parent.together.noActivities')}</p>
             ) : (
               <div className="parent-links">
                 {data.learnAlongside.map((a) => (
@@ -78,14 +80,13 @@ export default function ParentTogetherPage() {
           </section>
 
           <section className="stack">
-            <p className="overline">Parent-teacher meeting</p>
-            <PtmCard ptm={data.ptm} childLabel={child.label} />
+            <p className="overline">{t('parent.together.ptm')}</p>
+            <PtmCard ptm={data.ptm} childLabel={child.label} childId={childId} />
           </section>
 
           <p className="caption quiet row" style={{ gap: 'var(--space-2)' }}>
             <Icon name="info" size="sm" />
-            These suggestions come from {child.label}&apos;s shared learning. You decide what to do
-            and when — nothing is set for you.
+            {t('parent.together.note', { child: child.label })}
           </p>
         </>
       )}
@@ -94,6 +95,7 @@ export default function ParentTogetherPage() {
 }
 
 function LearnAlongsideCard({ activity }: { activity: LearnAlongside }) {
+  const { t } = useT();
   return (
     <SpotlightCard padLg>
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
@@ -102,15 +104,15 @@ function LearnAlongsideCard({ activity }: { activity: LearnAlongside }) {
         </h3>
         <span className="row caption muted" style={{ gap: 'var(--space-2)' }}>
           <Icon name="clock" size="sm" />
-          About {activity.minutes} min
+          {t('parent.together.about', { minutes: activity.minutes })}
         </span>
       </div>
       <p className="body-sm" style={{ marginTop: 'var(--space-3)' }}>
-        <span className="quiet">Together. </span>
+        <span className="quiet">{t('parent.together.togetherLabel')} </span>
         {activity.how}
       </p>
       <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
-        <span className="quiet">Why it helps. </span>
+        <span className="quiet">{t('parent.together.whyHelps')} </span>
         {activity.why}
       </p>
     </SpotlightCard>
@@ -142,32 +144,56 @@ function downloadMeetingIcs(ptm: PtmMeeting, childLabel: string) {
   URL.revokeObjectURL(url);
 }
 
-function PtmCard({ ptm, childLabel }: { ptm: PtmMeeting; childLabel: string }) {
+function PtmCard({ ptm, childLabel, childId }: { ptm: PtmMeeting; childLabel: string; childId: string }) {
   const [requested, setRequested] = useState(false);
+  const [requesting, setRequesting] = useState(false);
   const [rescheduling, setRescheduling] = useState(false);
+  const { emit } = useEmit();
+  const { t } = useT();
+
+  // GAP#12 — booking/requesting a PTM is a REAL write now. It prepares a booking
+  // through the wall (communication.ptm -> ptm.PtmService.request_booking, a
+  // PROPOSED booking awaiting a human confirm — the permission ladder) and a
+  // clean attributed ptm.requested event is persisted; the surface also emits an
+  // attributed parent event. On a degrade the request still records locally so
+  // the surface never breaks.
+  async function request(starts?: string, windowLabel?: string) {
+    setRequesting(true);
+    await requestPtm({
+      parentRef: childId,
+      childContextRef: childId,
+      windowLabel,
+      startsAt: starts,
+      childBrief: `A short, shared conversation about how to support ${childLabel} together.`,
+      consentRef: childId,
+    });
+    await emit({
+      type: 'ptm.requested',
+      purpose: EVENT_PURPOSE.learning,
+      payload: { surface: 'parent.together', child: childId, window: windowLabel ?? null },
+      canonicalUuid: childId,
+    });
+    setRequesting(false);
+    setRequested(true);
+  }
 
   if (!ptm.scheduled) {
     return (
       <SpotlightCard hero padLg>
         <div className="empty" style={{ padding: 'var(--space-4) 0' }}>
           <Icon name="calendar" size="lg" className="glyph" />
-          <h4 className="body">No meeting scheduled yet</h4>
-          <p>
-            There is nothing urgent for {childLabel}. You can request a meeting with the teacher
-            whenever it suits you, and a prep list will be ready here.
-          </p>
+          <h4 className="body">{t('parent.together.ptmNone')}</h4>
+          <p>{t('parent.together.ptmNoneNote', { child: childLabel })}</p>
         </div>
         <div className="rec-actions">
           {requested ? (
             <>
-              <Tag tone="success">Request sent</Tag>
-              <span className="caption muted">
-                The teacher will propose a time. You will see it here, and a prep list will be ready.
-              </span>
+              <Tag tone="success">{t('parent.together.ptmRequested')}</Tag>
+              <span className="caption muted">{t('parent.together.ptmRequestedNote')}</span>
             </>
           ) : (
-            <Button variant="primary" size="sm" onClick={() => setRequested(true)}>
-              Request a meeting
+            <Button variant="primary" size="sm" disabled={requesting} onClick={() => request()}>
+              {requesting ? t('parent.together.ptmRequesting') : t('parent.together.ptmRequest')}
               <Icon name="arrow-right" size="sm" />
             </Button>
           )}
@@ -187,11 +213,11 @@ function PtmCard({ ptm, childLabel }: { ptm: PtmMeeting; childLabel: string }) {
             With {ptm.with}
           </p>
         </div>
-        <Tag tone="info">Scheduled</Tag>
+        <Tag tone="info">{t('parent.together.ptmScheduled')}</Tag>
       </div>
 
       <p className="overline" style={{ marginTop: 'var(--space-5)' }}>
-        Bring these to the meeting
+        {t('parent.together.ptmBring')}
       </p>
       <ul className="parent-ptm-list">
         {ptm.prep.map((item) => (
@@ -213,17 +239,26 @@ function PtmCard({ ptm, childLabel }: { ptm: PtmMeeting; childLabel: string }) {
           size="sm"
           onClick={() => downloadMeetingIcs(ptm, childLabel)}
         >
-          Add to your calendar
+          {t('parent.together.ptmCalendar')}
           <Icon name="arrow-right" size="sm" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => setRescheduling((v) => !v)}>
-          Reschedule
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={requesting}
+          onClick={() => {
+            // A reschedule is a fresh booking REQUEST through the wall (it never
+            // auto-rebooks — the teacher confirms). Real write + emit, then the
+            // local note confirms it was recorded.
+            void request(undefined, ptm.when ?? undefined).then(() => setRescheduling(true));
+          }}
+        >
+          {requesting ? t('parent.together.ptmRequesting') : t('parent.together.ptmReschedule')}
         </Button>
       </div>
       {rescheduling ? (
         <p className="caption muted" style={{ marginTop: 'var(--space-3)' }}>
-          A reschedule request has been noted. The teacher will propose a new time and it will
-          appear here.
+          {t('parent.together.ptmRescheduleNote')}
         </p>
       ) : null}
     </SpotlightCard>

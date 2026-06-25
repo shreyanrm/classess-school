@@ -96,6 +96,30 @@ def _persist(event: Any, *, purpose: str, consent_ref: str) -> dict[str, Any]:
     return event_sink.append_emit_input(emit_input)
 
 
+def _resolve_rec(rec_id: str, payload: dict[str, Any]) -> Any | None:
+    """Resolve the Recommendation under decision by its STABLE id — the durability
+    seam (GAP#2). Tries the process mirror first; on a miss it REHYDRATES an
+    engine-derived recommendation by re-minting it deterministically from the
+    SAME stable id (the engine view + ``build_recommendation`` are pure, so the
+    rebuilt object is identical). This is why an engine-derived id surfaced by a
+    recommend can be approved/executed in a LATER request without a 404 — the rec
+    is never lost to transient process state; it is always re-derivable."""
+    rec = _RECS.get(rec_id)
+    if rec is not None:
+        return rec
+    if not rec_id:
+        return None
+    # Rehydrate: re-mint the recommendation from its stable id. ``do_recommend``
+    # folds the engine view in (engine-derived id -> same provenance) and caches
+    # it back into ``_RECS``, so a subsequent approve/execute resolves the object.
+    seed = dict(payload)
+    seed["recommendation_id"] = rec_id
+    status, _ = do_recommend(seed)
+    if status == 200:
+        return _RECS.get(rec_id)
+    return None
+
+
 @app.get("/healthz", tags=["meta"])
 async def healthz() -> dict:
     return {
@@ -111,10 +135,45 @@ async def healthz() -> dict:
 # routes (the gateway-forward path) and the deployable capability door (the
 # in-process dispatch path) call these, so the loop has ONE implementation.
 # ---------------------------------------------------------------------------
+def _engine_seed_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """If the recommend was asked to come FROM the engine (``from_engine`` set, or
+    a ``recommendation_id`` that matches an engine-derived recommendation), fold
+    the engine view's fields (stable id, topic, gap, learner count) INTO the
+    payload so the minted Recommendation carries the engine's stable id and
+    provenance — recommendations come from intelligence_views, not a mock
+    (GAP#2). A no-op when the engine is unavailable or the request is not
+    engine-derived."""
+    try:
+        from . import intelligence_views
+    except Exception:  # pragma: no cover - defensive
+        return payload
+    if not intelligence_views.available():
+        return payload
+    rid = str(payload.get("recommendation_id") or "").strip()
+    view: dict[str, Any] | None = None
+    if rid:
+        view = intelligence_views.recommendation_by_id(rid)
+    elif payload.get("from_engine"):
+        feed = intelligence_views.recommendations()
+        view = feed[0] if feed else None
+    if view is None:
+        return payload
+    merged = dict(payload)
+    merged.setdefault("recommendation_id", view["recommendation_id"])
+    merged.setdefault("gap_type", view.get("gap_type", "prerequisite"))
+    merged.setdefault("topic_label", view.get("topic_id", "the current topic"))
+    merged.setdefault("learner_count", view.get("learner_count", 0))
+    merged["engine_derived"] = True
+    return merged
+
+
 def do_recommend(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     if not available():
         return 503, {"status": "degraded", "reason": "workflow_runtime_unavailable"}
     try:
+        # GAP#2: recommendations come from the ENGINE (intelligence_views), with a
+        # STABLE id, so recommend -> approve -> execute reference the same object.
+        payload = _engine_seed_payload(payload)
         evidence_ids = payload.get("evidence_event_ids") or [str(uuid4()), str(uuid4())]
         evidence = [
             _wf.EvidenceRef(event_id=_u(eid), summary=str(payload.get("evidence_summary", "attributed evidence")))
@@ -197,7 +256,7 @@ def do_approve(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     if not available():
         return 503, {"status": "degraded", "reason": "workflow_runtime_unavailable"}
     rec_id = str(payload.get("recommendation_id") or "").strip()
-    rec = _RECS.get(rec_id)
+    rec = _resolve_rec(rec_id, payload)
     if rec is None:
         return 404, {"error": "unknown_recommendation", "recommendation_id": rec_id}
     try:
@@ -241,7 +300,7 @@ def do_execute(payload: dict[str, Any]) -> tuple[int, dict[str, Any]]:
     if not available():
         return 503, {"status": "degraded", "reason": "workflow_runtime_unavailable"}
     rec_id = str(payload.get("recommendation_id") or "").strip()
-    rec = _RECS.get(rec_id)
+    rec = _resolve_rec(rec_id, payload)
     if rec is None:
         return 404, {"error": "unknown_recommendation", "recommendation_id": rec_id}
     try:

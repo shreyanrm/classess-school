@@ -215,6 +215,24 @@ _ACTION_ALIASES = {
     "generate_and_verify_content": "write",   # content generate-and-verify
     "mastery": "read",                        # CORE engine mastery read
     "gap": "read",                            # CORE engine gap read
+    # GAP#10 — the Wave-2 feature-module fronts. Reads gate as reads; the
+    # prepare/propose writes (conversation-to-task, ptm booking request, roll
+    # capture) gate as writes (staff-gated, audited) — the modules themselves
+    # never auto-commit (a human confirms the proposal). The CONSEQUENTIAL
+    # governance controls (toggle/breakglass/policy version) ride the EXECUTE
+    # rung so the wall forces an X-Approval-Token (they can never auto-fire).
+    "translate": "read",                      # communication translate (GAP#8)
+    "make_tasks": "write",                    # communication conversation->task (GAP#9)
+    "ptm": "write",                           # communication PTM prepare (GAP#12)
+    "parent_feedback": "read",                # communication parent feedback (generate-and-verify)
+    "policy": "read",                         # institution policy/config read
+    "recommend_recovery": "read",             # scheduling recovery RECOMMEND
+    "capture": "write",                       # attendance roll capture (proposal)
+    "coaching": "read",                       # teacher-growth coaching summary
+    "audit_trail": "read",                    # governance audit-trail READ
+    "toggle": "execute",                      # governance AI-control toggle (ladder)
+    "breakglass": "execute",                  # governance break-glass (ladder)
+    "policy_version": "execute",              # governance policy version (ladder)
 }
 
 

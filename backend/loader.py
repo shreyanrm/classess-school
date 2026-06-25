@@ -48,6 +48,13 @@ GATEWAY_ALIAS = "clss_gateway_app"
 WORKFLOW_PKG_DIR = "spine/workflow/app"
 WORKFLOW_ALIAS = "clss_workflow_app"
 
+# The governance & safety control plane (spine A7) — the AI-control toggles,
+# break-glass, emergency-disable, and the immutable audit layer with its query
+# READ. A pure-python library; loaded under a unique alias so its ``app`` package
+# never collides with the other ``app`` packages in this one process.
+GOVERNANCE_PKG_DIR = "spine/governance/app"
+GOVERNANCE_ALIAS = "clss_governance_app"
+
 # Capability modules wired behind the wall. Each is a pure-python library; the
 # wall enforces access, the module stays thin (per the capability registry).
 CAPABILITY_MODULES: tuple[str, ...] = (
@@ -111,6 +118,13 @@ def load_workflow() -> Optional[ModuleType]:
     package module, or None when absent/broken (degrade cleanly — the loop routes
     then report unavailable; the deployable never crashes)."""
     return load_package(WORKFLOW_ALIAS, WORKFLOW_PKG_DIR)
+
+
+def load_governance() -> Optional[ModuleType]:
+    """Load the governance & safety control plane (spine A7) under its unique
+    alias. Returns the package module, or None when absent/broken (degrade
+    cleanly — the governance routes then report unavailable; never crashes)."""
+    return load_package(GOVERNANCE_ALIAS, GOVERNANCE_PKG_DIR)
 
 
 def load_spine_app(name: str) -> Optional[ModuleType]:

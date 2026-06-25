@@ -258,6 +258,11 @@ _MODULE_PLAN: Tuple[Tuple[str, bool, bool, Optional[str]], ...] = (
     ("teacher-growth", True, False, "teacher-growth.read"),
     ("integration", True, False, None),
     ("feature-store", False, True, "feature-store.read"),
+    # The GOVERNANCE control plane (GAP#3/#5/#7): the audit-trail READ + the
+    # consequential control writes (AI-control toggle / break-glass / policy
+    # version / emergency disable). The writes ride the EXECUTE rung (registered
+    # below) so the wall forces an approval token; READ is the audit-trail query.
+    ("governance", False, False, None),
 )
 
 

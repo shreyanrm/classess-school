@@ -21,6 +21,7 @@ export interface RecommendationItemProps {
   onActioned?: (id: string, decision: Decision, consequential?: boolean) => Promise<{
     committed: boolean;
     denied?: boolean;
+    outcome?: string;
   }>;
 }
 
@@ -101,7 +102,18 @@ export function RecommendationItem({ rec, onActioned }: RecommendationItemProps)
         payload={{ recommendationId: rec.id, decision: 'approve', gapType: rec.gapType }}
         approveLabel={rec.actionLabel}
         onApprove={async () => {
-          if (onActioned) await onActioned(rec.id, 'approve', true);
+          // The REAL execute outcome drives the UI: a wall deny / unresolved
+          // consequential op (committed:false) surfaces needs-approval, never a
+          // false "Done". Only a committed loop shows resolved/committed.
+          const result = onActioned
+            ? await onActioned(rec.id, 'approve', true)
+            : { committed: true };
+          if (!result.committed) {
+            setError('That needs approval to go through. Nothing was sent — try again.');
+            setPhase('pending');
+            return;
+          }
+          setError(null);
           setPhase(rec.crystallizes ? 'resolved' : 'committed');
         }}
         onAdjust={() => setPhase('pending')}

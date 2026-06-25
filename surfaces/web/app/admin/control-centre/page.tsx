@@ -16,6 +16,9 @@ import { AGENTS, agentEnabled, type Agent } from '@/lib/adminData';
 import { useStore } from '@/lib/useStore';
 import { setAgentEnabled } from '@/lib/store';
 import { useProactive } from '@/lib/useProactive';
+import { useGovernance } from '@/lib/governance';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 
 /**
  * The AI control centre — the institution-level governance of which agents run,
@@ -34,6 +37,20 @@ export default function AdminControlCentrePage() {
   const totals = useMemo(() => gateTotals(TRACK_USAGE), []);
   const { adminConfig } = useStore();
   const proactive = useProactive();
+  const gov = useGovernance();
+  const { emit } = useEmit();
+
+  // The emergency disable EMITS an attributed event AND records to the immutable
+  // audit trail through the wall, so "recorded to the immutable audit trail" is
+  // TRUE. Best-effort; never blocks the human authority switch.
+  async function recordEmergencyDisable() {
+    await gov.recordEmergencyDisable();
+    await emit({
+      type: 'governance.emergency_disable.engaged',
+      purpose: EVENT_PURPOSE.teaching,
+      payload: { recorded: true },
+    });
+  }
 
   return (
     <SurfaceShell
@@ -129,7 +146,7 @@ export default function AdminControlCentrePage() {
         </div>
       </section>
 
-      <EmergencyDisable />
+      <EmergencyDisable onRecord={recordEmergencyDisable} />
 
       <section className="stack">
         <p className="overline">Break-glass and lineage</p>
@@ -252,11 +269,16 @@ function TrackCard({ usage }: { usage: TrackUsage }) {
  * autonomy at once. It never one-clicks: it takes an explicit typed confirmation,
  * states exactly what stops, and remains the human's to engage and to restore.
  */
-function EmergencyDisable() {
+function EmergencyDisable({ onRecord }: { onRecord: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState('');
   const [disabled, setDisabled] = useState(false);
   const ready = confirm.trim().toUpperCase() === 'DISABLE';
+
+  async function disable() {
+    setDisabled(true);
+    await onRecord();
+  }
 
   return (
     <section className="stack">
@@ -319,7 +341,7 @@ function EmergencyDisable() {
                     variant="danger"
                     size="sm"
                     disabled={!ready}
-                    onClick={() => setDisabled(true)}
+                    onClick={disable}
                   >
                     Disable and record
                   </Button>

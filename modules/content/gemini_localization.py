@@ -222,9 +222,9 @@ class GeminiLocalizationProvider:
 
     def __post_init__(self) -> None:
         if self.settings is None and _spine.SPINE_AVAILABLE:
-            from app.config import get_settings  # type: ignore
-
-            self.settings = get_settings()
+            # Via the unique alias (never the bare ``app.config`` — it would
+            # collide with the other ``app`` packages in the single deployable).
+            self.settings = _spine.get_settings()
         if self.poster is None:
             self.poster = _load_httpx_poster()
 
@@ -316,9 +316,8 @@ def make_localization_provider(
     injects a settings source (also for tests). The raw key is never returned.
     """
     if settings is None and _spine.SPINE_AVAILABLE:
-        from app.config import get_settings  # type: ignore
-
-        settings = get_settings(dict(env) if env is not None else None)
+        # Via the unique alias (never the bare ``app.config``).
+        settings = _spine.get_settings(dict(env) if env is not None else None)
     provider = GeminiLocalizationProvider(poster=poster, settings=settings)
     if provider.has_provider():
         return provider

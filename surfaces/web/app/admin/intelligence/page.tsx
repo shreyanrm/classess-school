@@ -4,8 +4,10 @@ import { useState } from 'react';
 import { Cell, Icon, Matrix, ProgressBar, SpotlightCard, Stat, SuggestionChip, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { ReadStates } from '../../_components/ReadStates';
 import { StudyQuadrant } from '../../_components/StudyQuadrant';
 import { Trajectory } from '../../_components/Trajectory';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 import { SCHOOL_STATS, SCHOOL_TRENDS } from '@/lib/mock';
 import { ADMIN_CONCERNS, ADMIN_INTERVENTIONS } from '@/lib/mock';
 import { PACING_ROWS, TRAJECTORY, pacingSummary, type QuadrantBand, type QuadrantPoint } from '@/lib/adminData';
@@ -71,6 +73,7 @@ export default function AdminIntelligencePage() {
   const [lens, setLens] = useState<Lens>('academics');
   const [query, setQuery] = useState<Query | null>(null);
   const pacing = pacingSummary();
+  const surface = useSurfaceState();
 
   // The drill that ACTS — launch the suggested remedial/grouping set for a band
   // by handing the group to Vidya, which prepares it within the permission
@@ -95,6 +98,10 @@ export default function AdminIntelligencePage() {
         'What improved after the May resets',
       ]}
     >
+      {surface.phase !== 'ready' ? (
+        <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      ) : (
+      <>
       <section className="stack">
         <div className="ladder" role="tablist" aria-label="Intelligence lens" style={{ maxWidth: 420 }}>
           {LENSES.map((l) => (
@@ -333,6 +340,8 @@ export default function AdminIntelligencePage() {
             whySeeing="Care sits alongside academics so a learner is seen as a whole person, and no concern quietly falls through."
           />
         </section>
+      )}
+      </>
       )}
     </SurfaceShell>
   );

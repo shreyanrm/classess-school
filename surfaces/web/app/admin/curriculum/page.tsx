@@ -5,6 +5,8 @@ import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system
 import { SEED_ONTOLOGY } from '@classess/contracts';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { ReadStates } from '../../_components/ReadStates';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 
 /**
  * d3 — Curriculum / ontology view. Board -> grade -> subject -> unit -> topic,
@@ -18,6 +20,7 @@ import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 
 export default function CurriculumPage() {
   const ont = SEED_ONTOLOGY;
+  const surface = useSurfaceState();
   const [subjectId, setSubjectId] = useState<string>(ont.subjects[0]?.id ?? '');
   const [topicId, setTopicId] = useState<string | null>(null);
 
@@ -69,6 +72,10 @@ export default function CurriculumPage() {
       dockIntro="This is the living curriculum graph: board, grade, subject, unit, topic, with the prerequisite edges that drive gap detection. Board, language, region and calendar are all fields you set — never locked in."
       dockChips={['What unlocks trigonometric identities', 'Show proposed edges', 'Change the board label']}
     >
+      {surface.phase !== 'ready' ? (
+        <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      ) : (
+      <>
       <section className="stack">
         <p className="overline">Hyperlocalisation</p>
         <p className="caption quiet">
@@ -206,6 +213,8 @@ export default function CurriculumPage() {
         </section>
       ) : (
         <p className="caption muted">Select a topic above to see its prerequisite edges.</p>
+      )}
+      </>
       )}
     </SurfaceShell>
   );

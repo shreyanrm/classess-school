@@ -94,6 +94,17 @@ export function agentEnabled(agent: Agent, overrides?: Record<string, boolean>):
   return typeof v === 'boolean' ? v : agent.defaultOn;
 }
 
+/** Resolve an AI-control's effective on state given the persisted overrides. A
+ *  locked (consequential) control is always off and can never be overridden. */
+export function aiControlOn(
+  control: { id: string; defaultOn: boolean; locked: boolean },
+  overrides?: Record<string, boolean>,
+): boolean {
+  if (control.locked) return false;
+  const v = overrides?.[control.id];
+  return typeof v === 'boolean' ? v : control.defaultOn;
+}
+
 /* ------------------------------------------------------------- Policy ledger */
 
 /** One immutable version of a policy — versioned with an effective date. */

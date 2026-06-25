@@ -100,6 +100,9 @@ EXPECTED_MODULES = {
     "institution", "scheduling", "coursework", "learning", "content",
     "learner-record", "communication", "intelligence-views", "attendance",
     "planning", "classroom", "teacher-growth", "integration", "feature-store",
+    # The governance control plane (GAP#3/#5/#7): the audit-trail READ + the
+    # consequential AI-control toggle / break-glass / policy-version EXECUTE rung.
+    "governance",
 }
 
 

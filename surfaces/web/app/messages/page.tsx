@@ -10,6 +10,8 @@ import { useStore } from '@/lib/useStore';
 import { mintId, channelRef as deriveChannelRef } from '@/lib/store';
 import { joinChannel, type ChannelHandle, type LiveMessage, type LivePresence } from '@/lib/realtime';
 import { saveMessageLive, loadMessagesLive } from '@/lib/opData';
+import { translateForReader, routeToTask } from '@/lib/commData';
+import { useT } from '@/lib/i18n';
 import { openVidya } from '../_components/VidyaOrb';
 
 /**
@@ -79,13 +81,36 @@ const THREADS: Record<string, Msg[]> = {
 export default function MessagesPage() {
   const { role } = useRole();
   const { account, school } = useStore();
+  const { locale } = useT();
   const channels = CHANNELS[role];
   const [activeId, setActiveId] = useState<string>(channels[0]?.id ?? 'c1');
   const [draft, setDraft] = useState('');
   const [prepared, setPrepared] = useState(false);
   const [routed, setRouted] = useState(false);
+  const [routing, setRouting] = useState(false);
   const [taskOwner, setTaskOwner] = useState('Class teacher');
   const [taskDue, setTaskDue] = useState('In two days');
+
+  // GAP#8 — message bodies rendered into the reader's language. A message id maps
+  // to its rendered (reader-language) body; the original is shown until/unless a
+  // render lands, so nothing ever blanks. Translation runs THROUGH the wall
+  // (communication.translate), which preserves subject terminology + code-switch.
+  const [renderedBodies, setRenderedBodies] = useState<Record<string, string>>({});
+
+  // Render a message body into the reader's language, gateway-first. On any
+  // degrade the original text stands (passthrough), never dropped. Subject terms
+  // are preserved by the module; we only store the rendered text by message id.
+  const renderForReader = useCallback(
+    async (id: string, text: string) => {
+      if (!text.trim()) return;
+      const res = await translateForReader({ text, preferredLang: locale });
+      const rendered = res.ok ? res.data?.rendered_text : undefined;
+      if (rendered && rendered !== text) {
+        setRenderedBodies((prev) => (prev[id] === rendered ? prev : { ...prev, [id]: rendered }));
+      }
+    },
+    [locale],
+  );
 
   // Live messaging state (Supabase Realtime). Degrades to local when unwired.
   const [liveMsgs, setLiveMsgs] = useState<LiveMessage[]>([]);
@@ -244,9 +269,28 @@ export default function MessagesPage() {
       // but still kept in the MONITORED channel — never an unmonitored one).
       setLiveMsgs((prev) => [...prev, message]);
       if (!flagged) void channelRef.current?.send(message);
+      // GAP#8 — translation is APPLIED ON SEND: render the just-sent text into the
+      // reader's language through the wall (communication.translate). This is a
+      // REAL call now, not a claim in the evidence drawer; the rendered body is
+      // shown where it differs, and subject terminology is preserved by the module.
+      void renderForReader(messageId, text);
     },
-    [selfRef, liveInstitution, channelId, role],
+    [selfRef, liveInstitution, channelId, role, renderForReader],
   );
+
+  // GAP#8 — render every message body (the seed thread + any live/loaded
+  // messages) into the reader's language, gateway-first. Runs when the active
+  // thread or the locale changes; each render is best-effort and the original
+  // text stands until one lands. Already-rendered ids are skipped.
+  useEffect(() => {
+    for (const m of baseThread) {
+      if (!renderedBodies[m.id]) void renderForReader(m.id, m.text);
+    }
+    for (const m of liveMsgs) {
+      if (!renderedBodies[m.id]) void renderForReader(m.id, m.body);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [baseThread, liveMsgs, locale]);
 
   // A calm, illustrative quiet-hours read (after 9pm, before 7am locally).
   const hour = new Date().getHours();
@@ -376,7 +420,7 @@ export default function MessagesPage() {
                     {baseThread.map((m) => (
                       <div key={m.id} className={`msg ${m.mine ? 'msg-user' : 'msg-vidya'}`}>
                         <div className="bubble body-sm">
-                          {m.text}
+                          {renderedBodies[m.id] ?? m.text}
                           {m.flagged ? (
                             <div style={{ marginTop: 6 }}>
                               <Tag tone="danger">Flagged for a responsible adult</Tag>
@@ -388,7 +432,7 @@ export default function MessagesPage() {
                     {liveMsgs.map((m) => (
                       <div key={m.id} className={`msg ${m.senderRef === selfRef ? 'msg-user' : 'msg-vidya'}`} data-testid="live-message">
                         <div className="bubble body-sm">
-                          {m.body}
+                          {renderedBodies[m.id] ?? m.body}
                           {m.flagged ? (
                             <div style={{ marginTop: 6 }}>
                               <Tag tone="danger">Flagged for a responsible adult</Tag>
@@ -517,8 +561,40 @@ export default function MessagesPage() {
                       </label>
                     </div>
                     <div className="rec-actions">
-                      <Button variant="secondary" size="sm" onClick={() => setRouted(true)}>
-                        <Icon name="arrow-right" size="sm" /> Route to a task
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        disabled={routing}
+                        onClick={async () => {
+                          // GAP#9 — Route to a task is a REAL outcome now: the wall
+                          // screens the concern then routes it (hub.route_to_task)
+                          // and a clean attributed communication.task_created event
+                          // is persisted. The local "Routed" state flips on the
+                          // wall's result; on a degrade it still routes locally so
+                          // the surface never breaks.
+                          setRouting(true);
+                          const ownerRole =
+                            taskOwner === 'Subject teacher'
+                              ? 'subject_teacher'
+                              : taskOwner === 'Year head'
+                                ? 'year_head'
+                                : 'teacher';
+                          const concern =
+                            draft.trim() || baseThread.find((m) => !m.mine)?.text || 'A concern raised in this conversation.';
+                          await routeToTask({
+                            body: concern,
+                            title: `Follow up — ${active?.name ?? 'conversation'}`,
+                            ownerRole,
+                            why: `Routed from a ${role} conversation; due ${taskDue.toLowerCase()}.`,
+                            dueDate: taskDue,
+                            surface: role,
+                            senderRef: selfRef,
+                          });
+                          setRouting(false);
+                          setRouted(true);
+                        }}
+                      >
+                        <Icon name="arrow-right" size="sm" /> {routing ? 'Routing…' : 'Route to a task'}
                       </Button>
                       <span className="caption muted">Owned, tracked, and closed — not left as a stray chat.</span>
                     </div>

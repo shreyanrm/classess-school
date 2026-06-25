@@ -134,16 +134,32 @@ def _gap_view(g: Any) -> dict[str, Any]:
     }
 
 
+# A fixed namespace so an engine-derived recommendation gets a DETERMINISTIC,
+# STABLE id: the same confirmed gap on the same topic always yields the same
+# recommendation_id, across requests and across process restarts. This is the
+# keystone of durability (GAP#2) — the id the web surfaces from a recommend can
+# be approved/executed later because it can be RE-DERIVED (and the rec rehydrated)
+# from the same engine replay, never depending on transient process state.
+_REC_NAMESPACE = uuid.UUID("5eed0000-0000-4000-8000-0000000000c1")
+
+
+def recommendation_id_for(topic_id: str, gap_type: str) -> str:
+    """The stable, engine-derived recommendation id for a (topic, gap) pair."""
+    return str(uuid.uuid5(_REC_NAMESPACE, f"{topic_id}|{gap_type}"))
+
+
 def _recommendation_view(graph: Any) -> list[dict[str, Any]]:
     """Proactive recommendations derived from the cohort's confirmed gaps. Each is
-    a RECOMMEND-level item (the lowest permission rung); acting on it is gated by
-    the ladder at the surface, never here."""
+    a RECOMMEND-level item (the lowest permission rung) with a STABLE,
+    engine-derived ``recommendation_id`` so recommend -> approve -> execute all
+    reference the SAME object; acting on it is gated by the ladder, never here."""
     recs: list[dict[str, Any]] = []
     for topic_id in sorted(graph.topic_ids(), key=str):
         summary = graph.topic_summary(topic_id)
         for gap_type, count in sorted(summary.confirmed_gap_counts.items()):
             recs.append(
                 {
+                    "recommendation_id": recommendation_id_for(str(topic_id), gap_type),
                     "topic_id": str(topic_id),
                     "gap_type": gap_type,
                     "learner_count": count,
@@ -152,6 +168,28 @@ def _recommendation_view(graph: Any) -> list[dict[str, Any]]:
                 }
             )
     return recs
+
+
+def recommendations() -> list[dict[str, Any]]:
+    """The engine-derived recommendation feed (the SAME source the governed
+    ``recommendations`` view serves), or an empty list when the engine is
+    unavailable. Each item carries the stable ``recommendation_id``."""
+    if _engine is None:
+        return []
+    graph = _engine.build_learner_graph(_seed_events(), asof=_SCENARIO_NOW)
+    return _recommendation_view(graph)
+
+
+def recommendation_by_id(recommendation_id: str) -> Optional[dict[str, Any]]:
+    """Resolve ONE engine-derived recommendation by its stable id, re-derived from
+    the same engine replay. Returns the view dict, or None if the id is not a
+    current engine recommendation. This is the durability seam: an id can always
+    be re-resolved from the engine, never only from transient process state."""
+    rid = str(recommendation_id or "").strip()
+    for rec in recommendations():
+        if rec.get("recommendation_id") == rid:
+            return rec
+    return None
 
 
 def _class_insights_view(graph: Any) -> dict[str, Any]:

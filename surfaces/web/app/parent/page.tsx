@@ -11,6 +11,8 @@ import { ReadStates } from '../_components/ReadStates';
 import { useParentRead } from '@/lib/useParentRead';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
+import { routeToTask } from '@/lib/commData';
+import { useT } from '@/lib/i18n';
 import {
   DEFAULT_CHILD_ID,
   findChild,
@@ -32,6 +34,7 @@ export default function ParentTodayPage() {
   // five designed states (loading / error / offline / permission-denied / ready).
   const { phase, data, source } = useParentRead(childId);
   const { emit } = useEmit();
+  const { t } = useT();
 
   // The surface viewed event — attributed, consent-stamped, with the read source.
   useEffect(() => {
@@ -47,13 +50,13 @@ export default function ParentTodayPage() {
 
   return (
     <SurfaceShell
-      eyebrow="This week"
-      title="Welcome. Here is a calm look at this week."
-      dockIntro="This is a calm view for your family. Ask how a child is doing, what to support at home, or to see a recent win."
-      dockChips={['How is my child this week', 'What needs attention', 'Show a recent win']}
+      eyebrow={t('parent.week.eyebrow')}
+      title={t('parent.week.title')}
+      dockIntro={t('parent.week.dockIntro')}
+      dockChips={[t('parent.week.chip1'), t('parent.week.chip2'), t('parent.week.chip3')]}
     >
       <section className="stack">
-        <p className="overline">Whose week are we looking at</p>
+        <p className="overline">{t('parent.week.whose')}</p>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
@@ -66,40 +69,39 @@ export default function ParentTodayPage() {
       ) : (
         <>
           <section className="stack">
-            <p className="overline">Three things this week</p>
+            <p className="overline">{t('parent.week.three')}</p>
             <p className="caption quiet">
-              A short, honest list for {child.label}. Nothing here is urgent or alarming — it is
-              where a little attention helps most.
+              {t('parent.week.threeNote', { child: child.label })}
             </p>
             {data.briefings.map((b) => (
-              <ParentBriefingCard key={b.id} briefing={b} />
+              <ParentBriefingCard key={b.id} briefing={b} childId={childId} childLabel={child.label} />
             ))}
           </section>
 
           <section className="stack">
-            <p className="overline">Where to go next</p>
+            <p className="overline">{t('parent.week.next')}</p>
             <div className="parent-links">
               <Link href="/parent/child" className="card parent-link c-spot">
                 <Icon name="chart" size="md" />
                 <div>
-                  <div className="body">The child view</div>
-                  <div className="caption muted">Progress, strengths and support areas</div>
+                  <div className="body">{t('parent.week.linkChild')}</div>
+                  <div className="caption muted">{t('parent.week.linkChildSub')}</div>
                 </div>
                 <Icon name="chevron-right" size="sm" />
               </Link>
               <Link href="/parent/reports" className="card parent-link c-spot">
                 <Icon name="book" size="md" />
                 <div>
-                  <div className="body">Reports and feedback</div>
-                  <div className="caption muted">Celebration points and next steps</div>
+                  <div className="body">{t('parent.week.linkReports')}</div>
+                  <div className="caption muted">{t('parent.week.linkReportsSub')}</div>
                 </div>
                 <Icon name="chevron-right" size="sm" />
               </Link>
               <Link href="/parent/together" className="card parent-link c-spot">
                 <Icon name="spark" size="md" />
                 <div>
-                  <div className="body">Learn alongside and PTM</div>
-                  <div className="caption muted">Activities for home and meeting prep</div>
+                  <div className="body">{t('parent.week.linkTogether')}</div>
+                  <div className="caption muted">{t('parent.week.linkTogetherSub')}</div>
                 </div>
                 <Icon name="chevron-right" size="sm" />
               </Link>
@@ -109,8 +111,7 @@ export default function ParentTodayPage() {
           <section className="stack">
             <p className="caption quiet row" style={{ gap: 'var(--space-2)' }}>
               <Icon name="info" size="sm" />
-              You see only what {child.label}&apos;s school has chosen to share with you. This is a
-              partnership, not a watch list.
+              {t('parent.week.partnership', { child: child.label })}
             </p>
           </section>
         </>
@@ -120,16 +121,58 @@ export default function ParentTodayPage() {
 }
 
 /** A single Today item, in the parent's language. Supportive, never an order. */
-function ParentBriefingCard({ briefing }: { briefing: ParentBriefing }) {
+function ParentBriefingCard({
+  briefing,
+  childId,
+  childLabel,
+}: {
+  briefing: ParentBriefing;
+  childId: string;
+  childLabel: string;
+}) {
   const [deferred, setDeferred] = useState(false);
+  const { emit } = useEmit();
+  const { t } = useT();
+  // GAP#11 — the one action triggers a REAL outcome, not just navigation. Taking
+  // it on a support item routes the concern into an owned, tracked task through
+  // the wall (communication.make_tasks -> hub.route_to_task, a persisted
+  // communication.task_created event) AND emits an attributed parent event. A
+  // celebration/on-track item has no task to route; it emits the action taken.
+  const [acting, setActing] = useState(false);
+  const [taken, setTaken] = useState(false);
+
+  async function takeAction() {
+    setActing(true);
+    if (briefing.tone === 'support') {
+      await routeToTask({
+        body: `${briefing.title}. ${briefing.why}`,
+        title: `Support at home — ${childLabel}`,
+        ownerRole: 'parent',
+        why: briefing.builds,
+        dueDate: briefing.due,
+        surface: 'parent',
+        contextRef: childId,
+        senderRef: childId,
+        consentRef: childId,
+      });
+    }
+    await emit({
+      type: 'parent.action_taken',
+      purpose: EVENT_PURPOSE.learning,
+      payload: { surface: 'parent.this-week', child: childId, briefing: briefing.id, tone: briefing.tone },
+      canonicalUuid: childId,
+    });
+    setActing(false);
+    setTaken(true);
+  }
 
   if (deferred) {
     return (
       <SpotlightCard>
         <div className="row-between">
-          <span className="muted body-sm">Set aside — {briefing.title}</span>
+          <span className="muted body-sm">{t('parent.week.setAside')} — {briefing.title}</span>
           <Button variant="ghost" size="sm" onClick={() => setDeferred(false)}>
-            Bring back
+            {t('parent.week.bringBack')}
           </Button>
         </div>
       </SpotlightCard>
@@ -190,15 +233,32 @@ function ParentBriefingCard({ briefing }: { briefing: ParentBriefing }) {
 
       <EvidenceDrawer evidence={briefing.evidence} whySeeing={briefing.whySeeing} />
 
-      <div className="rec-actions" style={{ marginTop: 'var(--space-4)' }}>
-        <Link href={briefing.target} className="btn btn-primary btn-sm row" style={{ gap: 'var(--space-2)' }}>
-          {briefing.nextAction}
-          <Icon name="arrow-right" size="sm" />
-        </Link>
-        <Button variant="ghost" size="sm" onClick={() => setDeferred(true)}>
-          Set aside
-        </Button>
-      </div>
+      {taken ? (
+        <div className="rec-actions" style={{ marginTop: 'var(--space-4)', alignItems: 'center' }}>
+          <Tag tone="success">{t('parent.week.actionTaken')}</Tag>
+          <span className="caption muted">
+            {briefing.tone === 'support'
+              ? t('parent.week.actionTakenSupport')
+              : t('parent.week.actionTakenNoted')}
+          </span>
+          <Link href={briefing.target} className="caption row" style={{ gap: 4 }}>
+            {t('parent.week.open')} <Icon name="arrow-right" size="sm" />
+          </Link>
+        </div>
+      ) : (
+        <div className="rec-actions" style={{ marginTop: 'var(--space-4)' }}>
+          <Button variant="primary" size="sm" disabled={acting} onClick={takeAction}>
+            {acting ? t('parent.week.acting') : briefing.nextAction}
+            <Icon name="arrow-right" size="sm" />
+          </Button>
+          <Link href={briefing.target} className="btn btn-ghost btn-sm row" style={{ gap: 'var(--space-2)' }}>
+            {t('parent.week.open')}
+          </Link>
+          <Button variant="ghost" size="sm" onClick={() => setDeferred(true)}>
+            {t('parent.week.setAside')}
+          </Button>
+        </div>
+      )}
     </SpotlightCard>
   );
 }

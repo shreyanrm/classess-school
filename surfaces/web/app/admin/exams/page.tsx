@@ -4,7 +4,9 @@ import { useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { ReadStates } from '../../_components/ReadStates';
 import { SCAN_ROWS } from '@/lib/examsData';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 
 /**
  * d10 — Exam operations (admin). Scheduling, seating, secure-print packaging,
@@ -25,6 +27,7 @@ const STAGES: { id: Stage; label: string; icon: 'calendar' | 'grid' | 'send' | '
 
 export default function ExamsPage() {
   const [stage, setStage] = useState<Stage>('schedule');
+  const surface = useSurfaceState();
   const [approved, setApproved] = useState<Record<Stage, boolean>>({
     schedule: false,
     seating: false,
@@ -72,6 +75,10 @@ export default function ExamsPage() {
       dockIntro="I prepare each step — schedule, seating, secure print, scan intake — and hold it at the approval gate. Nothing publishes, prints, or grades on its own. A poor scan is flagged for a human, never penalised."
       dockChips={['Prepare the timetable', 'Why is this sheet flagged', 'Package for secure print']}
     >
+      {surface.phase !== 'ready' ? (
+        <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      ) : (
+      <>
       <section className="stack">
         <div className="ladder" role="group" aria-label="Exam stage" style={{ maxWidth: 520 }}>
           {STAGES.map((s) => (
@@ -175,6 +182,8 @@ export default function ExamsPage() {
           )}
         </SpotlightCard>
       </section>
+      </>
+      )}
     </SurfaceShell>
   );
 }

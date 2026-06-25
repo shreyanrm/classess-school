@@ -262,6 +262,8 @@ export interface AdminConfig {
   agents?: Record<string, boolean>;
   /** Policy id -> the version label set in force. Absent means the latest. */
   policyVersions?: Record<string, string>;
+  /** AI-control id -> on. Absent means "follow the control's declared default". */
+  aiControls?: Record<string, boolean>;
 }
 
 /** User-facing behaviour switches, all explicit and revocable. */
@@ -324,6 +326,17 @@ export function setPolicyVersion(policyId: string, version: string): void {
     adminConfig: {
       ...s.adminConfig,
       policyVersions: { ...s.adminConfig?.policyVersions, [policyId]: version },
+    },
+  }));
+}
+
+/** Persist an AI-control toggle (admin governance). Survives reload. */
+export function setAiControlOn(controlId: string, on: boolean): void {
+  updateStore((s) => ({
+    ...s,
+    adminConfig: {
+      ...s.adminConfig,
+      aiControls: { ...s.adminConfig?.aiControls, [controlId]: on },
     },
   }));
 }

@@ -62,6 +62,39 @@ ROUTE_MAP: dict[str, dict[str, UpstreamRoute]] = {
         "approve": UpstreamRoute("POST", "/v1/workflow/approve"),
         "execute": UpstreamRoute("POST", "/v1/workflow/execute"),
     },
+    # GAP#10 — the Wave-2 feature-module fronts. Each is dispatched IN-PROCESS
+    # behind the deployable's own governed capability door (the target base url is
+    # {self}/capabilities; the path is /{capability}/{operation}). The door is
+    # itself the wall, so this is the full circuit: identity -> gateway ->
+    # capability door (wall) -> module -> event. Cross-context module reads assert
+    # a purpose (INVARIANT 6).
+    "institution": {
+        "policy": UpstreamRoute("POST", "/institution/policy"),
+    },
+    "scheduling": {
+        "recommend_recovery": UpstreamRoute("POST", "/scheduling/recommend_recovery"),
+    },
+    "attendance": {
+        "capture": UpstreamRoute("POST", "/attendance/capture"),
+    },
+    "communication": {
+        "translate": UpstreamRoute("POST", "/communication/translate", purpose_required=True),
+        "make_tasks": UpstreamRoute("POST", "/communication/make_tasks"),
+        "ptm": UpstreamRoute("POST", "/communication/ptm"),
+        "parent_feedback": UpstreamRoute("POST", "/communication/parent_feedback", purpose_required=True),
+    },
+    "teacher-growth": {
+        "coaching": UpstreamRoute("POST", "/teacher-growth/coaching", purpose_required=True),
+    },
+    # The GOVERNANCE control plane (GAP#3/#5/#7). The consequential controls
+    # (toggle / break-glass / policy version) PERSIST + emit an immutable audit
+    # event; the audit-trail is the READ.
+    "governance": {
+        "toggle": UpstreamRoute("POST", "/governance/toggle"),
+        "breakglass": UpstreamRoute("POST", "/governance/breakglass"),
+        "policy_version": UpstreamRoute("POST", "/governance/policy_version"),
+        "audit_trail": UpstreamRoute("POST", "/governance/audit_trail", purpose_required=True),
+    },
 }
 
 

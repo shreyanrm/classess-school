@@ -1,13 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { SETUP_STEPS } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
 import { saveSchool, clearSchool, setSchoolLiveId, type GroupNode, type RosterMember } from '@/lib/store';
 import { draftStructure, draftRoster, countStructure, assembleSchool } from '@/lib/setupDraft';
-import { saveSchoolLive } from '@/lib/opData';
+import { saveSchoolLive, loadSchoolLive } from '@/lib/opData';
 import { sendEmail } from '@/lib/emailClient';
 
 /**
@@ -26,6 +26,45 @@ export default function AdminSetupPage() {
   const [pacing, setPacing] = useState(school?.institution.pacing ?? 'Standard, by section');
   const [structure, setStructure] = useState<GroupNode[]>(school?.structure ?? []);
   const [roster, setRoster] = useState<RosterMember[]>(school?.roster ?? []);
+
+  // GAP#6 — rehydrate the institution config from the DB on mount (a real
+  // round-trip, not just localStorage). When a live institution_id exists we
+  // reload the persisted row and reconcile the institution-level config (name /
+  // board / pacing) from what the operational plane returns, so the blueprint
+  // survives a reload because the DB is the source of truth, not the browser.
+  // Best-effort: an unconfigured / unreachable DB resolves { persisted:false }
+  // and the local store stands, so the surface never breaks or blanks.
+  const liveId = school?.institution.liveId;
+  const rehydrated = useRef(false);
+  useEffect(() => {
+    if (!liveId || rehydrated.current) return;
+    rehydrated.current = true;
+    void loadSchoolLive(liveId).then((res) => {
+      const row = res.persisted ? res.rows?.[0] : undefined;
+      if (!row) return;
+      const dbName = typeof row.label === 'string' ? row.label : undefined;
+      const attrs = (row.attributes ?? {}) as { board?: unknown; pacing?: unknown };
+      const dbBoard = typeof attrs.board === 'string' ? attrs.board : undefined;
+      const dbPacing = typeof attrs.pacing === 'string' ? attrs.pacing : undefined;
+      if (dbName) setName(dbName);
+      if (dbBoard) setBoard(dbBoard);
+      if (dbPacing) setPacing(dbPacing);
+      // Re-persist the reconciled institution config to the local store so the
+      // rehydrated values survive the next reload too.
+      saveSchool(
+        assembleSchool({
+          name: dbName ?? name,
+          board: dbBoard ?? board,
+          pacing: dbPacing ?? pacing,
+          structure,
+          roster,
+        }),
+      );
+      setSchoolLiveId(liveId);
+    });
+    // Only rehydrate once per live id, on mount; the form drives later edits.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [liveId]);
 
   // Teacher/roster invite — a real end-to-end trigger over /api/email. The route
   // renders the branded invite and (when the Resend key is present) sends it;

@@ -144,6 +144,94 @@ const en: Dictionary = {
   'parent.reports.emailHint': 'A plain-language copy, sent to you.',
   'parent.reports.send': 'Send this report',
   'parent.reports.noneTitle': 'No reports shared yet',
+
+  // Parent · This week (/parent)
+  'parent.week.eyebrow': 'This week',
+  'parent.week.title': 'Welcome. Here is a calm look at this week.',
+  'parent.week.dockIntro':
+    'This is a calm view for your family. Ask how a child is doing, what to support at home, or to see a recent win.',
+  'parent.week.chip1': 'How is my child this week',
+  'parent.week.chip2': 'What needs attention',
+  'parent.week.chip3': 'Show a recent win',
+  'parent.week.whose': 'Whose week are we looking at',
+  'parent.week.three': 'Three things this week',
+  'parent.week.threeNote':
+    'A short, honest list for {child}. Nothing here is urgent or alarming — it is where a little attention helps most.',
+  'parent.week.next': 'Where to go next',
+  'parent.week.linkChild': 'The child view',
+  'parent.week.linkChildSub': 'Progress, strengths and support areas',
+  'parent.week.linkReports': 'Reports and feedback',
+  'parent.week.linkReportsSub': 'Celebration points and next steps',
+  'parent.week.linkTogether': 'Learn alongside and PTM',
+  'parent.week.linkTogetherSub': 'Activities for home and meeting prep',
+  'parent.week.partnership':
+    'You see only what {child}’s school has chosen to share with you. This is a partnership, not a watch list.',
+  'parent.week.open': 'Open',
+  'parent.week.acting': 'Setting this up…',
+  'parent.week.setAside': 'Set aside',
+  'parent.week.bringBack': 'Bring back',
+  'parent.week.actionTaken': 'Done',
+  'parent.week.actionTakenSupport': 'Routed to a tracked plan — owned and followed up, not lost.',
+  'parent.week.actionTakenNoted': 'Noted on your record. Nicely done.',
+
+  // Parent · The child view (/parent/child)
+  'parent.child.eyebrow': 'The child view',
+  'parent.child.title': 'The child view',
+  'parent.child.titleChild': 'How {child} is doing',
+  'parent.child.dockIntro':
+    'Ask about a strength, a place to support, or how a topic has grown over time.',
+  'parent.child.chip1': 'What is going well',
+  'parent.child.chip2': 'Where can I help',
+  'parent.child.chip3': 'What changed this month',
+  'parent.child.choose': 'Choose a child',
+  'parent.child.proud': 'A moment to be proud of',
+  'parent.child.timeline': 'This child’s timeline',
+  'parent.child.goingWell': 'What is going well',
+  'parent.child.noStrengths': 'More strengths will appear here as the term unfolds.',
+  'parent.child.support': 'Where a little support helps',
+  'parent.child.supportNote':
+    'These are not problems — they are the next small steps. Every one comes with something you can do together.',
+  'parent.child.noSupport': 'Nothing needs extra support right now.',
+  'parent.child.note':
+    'Everything here is in plain language and drawn from {child}’s own work, shared with you by the school. You see only what consent permits.',
+  'parent.child.independent': 'Now independent',
+  'parent.child.goingWellTag': 'Going well',
+  'parent.child.nextStepTag': 'Next step',
+
+  // Parent · Learn alongside & PTM (/parent/together)
+  'parent.together.eyebrow': 'Together',
+  'parent.together.title': 'Learn alongside and PTM',
+  'parent.together.titleChild': 'Learning alongside {child}',
+  'parent.together.dockIntro':
+    'Ask for a short activity to do together, or help preparing for the parent-teacher meeting.',
+  'parent.together.chip1': 'A 10-minute activity',
+  'parent.together.chip2': 'Help me prepare for the meeting',
+  'parent.together.chip3': 'What to ask the teacher',
+  'parent.together.choose': 'Choose a child',
+  'parent.together.atHome': 'Do this together at home',
+  'parent.together.atHomeNote':
+    'Short, warm activities — each tied to where {child} is growing right now. No pressure, just time together.',
+  'parent.together.noActivities': 'New activities will appear here as topics move on.',
+  'parent.together.about': 'About {minutes} min',
+  'parent.together.togetherLabel': 'Together.',
+  'parent.together.whyHelps': 'Why it helps.',
+  'parent.together.ptm': 'Parent-teacher meeting',
+  'parent.together.ptmNone': 'No meeting scheduled yet',
+  'parent.together.ptmNoneNote':
+    'There is nothing urgent for {child}. You can request a meeting with the teacher whenever it suits you, and a prep list will be ready here.',
+  'parent.together.ptmRequest': 'Request a meeting',
+  'parent.together.ptmRequesting': 'Requesting…',
+  'parent.together.ptmRequested': 'Request sent',
+  'parent.together.ptmRequestedNote':
+    'The teacher will propose a time. You will see it here, and a prep list will be ready.',
+  'parent.together.ptmScheduled': 'Scheduled',
+  'parent.together.ptmBring': 'Bring these to the meeting',
+  'parent.together.ptmCalendar': 'Add to your calendar',
+  'parent.together.ptmReschedule': 'Reschedule',
+  'parent.together.ptmRescheduleNote':
+    'A reschedule request has been sent. The teacher will propose a new time and it will appear here.',
+  'parent.together.note':
+    'These suggestions come from {child}’s shared learning. You decide what to do and when — nothing is set for you.',
 };
 
 /* ----------------------------------------------------------------------------
@@ -243,6 +331,94 @@ const hi: Dictionary = {
   'parent.reports.emailHint': 'एक सरल-भाषा प्रति, आपको भेजी गई।',
   'parent.reports.send': 'यह रिपोर्ट भेजें',
   'parent.reports.noneTitle': 'अभी तक कोई रिपोर्ट साझा नहीं की गई',
+
+  // Parent · This week (/parent)
+  'parent.week.eyebrow': 'इस सप्ताह',
+  'parent.week.title': 'स्वागत है। इस सप्ताह की एक शांत झलक यहाँ है।',
+  'parent.week.dockIntro':
+    'यह आपके परिवार के लिए एक शांत दृश्य है। पूछें कि बच्चा कैसा कर रहा है, घर पर किसमें सहायता करें, या एक हालिया उपलब्धि देखें।',
+  'parent.week.chip1': 'इस सप्ताह मेरा बच्चा कैसा है',
+  'parent.week.chip2': 'किस पर ध्यान चाहिए',
+  'parent.week.chip3': 'एक हालिया उपलब्धि दिखाएँ',
+  'parent.week.whose': 'हम किसका सप्ताह देख रहे हैं',
+  'parent.week.three': 'इस सप्ताह तीन बातें',
+  'parent.week.threeNote':
+    '{child} के लिए एक छोटी, ईमानदार सूची। यहाँ कुछ भी अत्यावश्यक या चिंताजनक नहीं है — यह वहाँ है जहाँ थोड़ा ध्यान सबसे अधिक मदद करता है।',
+  'parent.week.next': 'आगे कहाँ जाएँ',
+  'parent.week.linkChild': 'बच्चे का दृश्य',
+  'parent.week.linkChildSub': 'प्रगति, ताकतें और सहायता के क्षेत्र',
+  'parent.week.linkReports': 'रिपोर्ट और प्रतिक्रिया',
+  'parent.week.linkReportsSub': 'जश्न के बिंदु और अगले कदम',
+  'parent.week.linkTogether': 'साथ सीखें और अभिभावक-शिक्षक बैठक',
+  'parent.week.linkTogetherSub': 'घर के लिए गतिविधियाँ और बैठक की तैयारी',
+  'parent.week.partnership':
+    'आप केवल वही देखते हैं जो {child} के स्कूल ने आपके साथ साझा करना चुना है। यह एक साझेदारी है, निगरानी सूची नहीं।',
+  'parent.week.open': 'खोलें',
+  'parent.week.acting': 'यह तैयार किया जा रहा है…',
+  'parent.week.setAside': 'अलग रखें',
+  'parent.week.bringBack': 'वापस लाएँ',
+  'parent.week.actionTaken': 'हो गया',
+  'parent.week.actionTakenSupport': 'एक ट्रैक की गई योजना में भेजा गया — स्वामित्व सहित और अनुसरण किया गया, खोया नहीं।',
+  'parent.week.actionTakenNoted': 'आपके रिकॉर्ड में दर्ज। बढ़िया किया।',
+
+  // Parent · The child view (/parent/child)
+  'parent.child.eyebrow': 'बच्चे का दृश्य',
+  'parent.child.title': 'बच्चे का दृश्य',
+  'parent.child.titleChild': '{child} कैसा कर रहा है',
+  'parent.child.dockIntro':
+    'किसी ताकत के बारे में, सहायता की किसी जगह के बारे में, या समय के साथ कोई विषय कैसे बढ़ा है, इसके बारे में पूछें।',
+  'parent.child.chip1': 'क्या अच्छा चल रहा है',
+  'parent.child.chip2': 'मैं कहाँ मदद कर सकता हूँ',
+  'parent.child.chip3': 'इस महीने क्या बदला',
+  'parent.child.choose': 'एक बच्चा चुनें',
+  'parent.child.proud': 'गर्व करने योग्य एक पल',
+  'parent.child.timeline': 'इस बच्चे की समयरेखा',
+  'parent.child.goingWell': 'क्या अच्छा चल रहा है',
+  'parent.child.noStrengths': 'जैसे-जैसे सत्र आगे बढ़ेगा, और ताकतें यहाँ दिखाई देंगी।',
+  'parent.child.support': 'जहाँ थोड़ी सहायता मदद करती है',
+  'parent.child.supportNote':
+    'ये समस्याएँ नहीं हैं — ये अगले छोटे कदम हैं। हर एक के साथ कुछ ऐसा आता है जो आप साथ मिलकर कर सकते हैं।',
+  'parent.child.noSupport': 'अभी किसी अतिरिक्त सहायता की आवश्यकता नहीं है।',
+  'parent.child.note':
+    'यहाँ सब कुछ सरल भाषा में है और {child} के अपने काम से लिया गया है, जिसे स्कूल ने आपके साथ साझा किया है। आप केवल वही देखते हैं जिसकी सहमति अनुमति देती है।',
+  'parent.child.independent': 'अब स्वतंत्र',
+  'parent.child.goingWellTag': 'अच्छा चल रहा है',
+  'parent.child.nextStepTag': 'अगला कदम',
+
+  // Parent · Learn alongside & PTM (/parent/together)
+  'parent.together.eyebrow': 'साथ में',
+  'parent.together.title': 'साथ सीखें और अभिभावक-शिक्षक बैठक',
+  'parent.together.titleChild': '{child} के साथ सीखना',
+  'parent.together.dockIntro':
+    'साथ करने के लिए एक छोटी गतिविधि माँगें, या अभिभावक-शिक्षक बैठक की तैयारी में मदद लें।',
+  'parent.together.chip1': 'एक 10-मिनट की गतिविधि',
+  'parent.together.chip2': 'बैठक की तैयारी में मेरी मदद करें',
+  'parent.together.chip3': 'शिक्षक से क्या पूछें',
+  'parent.together.choose': 'एक बच्चा चुनें',
+  'parent.together.atHome': 'घर पर यह साथ करें',
+  'parent.together.atHomeNote':
+    'छोटी, गर्मजोशी भरी गतिविधियाँ — हर एक उससे जुड़ी जहाँ {child} अभी बढ़ रहा है। कोई दबाव नहीं, बस साथ बिताया समय।',
+  'parent.together.noActivities': 'जैसे-जैसे विषय आगे बढ़ेंगे, यहाँ नई गतिविधियाँ दिखाई देंगी।',
+  'parent.together.about': 'लगभग {minutes} मिनट',
+  'parent.together.togetherLabel': 'साथ में।',
+  'parent.together.whyHelps': 'यह क्यों मदद करता है।',
+  'parent.together.ptm': 'अभिभावक-शिक्षक बैठक',
+  'parent.together.ptmNone': 'अभी कोई बैठक निर्धारित नहीं',
+  'parent.together.ptmNoneNote':
+    '{child} के लिए कुछ भी अत्यावश्यक नहीं है। आप जब चाहें शिक्षक के साथ बैठक का अनुरोध कर सकते हैं, और यहाँ एक तैयारी सूची तैयार रहेगी।',
+  'parent.together.ptmRequest': 'बैठक का अनुरोध करें',
+  'parent.together.ptmRequesting': 'अनुरोध किया जा रहा है…',
+  'parent.together.ptmRequested': 'अनुरोध भेजा गया',
+  'parent.together.ptmRequestedNote':
+    'शिक्षक एक समय प्रस्तावित करेंगे। आप इसे यहाँ देखेंगे, और एक तैयारी सूची तैयार रहेगी।',
+  'parent.together.ptmScheduled': 'निर्धारित',
+  'parent.together.ptmBring': 'इन्हें बैठक में लाएँ',
+  'parent.together.ptmCalendar': 'अपने कैलेंडर में जोड़ें',
+  'parent.together.ptmReschedule': 'पुनर्निर्धारित करें',
+  'parent.together.ptmRescheduleNote':
+    'पुनर्निर्धारण अनुरोध भेज दिया गया है। शिक्षक एक नया समय प्रस्तावित करेंगे और यह यहाँ दिखाई देगा।',
+  'parent.together.note':
+    'ये सुझाव {child} के साझा किए गए सीखने से आते हैं। आप तय करते हैं कि क्या करना है और कब — कुछ भी आपके लिए तय नहीं किया जाता।',
 };
 
 /** The full registry. English is the source + fallback; others are partial. */

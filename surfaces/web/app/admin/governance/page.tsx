@@ -4,11 +4,13 @@ import { useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { ReadStates } from '../../_components/ReadStates';
 import { AI_CONTROLS, AUDIT_LOG, PERMISSION_MATRIX, type AiControl } from '@/lib/mock';
-import { POLICIES, policyInForce, type Policy } from '@/lib/adminData';
+import { POLICIES, policyInForce, aiControlOn, type Policy } from '@/lib/adminData';
 import { useStore } from '@/lib/useStore';
-import { setPolicyVersion } from '@/lib/store';
+import { setPolicyVersion, setAiControlOn } from '@/lib/store';
 import { useEmit } from '@/lib/useEmit';
+import { useGovernance, type GovernanceAuditEntry } from '@/lib/governance';
 import { EVENT_PURPOSE } from '@/lib/events';
 
 /**
@@ -16,8 +18,16 @@ import { EVENT_PURPOSE } from '@/lib/events';
  * and break-glass. Autonomy is bounded by the permission ladder: consequential
  * capabilities are locked off and can never auto-fire. Break-glass requires an
  * explicit confirmation and is recorded — human authority is preserved.
+ *
+ * The whole surface is wired into the circuit: it rehydrates the governed config
+ * + the immutable audit trail on mount from the real source (the event store via
+ * /api/governance), every consequential governance action is authorized at the
+ * wall and appended to that immutable trail, and the seed mock is a degrade-only
+ * fallback. The five designed read states ship from ReadStates.
  */
 export default function AdminGovernancePage() {
+  const gov = useGovernance();
+
   return (
     <SurfaceShell
       eyebrow="Governance and audit"
@@ -25,104 +35,159 @@ export default function AdminGovernancePage() {
       dockIntro="This is where you set the rules. Consequential actions can never auto-fire; break-glass is logged. Ask me to explain any permission."
       dockChips={['Explain the permission ladder', 'Who can publish reports', 'Show the recent audit trail']}
     >
-      <section className="stack">
-        <p className="overline">Permissions matrix</p>
-        <p className="caption quiet">
-          Who may do what. Consequential actions (send, submit, publish, delete, charge, grade)
-          always require an explicit human decision and never auto-fire.
-        </p>
-        <SpotlightCard>
-          <div className="table-scroll">
-          <table className="eval-table">
-            <thead>
-              <tr>
-                <th>Capability</th>
-                <th>Allowed roles</th>
-                <th>Authority</th>
-              </tr>
-            </thead>
-            <tbody>
-              {PERMISSION_MATRIX.map((row) => (
-                <tr key={row.capability}>
-                  <td>{row.capability}</td>
-                  <td className="muted">{row.roles}</td>
-                  <td>
-                    {row.consequential ? (
-                      <Tag tone="warning">Human approval</Tag>
-                    ) : (
-                      <Tag tone="neutral">Read or draft</Tag>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        </SpotlightCard>
-      </section>
-
-      <section className="stack">
-        <p className="overline">Policies</p>
-        <p className="caption quiet">
-          Policies flow down the tree and are versioned with effective dates. Setting a different
-          version in force is a consequential governance action — it is recorded to the immutable
-          audit trail.
-        </p>
-        <div className="stack" style={{ gap: 'var(--space-3)' }}>
-          {POLICIES.map((policy) => (
-            <PolicyCard key={policy.id} policy={policy} />
-          ))}
-        </div>
-      </section>
-
-      <section className="stack">
-        <p className="overline">AI control centre</p>
-        <div className="cols-2">
-          {AI_CONTROLS.map((c) => (
-            <AiControlCard key={c.id} control={c} />
-          ))}
-        </div>
-      </section>
-
-      <section className="stack">
-        <p className="overline">Recent audit trail</p>
-        <p className="caption quiet">Events are append-only and immutable. This is a read.</p>
-        <div className="admin-list">
-          {AUDIT_LOG.map((e) => (
-            <div key={e.id} className="admin-list-row">
-              <div>
-                <div className="body-sm">{e.action}</div>
-                <div className="caption muted">{e.actor}</div>
+      {gov.phase !== 'ready' ? (
+        <ReadStates phase={gov.phase} onRetry={gov.refresh} />
+      ) : (
+        <>
+          <section className="stack">
+            <p className="overline">Permissions matrix</p>
+            <p className="caption quiet">
+              Who may do what. Consequential actions (send, submit, publish, delete, charge, grade)
+              always require an explicit human decision and never auto-fire.
+            </p>
+            <SpotlightCard>
+              <div className="table-scroll">
+                <table className="eval-table">
+                  <thead>
+                    <tr>
+                      <th>Capability</th>
+                      <th>Allowed roles</th>
+                      <th>Authority</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {PERMISSION_MATRIX.map((row) => (
+                      <tr key={row.capability}>
+                        <td>{row.capability}</td>
+                        <td className="muted">{row.roles}</td>
+                        <td>
+                          {row.consequential ? (
+                            <Tag tone="warning">Human approval</Tag>
+                          ) : (
+                            <Tag tone="neutral">Read or draft</Tag>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-              <span className="caption muted" style={{ whiteSpace: 'nowrap' }}>
-                {e.when}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
+            </SpotlightCard>
+          </section>
 
-      <BreakGlass />
+          <section className="stack">
+            <p className="overline">Policies</p>
+            <p className="caption quiet">
+              Policies flow down the tree and are versioned with effective dates. Setting a different
+              version in force is a consequential governance action — it is recorded to the immutable
+              audit trail.
+            </p>
+            <div className="stack" style={{ gap: 'var(--space-3)' }}>
+              {POLICIES.map((policy) => (
+                <PolicyCard
+                  key={policy.id}
+                  policy={policy}
+                  serverVersion={gov.config.policyVersions[policy.id]}
+                  onSet={gov.setPolicy}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section className="stack">
+            <p className="overline">AI control centre</p>
+            <div className="cols-2">
+              {AI_CONTROLS.map((c) => (
+                <AiControlCard
+                  key={c.id}
+                  control={c}
+                  serverOn={gov.config.aiControls[c.id]}
+                  onSet={gov.setAiControl}
+                />
+              ))}
+            </div>
+          </section>
+
+          <section className="stack">
+            <p className="overline">Recent audit trail</p>
+            <p className="caption quiet">
+              {gov.source === 'gateway'
+                ? 'Events are append-only and immutable, read back from the event store. This is a read.'
+                : 'Events are append-only and immutable. This is the last-known trail; it refreshes from the event store when it is reachable.'}
+            </p>
+            <AuditTrail entries={gov.audit} source={gov.source} />
+          </section>
+
+          <BreakGlass onRecord={gov.recordBreakGlass} />
+        </>
+      )}
     </SurfaceShell>
+  );
+}
+
+/**
+ * The immutable audit trail. Reads from the real source (the event store) when
+ * the round-trip succeeds; falls back to the seed mock ONLY on a degraded
+ * deploy (no db / unreachable), clearly the last-known record, never an edit.
+ */
+function AuditTrail({ entries, source }: { entries: GovernanceAuditEntry[]; source: 'gateway' | 'fallback' }) {
+  // Degrade-only: the seed mock stands in when the live trail is unavailable or
+  // empty so the surface is never blank. The live trail (source === 'gateway')
+  // is authoritative the moment it answers.
+  const rows =
+    source === 'gateway' && entries.length > 0
+      ? entries.map((e) => ({ id: e.id, action: e.action, actor: 'You', when: e.when }))
+      : AUDIT_LOG;
+
+  return (
+    <div className="admin-list">
+      {rows.map((e) => (
+        <div key={e.id} className="admin-list-row">
+          <div>
+            <div className="body-sm">{e.action}</div>
+            <div className="caption muted">{e.actor}</div>
+          </div>
+          <span className="caption muted" style={{ whiteSpace: 'nowrap' }}>
+            {e.when}
+          </span>
+        </div>
+      ))}
+    </div>
   );
 }
 
 /**
  * A versioned policy — the version in force (persisted), the full version ledger
  * with effective dates, and a consequential "set in force" control. Choosing a
- * version emits an attributed, consent-stamped audit event and persists the
- * choice; nothing changes silently.
+ * version emits an attributed, consent-stamped audit event, persists the choice
+ * locally, AND records it to the immutable audit trail through the wall; nothing
+ * changes silently.
  */
-function PolicyCard({ policy }: { policy: Policy }) {
+function PolicyCard({
+  policy,
+  serverVersion,
+  onSet,
+}: {
+  policy: Policy;
+  serverVersion?: string;
+  onSet: (policyId: string, policyName: string, version: string) => Promise<{ persisted: boolean }>;
+}) {
   const { adminConfig } = useStore();
   const { emit } = useEmit();
-  const inForce = policyInForce(policy, adminConfig?.policyVersions);
+  // The server-rehydrated version (the round-trip) wins over the local store so
+  // the choice survives reload from the DB, not just localStorage.
+  const localInForce = policyInForce(policy, adminConfig?.policyVersions);
+  const inForce = serverVersion
+    ? policy.versions.find((v) => v.version === serverVersion) ?? localInForce
+    : localInForce;
   const [expanded, setExpanded] = useState(false);
   const [pending, setPending] = useState<string | null>(null);
 
   async function setInForce(version: string) {
     setPolicyVersion(policy.id, version);
     setPending(null);
+    // Record to the immutable audit trail through the wall AND emit the event.
+    await onSet(policy.id, policy.name, version);
     await emit({
       type: 'policy.version.set',
       purpose: EVENT_PURPOSE.teaching,
@@ -217,9 +282,32 @@ function PolicyCard({ policy }: { policy: Policy }) {
   );
 }
 
-/** A single AI capability toggle. Locked capabilities are consequential and cannot be enabled. */
-function AiControlCard({ control }: { control: AiControl }) {
-  const [on, setOn] = useState(control.defaultOn);
+/**
+ * A single AI capability toggle. Locked capabilities are consequential and
+ * cannot be enabled. A toggle PERSISTS (survives reload) and is recorded to the
+ * immutable audit trail through the wall — it is real governed configuration,
+ * not session state.
+ */
+function AiControlCard({
+  control,
+  serverOn,
+  onSet,
+}: {
+  control: AiControl;
+  serverOn?: boolean;
+  onSet: (controlId: string, controlLabel: string, on: boolean) => Promise<{ persisted: boolean }>;
+}) {
+  const { adminConfig } = useStore();
+  // Server rehydrate (round-trip) wins; then the local store; then the default.
+  const on =
+    typeof serverOn === 'boolean' ? serverOn : aiControlOn(control, adminConfig?.aiControls);
+
+  async function toggle() {
+    const next = !on;
+    setAiControlOn(control.id, next);
+    await onSet(control.id, control.label, next);
+  }
+
   return (
     <SpotlightCard>
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
@@ -234,12 +322,7 @@ function AiControlCard({ control }: { control: AiControl }) {
         {control.locked ? (
           <Tag tone="neutral">Locked off</Tag>
         ) : (
-          <Button
-            variant={on ? 'primary' : 'secondary'}
-            size="sm"
-            aria-pressed={on}
-            onClick={() => setOn((v) => !v)}
-          >
+          <Button variant={on ? 'primary' : 'secondary'} size="sm" aria-pressed={on} onClick={toggle}>
             {on ? 'On' : 'Off'}
           </Button>
         )}
@@ -251,13 +334,27 @@ function AiControlCard({ control }: { control: AiControl }) {
 /**
  * Break-glass — emergency elevated access. It is never one click: it requires an
  * explicit, typed confirmation, states what it grants and that it is recorded,
- * and leaves authority with the human. This is the gate, not a shortcut.
+ * and leaves authority with the human. This is the gate, not a shortcut. On
+ * engagement it EMITS an attributed event AND records to the governance/audit
+ * endpoint so the claim "recorded to the immutable audit trail" is TRUE.
  */
-function BreakGlass() {
+function BreakGlass({ onRecord }: { onRecord: () => Promise<{ persisted: boolean }> }) {
+  const { emit } = useEmit();
   const [open, setOpen] = useState(false);
   const [confirm, setConfirm] = useState('');
   const [engaged, setEngaged] = useState(false);
   const ready = confirm.trim().toUpperCase() === 'BREAK GLASS';
+
+  async function engage() {
+    setEngaged(true);
+    // Record to the immutable audit trail through the wall AND emit the event.
+    await onRecord();
+    await emit({
+      type: 'governance.break_glass.engaged',
+      purpose: EVENT_PURPOSE.teaching,
+      payload: { recorded: true },
+    });
+  }
 
   return (
     <section className="stack">
@@ -313,7 +410,7 @@ function BreakGlass() {
                   autoComplete="off"
                 />
                 <div className="rec-actions" style={{ marginTop: 'var(--space-3)' }}>
-                  <Button variant="danger" size="sm" disabled={!ready} onClick={() => setEngaged(true)}>
+                  <Button variant="danger" size="sm" disabled={!ready} onClick={engage}>
                     Engage and record
                   </Button>
                   <Button

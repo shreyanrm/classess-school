@@ -26,6 +26,7 @@ import {
   type CallerIdentity,
   type GatewayResult,
 } from './gateway';
+import type { Recommendation } from './mock';
 import {
   computeMastery,
   detectGaps,
@@ -159,31 +160,88 @@ export async function readGaps(
 // 3) Recommendations — the proactive recommendation list.
 // ---------------------------------------------------------------------------
 
-export type RecommendationList = typeof RECOMMENDATIONS;
+export type RecommendationList = Recommendation[];
+
+/** The engine-derived recommendation the workflow runtime mints + PERSISTS
+ *  (workflow_app.do_recommend -> _RECS). Carries the STABLE id that approve and
+ *  execute resolve, and the ladder-derived consequential flag. */
+interface EngineRecommendation {
+  dispatched?: boolean;
+  recommendation_id?: string;
+  is_consequential?: boolean;
+  why_am_i_seeing_this?: string;
+  suggested_action?: string;
+}
+
+/** A non-consequential effect lands at `prepare`; a consequential one must use a
+ *  CONSEQUENTIAL_VERB so the spine pins it at execute_with_permission (the
+ *  ladder). 'submit' is the safe, generic consequential verb for a card. */
+function effectVerbFor(rec: Recommendation): string {
+  return rec.consequential ? 'submit' : 'prepare';
+}
 
 /**
- * The governed recommendations read (intelligence-views). Tries the gateway's
- * `intelligence-views.read` (recommendations view); falls back to the local
- * RECOMMENDATIONS the surface already renders.
+ * The governed recommendations read (intelligence-views). Mints one ENGINE-DERIVED
+ * recommendation per surface card through the gateway's `intelligence-views.recommend`
+ * rung — the runtime PERSISTS each into its `_RECS` registry so the SAME id the
+ * card carries is the one approve/execute resolve end-to-end (the loop contract).
+ * The rich display fields stay from the seed card; the engine owns the id + the
+ * ladder-derived `consequential` flag. Falls back to the static RECOMMENDATIONS
+ * ONLY on true infra-degrade (the recommend rung unreachable / unconfigured).
  */
 export async function readRecommendations(
   subjectUuid: string,
   identity: CallerIdentity,
-  opts: { fetchImpl?: typeof fetch } = {},
+  opts: { fetchImpl?: typeof fetch; seeds?: RecommendationList } = {},
 ): Promise<DeepRead<RecommendationList>> {
-  const result = await readCapability<RecommendationList>('intelligence-views', subjectUuid, {
-    identity,
-    view: 'recommendations',
-    // Recommendations are a cross-context intelligence read -> declare the purpose
-    // so the wall's consent gate runs (it falls back cleanly if consent is absent).
-    consentPurpose: 'intelligence.recommendations',
-    fetchImpl: opts.fetchImpl,
-  });
+  const seeds = opts.seeds ?? RECOMMENDATIONS;
 
-  if (result.ok && Array.isArray(result.data)) {
-    return { data: result.data, source: 'gateway' };
+  // Mint each card's engine-derived recommendation (persisted -> a stable id).
+  const minted = await Promise.all(
+    seeds.map((seed) =>
+      callCapability<EngineRecommendation>('intelligence-views', 'recommend', {
+        identity,
+        payload: {
+          subject_uuid: subjectUuid,
+          owner_ref: subjectUuid,
+          owner_role: identity.memberships[0]?.role ?? 'teacher',
+          gap_type: seed.gapType,
+          effect_verb: effectVerbFor(seed),
+          evidence_summary: seed.evidenceSummary,
+          why_am_i_seeing_this: seed.whySeeing,
+          suggested_action: seed.title,
+          consequence_of_ignoring: seed.consequence,
+        },
+        consentPurpose: 'intelligence.recommendations',
+        fetchImpl: opts.fetchImpl,
+      }),
+    ),
+  );
+
+  // Every rung must answer with a stable id for the loop to reference one object
+  // end-to-end. If ANY card failed to mint, the engine path is not whole -> fall
+  // back to the static list (true infra-degrade) rather than ship a mixed feed.
+  const allMinted = minted.every(
+    (r) => r.ok && typeof r.data.recommendation_id === 'string' && r.data.recommendation_id,
+  );
+  if (allMinted) {
+    const data = seeds.map((seed, i) => {
+      const eng = (minted[i] as { ok: true; data: EngineRecommendation }).data;
+      return {
+        ...seed,
+        // The STABLE engine id approve/execute resolve — this IS the loop ref.
+        id: eng.recommendation_id as string,
+        // The ladder-derived flag is the engine's truth (fail closed to the seed).
+        consequential:
+          typeof eng.is_consequential === 'boolean' ? eng.is_consequential : seed.consequential,
+      };
+    });
+    return { data, source: 'gateway' };
   }
-  return fallbackOf(RECOMMENDATIONS, result);
+
+  // True infra-degrade -> the surface stays on the static feed it already renders.
+  const firstFailure = minted.find((r) => !r.ok) as GatewayResult<unknown> | undefined;
+  return fallbackOf(seeds, firstFailure ?? null);
 }
 
 // ---------------------------------------------------------------------------

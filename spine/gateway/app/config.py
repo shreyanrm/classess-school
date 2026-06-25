@@ -136,6 +136,16 @@ class GatewaySettings(BaseSettings):
             return None
         return self.self_base_url.rstrip("/") + f"/internal/{name}"
 
+    def _self_capabilities(self) -> str | None:
+        """Loopback target for the deployable's own GOVERNED capability door
+        (``/capabilities/{cap}/{op}``) — the in-process front the Wave-2 feature
+        modules are dispatched behind. ``None`` when no ``self_base_url`` is
+        configured. The door is itself wall-gated, so the gateway forwarding here
+        is the same circuit: identity -> gateway -> capability door -> event."""
+        if not self.self_base_url:
+            return None
+        return self.self_base_url.rstrip("/") + "/capabilities"
+
     def capability_targets(self) -> dict[str, CapabilityTarget]:
         # Prefer an explicit per-capability base url; otherwise, in the single
         # deployable, forward to the in-process internal mount over loopback.
@@ -175,6 +185,47 @@ class GatewaySettings(BaseSettings):
                 name="workflow",
                 base_url=self.workflow_base_url or self._internal_mount("workflow"),
                 base_url_env="clss.gateway.dev.workflow_base_url",
+            ),
+            # The Wave-2 feature-module fronts. In the SINGLE DEPLOYABLE each is
+            # dispatched in-process behind the wall (backend/dispatch.py); the
+            # gateway reaches them over loopback at the deployable's own governed
+            # capability door (/internal/capabilities, the mount of the in-process
+            # /capabilities door). These exist so the route is NOT
+            # ``upstream_unconfigured``: identity -> gateway -> capability -> event.
+            # An explicit per-capability base url would override for a split-out.
+            "institution": CapabilityTarget(
+                name="institution",
+                base_url=self._self_capabilities(),
+                base_url_env="clss.gateway.dev.institution_base_url",
+            ),
+            "scheduling": CapabilityTarget(
+                name="scheduling",
+                base_url=self._self_capabilities(),
+                base_url_env="clss.gateway.dev.scheduling_base_url",
+            ),
+            "attendance": CapabilityTarget(
+                name="attendance",
+                base_url=self._self_capabilities(),
+                base_url_env="clss.gateway.dev.attendance_base_url",
+            ),
+            "communication": CapabilityTarget(
+                name="communication",
+                base_url=self._self_capabilities(),
+                base_url_env="clss.gateway.dev.communication_base_url",
+            ),
+            "teacher-growth": CapabilityTarget(
+                name="teacher-growth",
+                base_url=self._self_capabilities(),
+                base_url_env="clss.gateway.dev.teacher_growth_base_url",
+            ),
+            # The GOVERNANCE control plane (GAP#3/#5/#7): AI-control toggles,
+            # policy version, break-glass and emergency-disable. Each PERSISTS and
+            # emits an immutable audit event; an audit-trail READ exposes them.
+            # Dispatched in-process behind the wall like the other fronts.
+            "governance": CapabilityTarget(
+                name="governance",
+                base_url=self._self_capabilities(),
+                base_url_env="clss.gateway.dev.governance_base_url",
             ),
         }
 

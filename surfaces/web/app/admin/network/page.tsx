@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { Icon, ProgressBar, SpotlightCard, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 import {
   NETWORK_NODES,
   childrenOf,
@@ -31,6 +33,15 @@ export default function AdminNetworkPage() {
       else next.add(id);
       return next;
     });
+  }
+
+  const surface = useSurfaceState();
+  if (surface.phase !== 'ready') {
+    return (
+      <SurfaceShell eyebrow="Network" title="Network leadership">
+        <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      </SurfaceShell>
+    );
   }
 
   if (!root) {

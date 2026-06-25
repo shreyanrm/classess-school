@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { Button, Icon, Matrix, Cell, SpotlightCard, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 import {
   CONNECTORS,
   CONNECTOR_STATE_META,
@@ -24,6 +26,7 @@ export default function AdminIntegrationsPage() {
   // path is the gateway + connector registry (env vars in lib/runtime.ts).
   const [connectors, setConnectors] = useState<Connector[]>(CONNECTORS);
   const health = useMemo(() => connectorHealth(connectors), [connectors]);
+  const surface = useSurfaceState();
 
   function setState(id: string, state: ConnectorState) {
     setConnectors((prev) => prev.map((c) => (c.id === id ? { ...c, state } : c)));
@@ -39,6 +42,10 @@ export default function AdminIntegrationsPage() {
       dockIntro="Connect the standards and platforms your campuses already use. Turning on a connector that writes data out is yours to approve; it never switches itself on. Ask me what a connector moves."
       dockChips={['What does OneRoster sync', 'Why is SCORM failing', 'Explain Track 1 vs Track 2']}
     >
+      {surface.phase !== 'ready' ? (
+        <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      ) : (
+      <>
       <section className="stack">
         <div className="cols-2">
           <Stat label="Connected" value={health.connected} suffix={` of ${health.total}`} />
@@ -65,6 +72,8 @@ export default function AdminIntegrationsPage() {
         connectors={platform}
         onState={setState}
       />
+      </>
+      )}
     </SurfaceShell>
   );
 }

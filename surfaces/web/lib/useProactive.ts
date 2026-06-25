@@ -37,9 +37,15 @@ export type Decision = 'approve' | 'execute' | 'decline';
 
 export interface ActionResult {
   committed: boolean;
+  /** The REAL execute outcome from the loop ('executed' | 'prepared' |
+   *  'not-performed' | 'needs-approval' | 'declined') — never an echoed decision. */
   outcome?: string;
-  /** A wall deny (a consequential op without approval) -> not committed. */
+  /** A wall deny / unresolved 4xx (a consequential op without approval) -> not committed. */
   denied?: boolean;
+  /** True when the engine actually cleared the consequential action. */
+  cleared?: boolean;
+  /** The ladder stage the execute rung resolved at (e.g. 'prepare'). */
+  stage?: string;
   source?: ProactiveSource;
 }
 
@@ -135,24 +141,29 @@ export function useProactive(subject?: string): ProactiveState & {
         const res = await fetch('/api/proactive', {
           method: 'POST',
           headers: { 'content-type': 'application/json', ...callerHeaders(account) },
-          body: JSON.stringify({ id, decision, consequential }),
+          // The subject the feed was read against, so approve/execute resolve the
+          // SAME engine recommendation (and the wall scopes ABAC on it).
+          body: JSON.stringify({ id, decision, consequential, subject }),
         });
         if (res.status === 403) {
-          // The wall denied a consequential op (no/invalid approval) -> not committed.
-          return { committed: false, denied: true };
+          // The wall denied / could not resolve the consequential op -> not committed.
+          return { committed: false, denied: true, outcome: 'needs-approval' };
         }
         const data = (await res.json().catch(() => ({}))) as Partial<ActionResult>;
         return {
           committed: Boolean(data.committed),
+          // The REAL execute outcome the route returned — never an echoed decision.
           outcome: typeof data.outcome === 'string' ? data.outcome : undefined,
+          cleared: typeof data.cleared === 'boolean' ? data.cleared : undefined,
+          stage: typeof data.stage === 'string' ? data.stage : undefined,
           source: data.source === 'gateway' || data.source === 'fallback' ? data.source : undefined,
         };
       } catch {
         // Network failure on the decision — stay safe (uncommitted), never throw.
-        return { committed: false };
+        return { committed: false, outcome: 'needs-approval' };
       }
     },
-    [account?.id, account?.role],
+    [account?.id, account?.role, subject],
   );
 
   return { ...state, refresh, actioned };

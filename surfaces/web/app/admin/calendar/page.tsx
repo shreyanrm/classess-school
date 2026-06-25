@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import { Button, ConfidenceBand, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
 import { SCHEDULE_ALTERNATIVES, SUBSTITUTION_NEED } from '@/lib/mock';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 
 type Decision = 'pending' | 'approved' | 'declined';
 
@@ -16,6 +18,7 @@ type Decision = 'pending' | 'approved' | 'declined';
 export default function AdminCalendarPage() {
   const [chosen, setChosen] = useState<string | null>(null);
   const [decision, setDecision] = useState<Decision>('pending');
+  const surface = useSurfaceState();
 
   return (
     <SurfaceShell
@@ -24,6 +27,10 @@ export default function AdminCalendarPage() {
       dockIntro="A teacher in Section 10-B is on approved leave on Thursday. I have scored three alternatives. Pick one and approve it; I will not commit anything on my own."
       dockChips={['Why is option one the best fit', 'Show the full week', 'Generate a fresh timetable']}
     >
+      {surface.phase !== 'ready' ? (
+        <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      ) : (
+      <>
       <SpotlightCard>
         <p className="overline">The need</p>
         <p className="body" style={{ marginTop: 'var(--space-2)' }}>
@@ -119,6 +126,8 @@ export default function AdminCalendarPage() {
           )}
         </SpotlightCard>
       </section>
+      </>
+      )}
     </SurfaceShell>
   );
 }
