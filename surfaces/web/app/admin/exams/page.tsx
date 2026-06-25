@@ -5,6 +5,7 @@ import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { SCAN_ROWS } from '@/lib/examsData';
 import { useAdminConfig } from '@/lib/adminConfig';
 
@@ -195,6 +196,8 @@ export default function ExamsPage() {
           )}
         </SpotlightCard>
       </section>
+
+      <SourceNote source={surface.source} />
       </>
       )}
     </SurfaceShell>

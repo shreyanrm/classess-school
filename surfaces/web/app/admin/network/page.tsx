@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Icon, ProgressBar, SpotlightCard, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { useAdminConfig } from '@/lib/adminConfig';
 import {
   NETWORK_NODES,
@@ -155,6 +156,8 @@ export default function AdminNetworkPage() {
           })}
         </div>
       </section>
+
+      <SourceNote source={surface.source} />
     </SurfaceShell>
   );
 }

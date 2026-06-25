@@ -4,10 +4,13 @@ import { useEffect, useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { InboxItem } from '../../_components/InboxItem';
+import { SourceNote } from '../../_components/SourceNote';
 import { openVidya } from '../../_components/VidyaOrb';
 import { useStore } from '@/lib/useStore';
 import { useOnline } from '@/lib/useOnline';
 import { useEmit } from '@/lib/useEmit';
+import { useGatewaySource } from '@/lib/useGatewaySource';
+import { CURRENT_STUDENT } from '@/lib/loopData';
 import { EVENT_PURPOSE } from '@/lib/events';
 import {
   MILESTONE_LABEL,
@@ -38,6 +41,10 @@ export function StudentWork() {
   const { state } = useStore();
   const online = useOnline();
   const { emit } = useEmit();
+  // Probe the learner's governed read so the inbox/project can show the
+  // OBSERVABLE source marker — the shared work list renders either way, never as
+  // if live when the spine did not answer.
+  const { source } = useGatewaySource('learning', { subject: CURRENT_STUDENT.ref });
   const [tab, setTab] = useState<Tab>('inbox');
   const [load, setLoad] = useState<LoadState>('loading');
   const [inbox, setInbox] = useState<AssignmentView[]>([]);
@@ -125,6 +132,8 @@ export function StudentWork() {
           </Button>
         </div>
       )}
+
+      {load === 'ready' ? <SourceNote source={source} /> : null}
     </SurfaceShell>
   );
 }

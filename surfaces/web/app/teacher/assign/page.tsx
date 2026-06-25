@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, ConfidenceBand, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
@@ -15,8 +15,10 @@ import {
 } from '@/lib/loopData';
 import { pushAssignedCheck } from '@/lib/workData';
 import { useClassInsights } from '@/lib/useClassInsights';
+import { useGenerator } from '@/lib/useGenerator';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
+import type { Worksheet } from '@/lib/generate';
 
 /**
  * Assign a quick check — blueprint-lite. The teacher picks ontology topics
@@ -43,6 +45,9 @@ export default function AssignPage() {
   // topics that carry confirmed gaps can be badged and mapped against. The same
   // read carries the five designed states for the surface (one truth, reused).
   const { insights, source, phase: readPhase, refresh } = useClassInsights();
+  // The worksheet generator, gateway-first (SourceNote degrade). Preparing the
+  // check generates a VERIFIED worksheet inline; assigning it raises the gate.
+  const worksheet = useGenerator<Worksheet>('worksheet');
   const { emit } = useEmit();
   const gapTopicIds = useMemo(
     () =>
@@ -181,10 +186,40 @@ export default function AssignPage() {
               : `${count} items across ${selectedTopics.map((t) => t.name).join(', ')}.`}
           </p>
 
+          {phase === 'prepared' && worksheet.phase === 'ready' && worksheet.artifact ? (
+            <div className="stack" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+              <div className="row-between" style={{ alignItems: 'flex-start' }}>
+                <p className="overline" style={{ margin: 0 }}>
+                  Verified worksheet — {worksheet.artifact.topicName}
+                </p>
+                <ConfidenceBand level={worksheet.confidence} />
+              </div>
+              {worksheet.artifact.items.map((it) => (
+                <div key={it.index} className="row-between cell" style={{ textAlign: 'left' }}>
+                  <span className="body-sm">{it.index}. {it.prompt}</span>
+                  <ConfidenceBand level={it.confidence} />
+                </div>
+              ))}
+              <SourceNote source={worksheet.source} />
+            </div>
+          ) : null}
+
+          {phase === 'prepared' && worksheet.phase === 'loading' ? (
+            <p className="caption quiet" role="status" style={{ marginTop: 'var(--space-3)' }}>
+              Generating and verifying the worksheet…
+            </p>
+          ) : null}
+
+          {phase === 'prepared' && worksheet.phase === 'error' ? (
+            <p className="caption" role="status" style={{ marginTop: 'var(--space-3)', color: 'var(--danger)' }}>
+              The generator could not be reached. The check is still prepared; try regenerating.
+            </p>
+          ) : null}
+
           {phase !== 'compose' ? (
             <EvidenceDrawer
               evidence={[
-                'Generated content passes the confidence gate (generate-and-verify) before it is served.',
+                'Every item passes the confidence gate (generate-and-verify) individually before it is shown.',
                 'Each item is mapped to a curriculum topic node — board-agnostic.',
                 'Independent vs supported is captured per attempt when students respond.',
               ]}
@@ -196,11 +231,20 @@ export default function AssignPage() {
 
           {phase === 'compose' ? (
             <div className="rec-actions">
-              <Button variant="primary" size="sm" disabled={!canPrepare} onClick={() => setPhase('prepared')}>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!canPrepare}
+                onClick={() => {
+                  setPhase('prepared');
+                  // Generate-and-verify the worksheet for the first selected topic.
+                  worksheet.run({ topic: selectedTopics[0]!.id, count });
+                }}
+              >
                 Prepare the check
                 <Icon name="arrow-right" size="sm" />
               </Button>
-              <span className="caption muted">Preparing does not send anything.</span>
+              <span className="caption muted">Preparing generates a verified draft; it sends nothing.</span>
             </div>
           ) : phase === 'prepared' ? (
             <div className="rec-actions">
@@ -231,7 +275,7 @@ export default function AssignPage() {
               >
                 Approve and assign
               </Button>
-              <Button variant="secondary" size="sm" onClick={() => setPhase('compose')}>
+              <Button variant="secondary" size="sm" onClick={() => { setPhase('compose'); worksheet.reset(); }}>
                 Adjust
               </Button>
               <span className="caption muted">

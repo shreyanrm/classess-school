@@ -1,11 +1,17 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, ConfidenceBand, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { LibraryItem } from '../_components/LibraryItem';
+import { SourceNote } from '../_components/SourceNote';
+import { EvidenceDrawer } from '../_components/EvidenceDrawer';
+import { ApprovalControl } from '../_components/ApprovalControl';
 import { openVidya } from '../_components/VidyaOrb';
 import { useStore } from '@/lib/useStore';
+import { useGatewaySource } from '@/lib/useGatewaySource';
+import { useGenerator } from '@/lib/useGenerator';
+import type { CourseOutline } from '@/lib/generate';
 import {
   RESOURCE_TYPE_LABEL,
   filterResources,
@@ -41,6 +47,10 @@ const TYPE_OPTIONS: Array<{ id: ResourceType | 'all'; name: string }> = [
  */
 export function ContentLibrary() {
   const { state } = useStore();
+  // Probe the live content service so the library can show the OBSERVABLE source
+  // marker. The store/seed library renders either way (generate-and-verify keeps
+  // its invariant), but it is never presented as live when the spine is silent.
+  const { source } = useGatewaySource('content');
   const [load, setLoad] = useState<LoadState>('loading');
   const [resources, setResources] = useState<ResourceView[]>([]);
 
@@ -54,6 +64,11 @@ export function ContentLibrary() {
   // A small affordance state: upload + generate panels.
   const [ingestOpen, setIngestOpen] = useState(false);
   const [generateOpen, setGenerateOpen] = useState(false);
+  const [outlineSubject, setOutlineSubject] = useState(MATH_SUBJECT_ID);
+
+  // The course-outline generator, gateway-first (SourceNote degrade). Generating
+  // PREPARES a verified outline; publishing it is the consequential human act.
+  const outline = useGenerator<CourseOutline>('course-outline');
 
   // The human verification surface for a not-yet-verified resource.
   const [reviewing, setReviewing] = useState<ResourceView | null>(null);
@@ -152,22 +167,81 @@ export function ContentLibrary() {
         {generateOpen ? (
           <SpotlightCard padLg>
             <p className="overline" style={{ margin: 0 }}>
-              Generate with Vidya
+              Generate a course outline
             </p>
             <p className="body-sm muted" style={{ marginTop: 'var(--space-2)' }}>
-              Pick a topic and Vidya prepares an explanation, worked example, or practice set. It
-              runs through the verification gate first; only material that passes and is approved
-              becomes servable.
+              Pick a subject and Classess prepares a course outline — units to topics to outcomes —
+              verified against ontology coverage so every outcome resolves. It runs through the
+              verification gate first; publishing is your decision, never auto-published.
             </p>
-            <p className="caption quiet" style={{ marginTop: 'var(--space-3)' }}>
-              Ask in the conversation on the right to generate for a specific topic. A fresh draft
-              lands here as generated and waits for your review — it is never auto-published.
-            </p>
+            <div className="segmented" role="group" aria-label="Subject" style={{ marginTop: 'var(--space-3)' }}>
+              {SUBJECT_OPTIONS.filter((s) => s.id !== 'all').map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  className={outlineSubject === s.id ? 'active' : ''}
+                  onClick={() => setOutlineSubject(s.id)}
+                >
+                  {s.name}
+                </button>
+              ))}
+            </div>
             <div className="rec-actions">
-              <Button variant="ghost" size="sm" onClick={() => setGenerateOpen(false)}>
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={outline.phase === 'loading'}
+                onClick={() => outline.run({ subject: outlineSubject })}
+              >
+                <Icon name="spark" size="sm" />
+                {outline.phase === 'loading' ? 'Generating…' : 'Generate outline'}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => { setGenerateOpen(false); outline.reset(); }}>
                 Close
               </Button>
             </div>
+
+            {outline.phase === 'error' ? (
+              <p className="caption" role="status" style={{ marginTop: 'var(--space-3)', color: 'var(--danger)' }}>
+                The generator could not be reached. Try again in a moment.
+              </p>
+            ) : null}
+
+            {outline.phase === 'ready' && outline.artifact ? (
+              <div className="stack" style={{ gap: 'var(--space-3)', marginTop: 'var(--space-4)' }}>
+                <div className="row-between" style={{ alignItems: 'flex-start' }}>
+                  <p className="overline" style={{ margin: 0 }}>
+                    Verified outline · {outline.artifact.units.length} units
+                  </p>
+                  <ConfidenceBand level={outline.confidence} />
+                </div>
+                {outline.artifact.units.map((u) => (
+                  <div key={u.unitId} className="cell" style={{ textAlign: 'left' }}>
+                    <span className="body-sm"><strong>{u.name}</strong></span>
+                    <p className="caption muted" style={{ marginTop: 4 }}>
+                      {u.topics.map((t) => t.title).join(' · ') || 'No topics mapped yet.'}
+                    </p>
+                  </div>
+                ))}
+                <EvidenceDrawer
+                  evidence={[
+                    'Verified against ontology coverage — every outcome the outline names resolves in the curriculum graph.',
+                    'Mapped to the curriculum nodes — board-agnostic.',
+                  ]}
+                  whySeeing="Publishing a course outline is consequential, so it is prepared and waits for your approval."
+                />
+                <SourceNote source={outline.source} />
+                <ApprovalControl
+                  kind="Course outline"
+                  summary={`Publish the ${SUBJECT_OPTIONS.find((s) => s.id === outlineSubject)?.name ?? ''} outline`}
+                  consequence="The outline is published to the planning home as an annual draft plan."
+                  eventType="plan.generated"
+                  payload={{ surface: 'content', subjectId: outlineSubject, kind: 'course-outline' }}
+                  approveLabel="Publish for approval"
+                  onAdjust={outline.reset}
+                />
+              </div>
+            ) : null}
           </SpotlightCard>
         ) : null}
       </section>
@@ -292,6 +366,7 @@ export function ContentLibrary() {
           {filtered.map((r) => (
             <LibraryItem key={r.id} resource={r} onReview={setReviewing} />
           ))}
+          <SourceNote source={source} />
         </section>
       )}
 

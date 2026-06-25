@@ -5,9 +5,11 @@ import { Button, Composer, Icon, SpotlightCard, Tag } from '@classess/design-sys
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { LanguageBadge } from '../_components/LanguageBadge';
+import { SourceNote } from '../_components/SourceNote';
 import { useRole } from '@/lib/RoleContext';
 import type { Role } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
+import { useGatewaySource } from '@/lib/useGatewaySource';
 import { mintId, channelRef as deriveChannelRef } from '@/lib/store';
 import { joinChannel, type ChannelHandle, type LiveMessage, type LivePresence } from '@/lib/realtime';
 import { saveMessageLive, loadMessagesLive } from '@/lib/opData';
@@ -83,6 +85,11 @@ export default function MessagesPage() {
   const { role } = useRole();
   const { account, school } = useStore();
   const { locale } = useT();
+  // Probe the live communication capability (translate / route) so the thread can
+  // show the OBSERVABLE source marker — the seed thread + reader-language render
+  // run either way, but the seed bodies are never presented as if live when the
+  // spine is silent.
+  const { source } = useGatewaySource('communication');
   const channels = CHANNELS[role];
   const [activeId, setActiveId] = useState<string>(channels[0]?.id ?? 'c1');
   const [draft, setDraft] = useState('');
@@ -605,6 +612,8 @@ export default function MessagesPage() {
                   </div>
                 )}
               </SpotlightCard>
+
+              <SourceNote source={source} />
             </>
           )}
         </section>

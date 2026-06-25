@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Button, Icon, Matrix, Cell, SpotlightCard, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { useAdminConfig } from '@/lib/adminConfig';
 import {
   CONNECTORS,
@@ -94,6 +95,8 @@ export default function AdminIntegrationsPage() {
         connectors={platform}
         onState={setState}
       />
+
+      <SourceNote source={surface.source} />
       </>
       )}
     </SurfaceShell>

@@ -5,10 +5,12 @@ import Link from 'next/link';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useGatewaySource } from '@/lib/useGatewaySource';
 import { MOCK_BLUEPRINTS, type MockBlueprint } from '@/lib/mocksData';
-import { studentRevisionPlan } from '@/lib/loopData';
+import { studentRevisionPlan, CURRENT_STUDENT } from '@/lib/loopData';
 
 /**
  * d13 — Revision planner, mock tests and exam readiness (student-facing).
@@ -29,6 +31,10 @@ export default function MocksPage() {
   // The seed read layer gives this surface the same five designed states
   // (loading/error/offline/permission-denied/ready) every loop surface ships.
   const { phase, refresh } = useSurfaceState();
+  // Probe the learner's governed read so the blueprint mocks show the OBSERVABLE
+  // source marker — they render either way, never as if live when the spine is
+  // silent. The revision plan stays engine-derived over the seed events.
+  const { source } = useGatewaySource('learning', { subject: CURRENT_STUDENT.ref });
   // Blueprints are static demo data (single source in lib/); the revision plan
   // is DERIVED live from the engine over the seed events — same layer Vidya and
   // /student/progress read, so a topic surfaces only when revision is truly due.
@@ -161,6 +167,8 @@ export default function MocksPage() {
           />
         </section>
       )}
+
+      <SourceNote source={source} />
       </>
       )}
     </SurfaceShell>

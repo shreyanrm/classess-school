@@ -6,8 +6,11 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ProofArtifact } from '../../_components/ProofArtifact';
 import { CredentialItem } from '../../_components/CredentialItem';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { SourceNote } from '../../_components/SourceNote';
 import { openVidya } from '../../_components/VidyaOrb';
 import { useStore } from '@/lib/useStore';
+import { useGatewaySource } from '@/lib/useGatewaySource';
+import { CURRENT_STUDENT } from '@/lib/loopData';
 import {
   loadCredentials,
   loadTimeline,
@@ -49,6 +52,10 @@ function downloadRecord(timeline: MasteryMomentView[], credentials: CredentialVi
  */
 export function StudentPortfolio() {
   const { state } = useStore();
+  // Probe the learner's governed mastery read so the record can show the
+  // OBSERVABLE source marker. The timeline/credentials render either way (plain
+  // language only), but never as if live when the spine did not answer.
+  const { source } = useGatewaySource('learning', { subject: CURRENT_STUDENT.ref });
   const [load, setLoad] = useState<LoadState>('loading');
   const [timeline, setTimeline] = useState<MasteryMomentView[]>([]);
   const [credentials, setCredentials] = useState<CredentialView[]>([]);
@@ -201,6 +208,8 @@ export function StudentPortfolio() {
               </div>
             )}
           </section>
+
+          <SourceNote source={source} />
         </>
       )}
     </SurfaceShell>

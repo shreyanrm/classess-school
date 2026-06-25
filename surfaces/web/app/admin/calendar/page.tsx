@@ -3,6 +3,7 @@
 import { Button, ConfidenceBand, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { SCHEDULE_ALTERNATIVES, SUBSTITUTION_NEED } from '@/lib/mock';
 import { useAdminConfig } from '@/lib/adminConfig';
 
@@ -143,6 +144,8 @@ export default function AdminCalendarPage() {
           )}
         </SpotlightCard>
       </section>
+
+      <SourceNote source={surface.source} />
       </>
       )}
     </SurfaceShell>

@@ -6,6 +6,7 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ChildSwitcher } from '../../_components/ChildSwitcher';
 import { ConsentGated } from '../../_components/ConsentGated';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { LanguageBadge } from '../../_components/LanguageBadge';
 import { useParentRead } from '@/lib/useParentRead';
 import { useReaderText } from '@/lib/useReaderText';
@@ -101,6 +102,8 @@ export default function ParentReportsPage() {
             <Icon name="info" size="sm" />
             {t('parent.reports.releasedNote')}
           </p>
+
+          <SourceNote source={source} />
         </>
       )}
     </SurfaceShell>

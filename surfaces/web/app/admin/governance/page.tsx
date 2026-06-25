@@ -5,6 +5,7 @@ import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { AI_CONTROLS, AUDIT_LOG, PERMISSION_MATRIX, type AiControl } from '@/lib/mock';
 import { POLICIES, policyInForce, aiControlOn, type Policy } from '@/lib/adminData';
 import { useStore } from '@/lib/useStore';
@@ -119,6 +120,8 @@ export default function AdminGovernancePage() {
           </section>
 
           <BreakGlass onRecord={gov.recordBreakGlass} />
+
+          <SourceNote source={gov.source} />
         </>
       )}
     </SurfaceShell>

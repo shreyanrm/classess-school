@@ -5,9 +5,11 @@ import { Button, ConfidenceBand, Icon, SpotlightCard, Tag } from '@classess/desi
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { AdminBriefingCard } from '../_components/AdminBriefingCard';
 import { RecommendationItem } from '../_components/RecommendationItem';
+import { SourceNote } from '../_components/SourceNote';
 import { ADMIN_BRIEFINGS, ADMIN_CONCERNS, ADMIN_INTERVENTIONS, RECOMMENDATIONS } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
 import { useProactive } from '@/lib/useProactive';
+import { useGatewaySource } from '@/lib/useGatewaySource';
 import { countStructure } from '@/lib/setupDraft';
 
 /**
@@ -22,6 +24,11 @@ export function AdminHome() {
   // The blocking approvals run through the same proactive loop write (the wall
   // authorizes; consequential ones still raise the ApprovalControl on the card).
   const { actioned } = useProactive();
+  // The briefing / intervention / concern lists are the proactive observer's
+  // intelligence. Probe the wall for the live class-insights read so the surface
+  // can show the OBSERVABLE source marker — these seed lists render either way,
+  // but never as if they were live when the spine did not answer.
+  const { source } = useGatewaySource('intelligence-views', { view: 'class-insights' });
 
   if (!school?.confirmed) {
     return (
@@ -174,6 +181,8 @@ export function AdminHome() {
           <RecommendationItem key={r.id} rec={r} onActioned={actioned} />
         ))}
       </section>
+
+      <SourceNote source={source} />
     </SurfaceShell>
   );
 }

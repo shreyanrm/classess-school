@@ -1,16 +1,19 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Button, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, ConfidenceBand, Icon, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
 import { SEED_ONTOLOGY } from '@classess/contracts';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { ApprovalControl } from '../../_components/ApprovalControl';
 import { useClassInsights } from '@/lib/useClassInsights';
+import { useGenerator } from '@/lib/useGenerator';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
 import { CLASS_LABEL, MATH_SUBJECT_ID, PHYS_SUBJECT_ID, topicsForSubject } from '@/lib/loopData';
+import type { LessonPlan, SessionPlan } from '@/lib/generate';
 
 /**
  * d6 — Teacher planning. The class diary + the adaptive plan across four
@@ -60,6 +63,10 @@ export default function PlanPage() {
   // engine fallback). The band counts below are drawn from that read, never a
   // single score — the same source the rest of the loop trusts.
   const { phase, insights, source, refresh } = useClassInsights();
+  // The two planning generators, gateway-first (SourceNote degrade). Generating
+  // PREPARES a verified draft; publishing it for approval is the human act below.
+  const lesson = useGenerator<LessonPlan>('lesson-plan');
+  const session = useGenerator<SessionPlan>('session-plan');
   const { emit } = useEmit();
   useEffect(() => {
     if (phase === 'ready') {
@@ -247,6 +254,118 @@ export default function PlanPage() {
               ]}
               whySeeing="The plan adapts to where the class actually is. Delivering it is your decision; it is prepared, not auto-pushed to students."
             />
+
+            <div className="divider" />
+
+            {/* Generate-and-verify: the lesson plan + the session plan, drawn
+                against the curriculum (gateway-first, ontology fallback). Each is
+                PREPARED as a verified draft; publishing for approval is the human
+                act (the permission ladder). */}
+            <p className="overline">Generate the plan</p>
+            <div className="rec-actions">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={lesson.phase === 'loading'}
+                onClick={() => lesson.run({ topic: focusTopic.id })}
+              >
+                <Icon name="spark" size="sm" />
+                {lesson.phase === 'loading' ? 'Generating…' : 'Generate lesson plan'}
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                disabled={session.phase === 'loading'}
+                onClick={() => session.run({ topic: focusTopic.id })}
+              >
+                {session.phase === 'loading' ? 'Generating…' : 'Generate session plan'}
+              </Button>
+              <span className="caption muted">Verified before it can reach the class. Generating sends nothing.</span>
+            </div>
+
+            {lesson.phase === 'error' || session.phase === 'error' ? (
+              <p className="caption" role="status" style={{ color: 'var(--danger)' }}>
+                The generator could not be reached. Try again in a moment.
+              </p>
+            ) : null}
+
+            {lesson.phase === 'ready' && lesson.artifact ? (
+              <SpotlightCard>
+                <div className="row-between" style={{ alignItems: 'flex-start' }}>
+                  <p className="overline" style={{ margin: 0 }}>
+                    Lesson plan — {lesson.artifact.topicName}
+                  </p>
+                  <ConfidenceBand level={lesson.confidence} />
+                </div>
+                <p className="body-sm muted" style={{ marginTop: 'var(--space-2)' }}>
+                  {lesson.artifact.outcome}
+                </p>
+                <div className="stack" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                  {lesson.artifact.sections.map((s) => (
+                    <div key={s.label} className="cell" style={{ textAlign: 'left' }}>
+                      <span className="body-sm"><strong>{s.label}.</strong> {s.detail}</span>
+                    </div>
+                  ))}
+                </div>
+                <EvidenceDrawer
+                  evidence={[
+                    'Generated against the ontology outcome and passed the confidence gate (generate-and-verify) before it was shown.',
+                    'Mapped to the curriculum node — board-agnostic.',
+                  ]}
+                  whySeeing="Publishing a plan is consequential, so it is prepared as a draft and waits for your approval."
+                />
+                <SourceNote source={lesson.source} />
+                <div style={{ marginTop: 'var(--space-3)' }}>
+                  <ApprovalControl
+                    kind="Lesson plan"
+                    summary={`Publish the ${lesson.artifact.topicName} lesson plan`}
+                    consequence="The plan is published to the class plan and routed for coordinator approval where policy requires."
+                    eventType="plan.submitted"
+                    payload={{ surface: 'teacher.plan', topicId: focusTopic.id, kind: 'lesson-plan' }}
+                    approveLabel="Publish for approval"
+                    onAdjust={lesson.reset}
+                  />
+                </div>
+              </SpotlightCard>
+            ) : null}
+
+            {session.phase === 'ready' && session.artifact ? (
+              <SpotlightCard>
+                <div className="row-between" style={{ alignItems: 'flex-start' }}>
+                  <p className="overline" style={{ margin: 0 }}>
+                    Session plan — {session.artifact.durationMin} min
+                  </p>
+                  <ConfidenceBand level={session.confidence} />
+                </div>
+                <div className="stack" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-3)' }}>
+                  {session.artifact.segments.map((s) => (
+                    <div key={s.label} className="row-between cell" style={{ textAlign: 'left' }}>
+                      <span className="body-sm"><strong>{s.label}.</strong> {s.detail}</span>
+                      <Tag tone="neutral">{s.minutes} min</Tag>
+                    </div>
+                  ))}
+                </div>
+                <EvidenceDrawer
+                  evidence={[
+                    'Derived from the lesson plan and verified before it was shown.',
+                    'Timed to the period; mapped to the curriculum node.',
+                  ]}
+                  whySeeing="Publishing a session plan is consequential, so it is prepared and waits for your approval."
+                />
+                <SourceNote source={session.source} />
+                <div style={{ marginTop: 'var(--space-3)' }}>
+                  <ApprovalControl
+                    kind="Session plan"
+                    summary={`Publish the ${session.artifact.topicName} session plan`}
+                    consequence="The period plan is published to the live classroom launch and the continuity handover."
+                    eventType="plan.submitted"
+                    payload={{ surface: 'teacher.plan', topicId: focusTopic.id, kind: 'session-plan' }}
+                    approveLabel="Publish for approval"
+                    onAdjust={session.reset}
+                  />
+                </div>
+              </SpotlightCard>
+            ) : null}
 
             <div className="divider" />
             <div className="rec-actions">

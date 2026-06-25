@@ -102,6 +102,21 @@ class PolicyEngine:
             Rule("event-store", "readEvent", _STAFF | frozenset({"student", "parent"}),
                  abac=_scope_contains,
                  description="Governed single-event read within scope."),
+            # Generate-and-verify generators (B3/d6) — STAFF only, deny by
+            # default otherwise. PREPARE rung: each PREPARES a draft behind the
+            # confidence gate (publishing/assigning is the separate consequential
+            # human act). Scope-checked so a teacher acts only within a covered
+            # institution. Generation is not a cross-context read, so no purpose.
+            Rule("content", "generate-worksheet", _STAFF, abac=_scope_contains,
+                 description="Prepare a verified worksheet (draft; not assigned)."),
+            Rule("content", "generate-and-verify-content", _STAFF, abac=_scope_contains,
+                 description="Prepare verified content incl. lesson visuals (draft)."),
+            Rule("planning", "generate-course-outline", _STAFF, abac=_scope_contains,
+                 description="Prepare a verified course outline (draft; not published)."),
+            Rule("planning", "generate-lesson-plan", _STAFF, abac=_scope_contains,
+                 description="Prepare a lesson plan (draft; not published)."),
+            Rule("planning", "generate-session-plan", _STAFF, abac=_scope_contains,
+                 description="Prepare a session plan (draft; not published)."),
         ]
         for r in baseline_rules:
             engine.register(r)

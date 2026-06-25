@@ -86,6 +86,24 @@ ROUTE_MAP: dict[str, dict[str, UpstreamRoute]] = {
     "teacher-growth": {
         "coaching": UpstreamRoute("POST", "/teacher-growth/coaching", purpose_required=True),
     },
+    # The generate-and-verify CONTENT door (B3). External operationIds are
+    # hyphenated (contract); the upstream operation segment is the deployable
+    # door's underscore action name (see backend _ACTION_ALIASES). Each PREPARES
+    # a draft behind the confidence gate; every served item passed the gate
+    # (INVARIANT 7). A prepare, never an assign. (Lesson visuals are already
+    # reachable via generate-and-verify-content with kind=lesson_visual.)
+    "content": {
+        "generate-worksheet": UpstreamRoute("POST", "/content/generate_worksheet"),
+        "generate-and-verify-content": UpstreamRoute("POST", "/content/generate_and_verify_content"),
+    },
+    # PLANNING (d6): course outline / lesson plan / session plan. Each PREPARED
+    # (a draft) behind the confidence gate; publishing is the separate
+    # consequential human act (the permission ladder).
+    "planning": {
+        "generate-course-outline": UpstreamRoute("POST", "/planning/generate_course_outline"),
+        "generate-lesson-plan": UpstreamRoute("POST", "/planning/generate_lesson_plan"),
+        "generate-session-plan": UpstreamRoute("POST", "/planning/generate_session_plan"),
+    },
     # The GOVERNANCE control plane (GAP#3/#5/#7). The consequential controls
     # (toggle / break-glass / policy version) PERSIST + emit an immutable audit
     # event; the audit-trail is the READ.
