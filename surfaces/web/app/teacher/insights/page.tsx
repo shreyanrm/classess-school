@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { Cell, type Confidence, Matrix, Stat } from '@classess/design-system';
+import { Cell, type Confidence, Icon, Matrix, Stat } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
@@ -136,6 +136,7 @@ export default function ClassInsightsPage() {
             <p className="overline">What needs you — manage by exception</p>
             {recs.length === 0 ? (
               <div className="empty">
+                <Icon name="success" size="lg" className="glyph" />
                 <h4 className="body">Nothing needs you</h4>
                 <p>No confirmed gaps from corroborated evidence. The class is on track.</p>
               </div>

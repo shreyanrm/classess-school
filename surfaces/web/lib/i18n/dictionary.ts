@@ -56,6 +56,18 @@ const en: Dictionary = {
   'common.on': 'On',
   'common.off': 'Off',
 
+  // Welcome preamble (the very first screen, before sign-in)
+  'welcome.title': 'A calmer way to learn, teach, and run a school',
+  'welcome.lede':
+    'I am Vidya. I will be with you the whole way — learning what helps as we go, never asking you to fill in a form.',
+  'welcome.beatsLabel': 'What happens next',
+  'welcome.beat.signIn': 'Sign in — a code to your phone, or email. Nothing more than we need.',
+  'welcome.beat.role': 'Tell me who you are here as — a student, a teacher, an admin, or a parent.',
+  'welcome.beat.shape': 'A couple of natural taps, and your space takes shape around you.',
+  'welcome.begin': 'Begin',
+  'welcome.haveAccount': 'Already have an account?',
+  'welcome.foot': 'There is nothing to fill in here, and nothing is final. You can change any of it later.',
+
   // Auth (stepped)
   'auth.role.title': 'Who are you here as',
   'auth.role.sub': 'Classess shapes itself to you. You can change this later.',
@@ -259,6 +271,17 @@ const hi: Dictionary = {
   'common.createAccount': 'खाता बनाएँ',
   'common.on': 'चालू',
   'common.off': 'बंद',
+
+  'welcome.title': 'सीखने, पढ़ाने और स्कूल चलाने का एक शांत तरीका',
+  'welcome.lede':
+    'मैं Vidya हूँ। मैं पूरे रास्ते आपके साथ रहूँगी — चलते-चलते सीखती हूँ कि क्या मदद करता है, कभी कोई फ़ॉर्म भरने को नहीं कहती।',
+  'welcome.beatsLabel': 'आगे क्या होगा',
+  'welcome.beat.signIn': 'साइन इन करें — आपके फ़ोन पर एक कोड, या ईमेल से। ज़रूरत से ज़्यादा कुछ नहीं।',
+  'welcome.beat.role': 'बताएँ कि आप यहाँ किस रूप में हैं — छात्र, शिक्षक, व्यवस्थापक, या अभिभावक।',
+  'welcome.beat.shape': 'कुछ सहज टैप, और आपकी जगह आपके अनुसार आकार लेती है।',
+  'welcome.begin': 'शुरू करें',
+  'welcome.haveAccount': 'क्या आपके पास पहले से खाता है?',
+  'welcome.foot': 'यहाँ कुछ भरने को नहीं है, और कुछ भी अंतिम नहीं है। आप इसे बाद में बदल सकते हैं।',
 
   'auth.role.title': 'आप यहाँ किस रूप में हैं',
   'auth.role.sub': 'Classess आपके अनुसार ढल जाता है। आप इसे बाद में बदल सकते हैं।',

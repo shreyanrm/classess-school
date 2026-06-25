@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { CrystallizeNode, SpotlightCard, Tag } from '@classess/design-system';
+import { CrystallizeNode, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
@@ -37,6 +37,7 @@ export default function StudentInsightsPage() {
         <ReadStates phase={phase} onRetry={refresh} />
       ) : byStudent.length === 0 ? (
         <div className="empty">
+          <Icon name="info" size="lg" className="glyph" />
           <h4 className="body">No evidence yet</h4>
           <p>Once students attempt a check, their reads appear here with full lineage.</p>
         </div>

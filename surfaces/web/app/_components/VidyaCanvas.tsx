@@ -10,13 +10,15 @@
    canvas, renders structured content as SELF-ASSEMBLING SVG, and the human can
    dismiss it.
 
-   v4 brand only: SVG visuals, ink strokes (var(--text-primary)), crisp
-   stroke-draw that animates in (like the design system's .c-draw / spark /
-   ring), Caveat (script) reserved for a human-style annotation, no shadows,
-   sharp corners, generous space, plain language, no emoji, no exclamation.
-   prefers-reduced-motion -> everything appears instantly (no stroke draw, no
-   stagger). The signature/ignite is NOT used here — this is the working canvas,
-   not the rare mastery moment.
+   v4 brand only: SVG visuals drawn BY HAND — every stroke runs through a subtle
+   roughen filter (feTurbulence + feDisplacementMap) and a molten/acid ink so a
+   line, arc or shape reads as sketched by a person, not plotted. The stroke
+   draws itself in live (stroke-dashoffset, like the design system's .c-draw /
+   spark), Caveat (script) carries the human-style annotation, no shadows, sharp
+   corners, generous space, plain language, no emoji, no exclamation.
+   prefers-reduced-motion -> the resolved end-state (no stroke draw, no stagger).
+   The signature/ignite is NOT used here — this is the working canvas, not the
+   rare mastery moment.
 
    Content is a BOUNDED set of structured primitives (sanitised upstream in
    lib/vidya). The client only ever draws known shapes — never arbitrary HTML.
@@ -208,7 +210,11 @@ function Primitive({ p, drawn }: { p: CanvasPrimitive; drawn: boolean }) {
   }
 }
 
-/** A diagram: primitives self-assemble (stroke-draw, one at a time). */
+/** A diagram: primitives self-assemble (stroke-draw, one at a time). Every
+ *  stroke runs through a subtle hand-drawn roughen filter (feTurbulence +
+ *  feDisplacementMap) so a line, arc or shape reads as drawn by HAND, not
+ *  plotted — a person sketching, not a CAD render. The filter is defined once
+ *  here and referenced by .vc-stroke in globals.css. */
 function DiagramCanvas({ primitives, reduced }: { primitives: CanvasPrimitive[]; reduced: boolean }) {
   const shown = useStagedReveal(primitives.length, reduced, 700, primitives);
   return (
@@ -219,6 +225,12 @@ function DiagramCanvas({ primitives, reduced }: { primitives: CanvasPrimitive[];
       aria-label="A diagram Vidya drew"
       preserveAspectRatio="xMidYMid meet"
     >
+      <defs>
+        <filter id="vc-sketch" x="-5%" y="-5%" width="110%" height="110%">
+          <feTurbulence type="fractalNoise" baseFrequency="0.018" numOctaves={2} seed={7} result="n" />
+          <feDisplacementMap in="SourceGraphic" in2="n" scale="1.4" xChannelSelector="R" yChannelSelector="G" />
+        </filter>
+      </defs>
       {primitives.slice(0, shown).map((p, i) => (
         <Primitive key={i} p={p} drawn />
       ))}

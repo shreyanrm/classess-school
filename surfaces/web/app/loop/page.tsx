@@ -5,6 +5,7 @@ import {
   Button,
   ConfidenceBand,
   CrystallizeNode,
+  Icon,
   SpotlightCard,
   Tag,
   type Confidence,
@@ -375,6 +376,7 @@ export default function LoopPage() {
 
           {mastery.observationCount === 0 ? (
             <div className="empty">
+              <Icon name="info" size="lg" className="glyph" />
               <h4 className="body">No evidence yet</h4>
               <p>Assign the check and record an attempt to see the engine compute a reading live.</p>
             </div>

@@ -3,11 +3,12 @@
 /* ============================================================================
    app/_components/AuthGate.tsx — the session gate (replaces FirstRunGate).
 
-   The app now opens with a familiar authentication wall:
+   The app now opens with the WELCOME preamble, then a familiar auth wall:
 
-     - No session  -> route to /sign-in (a new user taps through to /sign-up ->
-       a brief personalise -> the role home).
-     - The auth + onboarding routes are EXEMPT so the flows can run.
+     - No session  -> route to /welcome (the calm preamble that introduces Vidya
+       and the flow). From there: Begin -> /sign-up -> role -> a brief
+       personalise -> the role home; or Sign in -> /sign-in -> the role home.
+     - The welcome + auth + onboarding routes are EXEMPT so the flows can run.
 
    The check runs in an effect on the client only (the session resolves after
    mount; redirecting during render would loop or flash). While the first session
@@ -39,7 +40,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (exempt || loading) return;
     if (!session) {
-      router.replace('/sign-in');
+      router.replace('/welcome');
       return;
     }
     // A session resolved (e.g. after a restart or OAuth return): seed the active

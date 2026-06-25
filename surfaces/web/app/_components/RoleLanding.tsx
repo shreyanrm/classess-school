@@ -123,13 +123,22 @@ export function RoleLanding() {
       paint();
       raf = requestAnimationFrame(frame);
     };
+    // Pause the loop when the tab is hidden (spec 20.4) — no point burning a
+    // background-tab frame budget on an atmosphere layer no one can see.
+    const onVisibility = () => {
+      if (reduce) return;
+      cancelAnimationFrame(raf);
+      if (!document.hidden) frame();
+    };
     size();
     window.addEventListener('resize', size);
+    document.addEventListener('visibilitychange', onVisibility);
     if (reduce) paint();
     else frame();
     return () => {
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', size);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, []);
 

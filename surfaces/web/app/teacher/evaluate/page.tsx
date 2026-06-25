@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button, ConfidenceBand, SpotlightCard, Tag, type Confidence } from '@classess/design-system';
+import { Button, ConfidenceBand, Icon, SpotlightCard, Tag, type Confidence } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
@@ -224,6 +224,7 @@ export default function EvaluatePage() {
           </SpotlightCard>
         ) : !allReviewed ? (
           <div className="empty">
+            <Icon name="info" size="lg" className="glyph" />
             <h4 className="body">Review the flagged responses first</h4>
             <p>
               Publishing a mark is consequential, so it waits behind a confirmed review. Confirm the

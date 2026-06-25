@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { SpotlightCard, SuggestionChip, Tag } from '@classess/design-system';
+import { Icon, SpotlightCard, SuggestionChip, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
 import { MasteryConclusion } from '../../_components/MasteryConclusion';
@@ -66,6 +66,7 @@ export default function ProgressPage() {
         <ReadStates phase={phase} />
       ) : rows.length === 0 ? (
         <div className="empty">
+          <Icon name="target" size="lg" className="glyph" />
           <h4 className="body">Let us find where to start</h4>
           <p>
             There is no evidence on your map yet. A short diagnostic seeds it, and from then on this

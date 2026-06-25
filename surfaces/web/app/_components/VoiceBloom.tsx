@@ -87,19 +87,27 @@ export function VoiceBloom({ open, transcript = '', onClose }: VoiceBloomProps) 
       });
       ctx.globalCompositeOperation = 'source-over';
       // Reduced-motion: paint exactly one static frame, never schedule another.
-      if (!reduce) rafRef.current = requestAnimationFrame(frame);
+      // Hidden tab: hold the last frame, never schedule another (spec 20.4).
+      if (!reduce && !document.hidden) rafRef.current = requestAnimationFrame(frame);
     };
     frame();
 
+    const onVisibility = () => {
+      if (reduce) return;
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+      if (!document.hidden) frame();
+    };
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose?.();
     };
     window.addEventListener('keydown', onKey);
+    document.addEventListener('visibilitychange', onVisibility);
 
     return () => {
       if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       window.removeEventListener('resize', size);
       window.removeEventListener('keydown', onKey);
+      document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [open, onClose]);
 

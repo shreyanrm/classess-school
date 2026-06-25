@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Cell, ConfidenceBand, Matrix, SpotlightCard, Stat, Tag, type Confidence } from '@classess/design-system';
+import { Cell, ConfidenceBand, Icon, Matrix, SpotlightCard, Stat, Tag, type Confidence } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { BriefingCard } from '../_components/BriefingCard';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
@@ -91,6 +91,7 @@ export default function TeacherDayPage() {
             </div>
             {attention.length === 0 ? (
               <div className="empty">
+                <Icon name="success" size="lg" className="glyph" />
                 <h4 className="body">No confirmed gaps today</h4>
                 <p>Nothing is flagged from corroborated evidence. The class is on track.</p>
               </div>

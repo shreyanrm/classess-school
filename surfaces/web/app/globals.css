@@ -235,6 +235,20 @@ a {
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
+  /* Buttery open: the drawer slides out from behind the rail and fades in.
+     GPU-only (transform + opacity), eased with the kit curve — never a hard
+     cut. The 64px-wide rail sits above it (higher z) so the slide reads as the
+     drawer emerging from the rail's edge. */
+  transform-origin: left center;
+  animation: rail-drawer-in var(--dur-slow) var(--ease) both;
+  will-change: transform, opacity;
+}
+@keyframes rail-drawer-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rail-drawer { animation: none; }
 }
 
 /* Role-switch confirmation — a calm, brief toast above the rail. The switch
@@ -533,6 +547,85 @@ a {
 .skeleton-line {
   height: 12px;
   margin-bottom: var(--space-3);
+}
+
+/* ----------------------------------------------------------------------------
+   Empty / offline / permission / error states — never blank, never a flash.
+   The .empty primitive (glyph + heading + body + a wired CTA) is the shared
+   shape behind every non-ready surface state. Here it earns the premium bar:
+   the glyph sits over a faint, breathing halo of the surface accent (the alive
+   layer at very low alpha — atmosphere, never loud, never a shadow), and the
+   contents reveal in a calm staggered cascade so a designed state settles in
+   rather than popping. GPU-only (transform/opacity); quick and certain.
+
+   Reduced-motion renders the resolved end-state: full opacity, no movement,
+   the halo still + dim. Scoped to surfaces/web; the .empty layout itself is the
+   design-system primitive and is untouched.
+   -------------------------------------------------------------------------- */
+.empty {
+  position: relative;
+}
+
+/* the living halo behind the glyph — accent-tinted, soft, breathing */
+.empty .glyph {
+  position: relative;
+}
+.empty .glyph::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 88px;
+  height: 88px;
+  margin: -44px 0 0 -44px;
+  pointer-events: none;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--accent) 13%, transparent),
+    transparent 68%
+  );
+  opacity: 0;
+  transform: scale(0.82);
+  animation:
+    empty-halo-in var(--dur-slow) var(--ease) 0.06s forwards,
+    empty-halo-breathe 5.6s var(--ease) 0.32s infinite;
+}
+
+@keyframes empty-halo-in {
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes empty-halo-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.07); opacity: 1; }
+}
+
+/* staggered fade-rise of the empty state's contents — glyph, heading, body, CTA */
+.empty > .glyph { animation: empty-rise var(--dur-slow) var(--ease) both; }
+.empty > :nth-child(2) { animation: empty-rise var(--dur-slow) var(--ease) 0.05s both; }
+.empty > :nth-child(3) { animation: empty-rise var(--dur-slow) var(--ease) 0.11s both; }
+.empty > :nth-child(4) { animation: empty-rise var(--dur-slow) var(--ease) 0.17s both; }
+.empty > :nth-child(5) { animation: empty-rise var(--dur-slow) var(--ease) 0.23s both; }
+
+@keyframes empty-rise {
+  from { opacity: 0; transform: translateY(9px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .empty .glyph::before {
+    animation: none;
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  .empty > .glyph,
+  .empty > :nth-child(2),
+  .empty > :nth-child(3),
+  .empty > :nth-child(4),
+  .empty > :nth-child(5) {
+    animation: none;
+  }
 }
 
 /* A quiet offline banner. */
@@ -1886,15 +1979,19 @@ a {
   aspect-ratio: 1 / 1;
 }
 
+/* Every stroke is drawn BY HAND: a slightly-rough molten ink, run through the
+   #vc-sketch roughen filter (feTurbulence + feDisplacementMap, defined once in
+   the canvas SVG) so a line/arc/shape reads as sketched, not plotted. */
 .vc-stroke {
   fill: none;
-  stroke: var(--text-primary);
-  stroke-width: 1.2;
+  stroke: var(--molten);
+  stroke-width: 1.3;
   stroke-linecap: round;
   stroke-linejoin: round;
   vector-effect: non-scaling-stroke;
+  filter: url(#vc-sketch);
 }
-/* Stroke-draw: lines/paths draw themselves in, like .c-draw / spark / ring. */
+/* Stroke-draw: lines/paths draw themselves in live, like .c-draw / spark. */
 .vc-stroke.is-drawn {
   stroke-dasharray: 260;
   stroke-dashoffset: 260;
@@ -1903,19 +2000,19 @@ a {
 @keyframes vc-draw { to { stroke-dashoffset: 0; } }
 
 .vc-label {
-  fill: var(--text-secondary);
-  font-size: 3.4px;
+  fill: var(--molten-ink);
+  font-size: 3.6px;
   text-anchor: middle;
-  font-family: var(--font-sans, inherit);
+  font-family: var(--font-script, 'Caveat', cursive);
 }
 .vc-label-free { text-anchor: start; }
 
-/* The human-style annotation — script (Caveat), the one place it is used. */
+/* The human-style annotation — script (Caveat), in molten ink. */
 .vc-annotation {
-  fill: var(--text-primary);
-  font-size: 4.2px;
+  fill: var(--molten-ink);
+  font-size: 4.6px;
   text-anchor: start;
-  font-family: 'Caveat', var(--font-script, cursive);
+  font-family: var(--font-script, 'Caveat', cursive);
 }
 
 /* A derivation rendered large on the canvas — steps reveal one by one. */
@@ -2239,8 +2336,14 @@ a {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--text-secondary);
+  color: var(--molten-ink);
   margin-bottom: var(--space-2);
+}
+/* The title is written in the script hand (Caveat), not the UI sans. */
+.vidya-steps-title {
+  font-size: 1.18rem;
+  line-height: 1.1;
+  color: var(--molten-ink);
 }
 .vidya-steps-list {
   list-style: none;
@@ -2256,23 +2359,41 @@ a {
   gap: var(--space-2);
   animation: vidya-step-in var(--dur-slow, 220ms) var(--ease) both;
 }
+/* The index is HAND-CIRCLED, not boxed in a clean ring — the number sits inside
+   an organic sketched loop (.vidya-step-loop) that draws itself in live. */
 .vidya-step-index {
+  position: relative;
   flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  border: var(--border-width) solid var(--accent);
-  border-radius: 999px;
-  color: var(--accent-ink, var(--accent));
+  width: 22px;
+  height: 22px;
+  color: var(--molten-ink);
   font-size: 0.72rem;
-  line-height: 18px;
+  line-height: 22px;
   text-align: center;
+}
+.vidya-step-loop {
+  position: absolute;
+  inset: 0;
+  width: 22px;
+  height: 22px;
+  overflow: visible;
+}
+.vidya-step-loop path {
+  fill: none;
+  stroke: var(--molten);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: vidya-spotlight-draw 0.5s var(--ease) 0.1s forwards;
 }
 .vidya-step-text { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
 .vidya-step-check {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--text-secondary);
+  color: var(--molten-ink);
   font-size: 0.72rem;
 }
 @keyframes vidya-step-in {
@@ -2281,51 +2402,74 @@ a {
 }
 @media (prefers-reduced-motion: reduce) {
   .vidya-step { animation: none; }
+  .vidya-step-loop path { animation: none; stroke-dashoffset: 0; }
 }
 
-/* --- The on-page spotlight ring + calm margin note. --- */
+/* --- The on-page HAND-CIRCLE + handwritten margin note. ---
+   Vidya guides by HAND: not a clean geometric ring but an organic, slightly-
+   rough sketched LOOP that draws itself in live, the way a person circles a
+   thing on screen with a pen. The whole layer is SVG (the .vidya-spotlight-ring
+   <rect> stays as an invisible geometry anchor; the visible mark is the loop
+   path). Stroke + caption are MOLTEN only. pathLength=100 normalises the path so
+   one dash/offset of 100 draws the full loop regardless of size. */
 .vidya-spotlight-layer {
   position: fixed;
   inset: 0;
   z-index: 999; /* under the orb (1000), over the page */
   pointer-events: none;
 }
-/* The ring is now a real SVG vector that DRAWS itself in (the whole Vidya
-   highlight layer is vector, not a CSS box). pathLength=100 normalises the
-   perimeter so a single dash/offset of 100 draws the full ring regardless of
-   size; it then settles into a calm pulse. */
 .vidya-spotlight-svg {
   overflow: visible;
   pointer-events: none;
 }
+/* Invisible geometry anchor — kept for the SVG-vector contract; never painted. */
 .vidya-spotlight-ring {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 2;
+  stroke: none;
+}
+/* The visible hand-circled loop — rough, drawn live, then a calm breathing tell
+   (opacity only, GPU-cheap — never the stroke geometry). */
+.vidya-spotlight-sketch {
+  fill: none;
+  stroke: var(--molten);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
   stroke-dasharray: 100;
   stroke-dashoffset: 100;
-  animation: vidya-spotlight-draw 0.6s var(--ease) forwards,
-    vidya-spotlight-pulse 2.4s var(--ease) 0.6s infinite;
+  animation: vidya-spotlight-draw 0.62s var(--ease) forwards,
+    vidya-spotlight-breathe 2.6s var(--ease) 0.62s infinite;
 }
 @keyframes vidya-spotlight-draw {
   to { stroke-dashoffset: 0; }
 }
+@keyframes vidya-spotlight-breathe {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.62; }
+}
+/* The handwritten caption + margin note — script (Caveat), molten ink, no box
+   chrome (a person's note, not a tooltip). A hairline left tick on the note ties
+   it to the thing it annotates without a shadow. */
 .vidya-spotlight-label,
 .vidya-spotlight-note {
   position: fixed;
   max-width: 220px;
-  background: var(--bg-surface);
-  border: var(--border-width) solid var(--accent);
-  border-radius: var(--radius-sm, 6px);
-  padding: var(--space-1) var(--space-2);
-  color: var(--text-primary);
+  color: var(--molten-ink);
+  font-size: 1.18rem;
+  line-height: 1.2;
+  animation: vidya-spotlight-write var(--dur-slow, 260ms) var(--ease) 0.2s both;
 }
-@keyframes vidya-spotlight-pulse {
-  0%, 100% { stroke-opacity: 1; }
-  50% { stroke-opacity: 0.55; }
+.vidya-spotlight-note {
+  padding-left: var(--space-2);
+  border-left: var(--border-width) solid var(--molten);
 }
-/* The Path-5 guide arrow — a hairline that DRAWS itself from the caption to the
-   spotlit control (border-draw style), then holds. Non-blocking, no shadow. */
+@keyframes vidya-spotlight-write {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+/* The hand-drawn guide arrow — a rough stroke + a sketched (two-stroke) head
+   that DRAW themselves from the caption to the spotlit control, then hold.
+   Molten, non-blocking, no shadow. */
 .vidya-spotlight-arrow {
   overflow: visible;
   pointer-events: none;
@@ -2333,8 +2477,8 @@ a {
 .vidya-spotlight-arrow-line,
 .vidya-spotlight-arrow-head {
   fill: none;
-  stroke: var(--accent);
-  stroke-width: 1.25;
+  stroke: var(--molten);
+  stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-dasharray: 100;
@@ -2345,13 +2489,16 @@ a {
   animation-delay: 0.6s;
 }
 @media (prefers-reduced-motion: reduce) {
-  /* No draw-in, no pulse — the ring + arrow simply appear, fully drawn. */
-  .vidya-spotlight-ring,
+  /* Resolved end-state — the loop + arrow simply appear, fully drawn; no breathe,
+     no write-in. */
+  .vidya-spotlight-sketch,
   .vidya-spotlight-arrow-line,
   .vidya-spotlight-arrow-head {
     animation: none;
     stroke-dashoffset: 0;
   }
+  .vidya-spotlight-label,
+  .vidya-spotlight-note { animation: none; }
 }
 
 /* --- VidyaWatch: the quiet ambient offer (calm-first, never a nag). ---
@@ -2495,6 +2642,175 @@ a {
 @media (max-width: 560px) {
   .landing-links {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================================
+   The WELCOME preamble — the very first screen, before sign-in. A calm, centred
+   introduction: the living Vidya orb, the wordmark, a light large heading, and
+   the three-beat shape of what follows, staggered in. v4.1: NO shadow (hairlines
+   + tone), GPU-only motion (transform/opacity), eased --ease, reduced-motion
+   renders the resolved end-state. The signature ultramarine appears only in the
+   orb (Vidya's presence) and the one accent action.
+   ============================================================================ */
+
+.welcome-shell {
+  min-height: 100vh;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-8) var(--space-5);
+  background: var(--bg-canvas);
+  /* A whisper-faint living field behind the preamble — atmosphere, never loud.
+     Very low alpha; sits under the content and never competes with it. */
+  background-image:
+    radial-gradient(60% 50% at 18% 22%, color-mix(in srgb, var(--molten) 7%, transparent) 0%, transparent 70%),
+    radial-gradient(55% 50% at 84% 80%, color-mix(in srgb, var(--ultramarine) 7%, transparent) 0%, transparent 72%);
+}
+
+.welcome-hero {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-4);
+}
+
+/* The living presence — Vidya as a drifting + breathing orb. Same gradient
+   vocabulary as the global orb (molten -> ultramarine -> violet), at a calm
+   hero size. Depth is the hairline ring + the glass highlight; no shadow. */
+.welcome-orb {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  border-radius: 999px;
+  margin-bottom: var(--space-2);
+  /* a gentle settle-in on first paint */
+  animation: welcome-orb-in var(--dur-slow) var(--ease) both;
+}
+
+.welcome-orb-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 0.5px solid var(--border-strong);
+  pointer-events: none;
+}
+
+.welcome-orb-core {
+  position: absolute;
+  inset: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background:
+    radial-gradient(120% 120% at 30% 22%, var(--molten) 0%, transparent 55%),
+    radial-gradient(120% 120% at 72% 78%, var(--ultramarine) 0%, transparent 60%),
+    radial-gradient(140% 140% at 50% 50%, var(--violet) 0%, var(--ultramarine) 80%);
+  background-size: 200% 200%, 200% 200%, 160% 160%;
+  filter: saturate(1.05);
+  animation: vidya-orb-drift 7s var(--ease) infinite,
+    vidya-orb-breath 3.6s ease-in-out infinite;
+}
+
+.welcome-orb-glass {
+  position: absolute;
+  inset: 6px;
+  border-radius: 999px;
+  pointer-events: none;
+  background: radial-gradient(100% 70% at 32% 22%, rgba(255, 255, 255, 0.5), transparent 50%);
+}
+
+.welcome-logo {
+  margin-bottom: var(--space-1);
+}
+
+.welcome-title {
+  margin: 0;
+  max-width: 18ch;
+}
+
+.welcome-lede {
+  margin: 0;
+  max-width: 44ch;
+  color: var(--text-secondary);
+}
+
+/* The three-beat shape of what follows — a tight hairline matrix, staggered in.
+   Numerals in the mono overline; calm copy. No bullets, no shadow. */
+.welcome-beats {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  width: 100%;
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--border-width);
+  background: var(--border);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  text-align: left;
+}
+
+.welcome-beat {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--bg-surface);
+  /* GPU-only entrance: fade + small rise, staggered per --i. */
+  animation: welcome-beat-in var(--dur-slow) var(--ease) both;
+  animation-delay: calc(120ms + var(--i) * 90ms);
+}
+
+.welcome-beat-index {
+  margin: 0;
+  color: var(--text-tertiary);
+  flex: 0 0 auto;
+}
+
+.welcome-beat-text {
+  margin: 0;
+  color: var(--text-secondary);
+}
+
+.welcome-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.welcome-switch {
+  margin: 0;
+}
+
+.welcome-foot {
+  margin: var(--space-2) 0 0;
+  max-width: 48ch;
+}
+
+@keyframes welcome-orb-in {
+  from { opacity: 0; transform: scale(0.92); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes welcome-beat-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Reduced motion: no drift/breathe/entrance — render the resolved end-state. */
+@media (prefers-reduced-motion: reduce) {
+  .welcome-orb,
+  .welcome-orb-core,
+  .welcome-beat {
+    animation: none;
   }
 }
 

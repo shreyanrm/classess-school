@@ -11,6 +11,10 @@
    Vidya is DOCKED throughout and narrates each step — the first-run feels like
    her getting to know you, not a form.
 
+   This step is a GOVERNED read (the wall's personalization door), so it carries
+   an observable <SourceNote/> from the first frame — on the implicit-profiling
+   choices AND the consent gate — never a silent mock.
+
    CONSENT / AGE-TIER GATED (non-negotiable, DPDP children's-data): before any
    profile is persisted the user passes a clear age-tier + consent step. The
    inferred profile is bounded by that tier (a child yields a minimal,
@@ -64,7 +68,9 @@ export function PersonaliseFlow() {
   const [goal, setGoal] = useState<string | undefined>();
   const [tier, setTier] = useState<AgeTier>('adult');
   // Honest marker: did the live profiling capability answer, or did we fall back
-  // to the on-device inference? Probed once the consent gate decides (no PII).
+  // to the on-device inference? Probed once on mount so the IMPLICIT-PROFILING
+  // step itself carries an observable SourceNote (not only the consent gate),
+  // then refreshed on the consent decision. PII-free: opaque caller uuid + role.
   const [source, setSource] = useState<'gateway' | 'fallback'>('fallback');
 
   // Vidya's docked narration — she speaks at each step. Calm, plain, no emoji.
@@ -83,6 +89,41 @@ export function PersonaliseFlow() {
   useEffect(() => {
     if (readStore().onboarding?.completed) router.replace('/');
   }, [router]);
+
+  /**
+   * Probe WHICH source would answer the governed profiling read, through the
+   * wall (lib/gateway -> spine), so the visible SourceNote is honest. PII-free:
+   * opaque caller uuid + role only. Returns 'fallback' on any failure.
+   */
+  async function probeSource(): Promise<'gateway' | 'fallback'> {
+    const acct = readStore().account;
+    if (!acct) return 'fallback';
+    try {
+      const res = await fetch(
+        `/api/source-probe?capability=personalization&subject=${encodeURIComponent(acct.id)}`,
+        { headers: { 'x-caller-uuid': acct.id, 'x-caller-role': role }, cache: 'no-store' },
+      );
+      if (!res.ok) return 'fallback';
+      const body = (await res.json()) as { source?: 'gateway' | 'fallback' };
+      return body.source ?? 'fallback';
+    } catch {
+      return 'fallback';
+    }
+  }
+
+  // Probe once on mount so the IMPLICIT-PROFILING step carries an observable
+  // SourceNote from the first frame — the seam is never silent on this surface.
+  useEffect(() => {
+    let live = true;
+    void probeSource().then((s) => {
+      if (live) setSource(s);
+    });
+    return () => {
+      live = false;
+    };
+    // role is stable for the lifetime of this flow; probe once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const showSubject = role === 'student' || role === 'parent';
   const ready = Boolean(intent && (!showSubject || subject));
@@ -111,24 +152,11 @@ export function PersonaliseFlow() {
     };
     setConsent(consent);
 
-    // The honest source marker. We attempt the governed profiling read through
-    // the wall; the inferred profile is built locally either way (one truth,
-    // gateway-first), and the SourceNote tells the user which answered.
-    const acct = readStore().account;
-    if (personalization && acct) {
-      try {
-        const res = await fetch(
-          `/api/source-probe?capability=personalization&subject=${encodeURIComponent(acct.id)}`,
-          { headers: { 'x-caller-uuid': acct.id, 'x-caller-role': role }, cache: 'no-store' },
-        );
-        if (res.ok) {
-          const body = (await res.json()) as { source?: 'gateway' | 'fallback' };
-          setSource(body.source ?? 'fallback');
-        }
-      } catch {
-        setSource('fallback');
-      }
-    }
+    // Refresh the honest source marker on the decision. We attempt the governed
+    // profiling read through the wall; the inferred profile is built locally
+    // either way (one truth, gateway-first), and the SourceNote tells the user
+    // which answered.
+    if (personalization) setSource(await probeSource());
 
     const profile = inferProfile(readStore().onboarding.choices, consent);
     setProfile(profile, consent);
@@ -242,6 +270,9 @@ export function PersonaliseFlow() {
                 </Button>
               </div>
               <p className="caption quiet">{t('personalise.footnote')}</p>
+              {/* The implicit-profiling step is a governed read too — the seam is
+                  never silent here, only on the consent gate. */}
+              <SourceNote source={source} />
             </>
           ) : (
             <SpotlightCard padLg>
