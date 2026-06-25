@@ -38,6 +38,13 @@ from .events import (
     EventType,
     EventLog,
 )
+from .generate import (
+    PlanningContentGenerator,
+    PlanningOutcome,
+    CAP_COURSE,
+    CAP_LESSON,
+    CAP_SESSION,
+)
 
 __all__ = [
     "PlanScope",
@@ -59,4 +66,9 @@ __all__ = [
     "PlanningEvent",
     "EventType",
     "EventLog",
+    "PlanningContentGenerator",
+    "PlanningOutcome",
+    "CAP_COURSE",
+    "CAP_LESSON",
+    "CAP_SESSION",
 ]

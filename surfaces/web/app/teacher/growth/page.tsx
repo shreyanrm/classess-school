@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 import {
   GROWTH_SIGNALS,
   GROWTH_DIRECTION_META,
@@ -18,6 +20,8 @@ import {
  * canonical id, never to named students.
  */
 export default function TeacherGrowthPage() {
+  // Private coaching read — carries the same five designed states from one place.
+  const { phase, refresh } = useSurfaceState();
   const lead = useMemo(() => nextGrowthInsight(GROWTH_SIGNALS), []);
   const [focusId, setFocusId] = useState<string | null>(lead?.id ?? null);
 
@@ -30,6 +34,10 @@ export default function TeacherGrowthPage() {
       dockIntro="This view is private to you. It is here to help you grow, not to rank you. We surface one idea at a time. Ask me to explain any signal or to suggest a small experiment."
       dockChips={['What is talk ratio', 'Give me a wait-time experiment', 'Why this insight first']}
     >
+      {phase !== 'ready' ? (
+        <ReadStates phase={phase} onRetry={refresh} />
+      ) : (
+      <>
       <section className="stack">
         <SpotlightCard padLg>
           <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
@@ -90,6 +98,8 @@ export default function TeacherGrowthPage() {
           })}
         </div>
       </section>
+      </>
+      )}
     </SurfaceShell>
   );
 }

@@ -121,6 +121,84 @@ def default_registry() -> CapabilityRegistry:
     ))
 
     reg.register(Capability(
+        name="content.generate-worksheet",
+        description=(
+            "Generate a worksheet of verified items for a topic/outcome set "
+            "(mixed item types) with an answer key. Each item passes the "
+            "confidence gate individually; the worksheet is the verified set."
+        ),
+        input_schema_ref="contract:ai.GenerateWorksheetInput",
+        output_schema_ref="contract:ai.Worksheet",
+        track=1,
+        least_privilege=CapabilityScope(
+            purpose="worksheet_generation",
+            data_scopes=("ontology.skill", "curriculum.map"),
+            emits_events=True,
+        ),
+        requires_verification=True,  # every item passes the gate (INVARIANT 7)
+        task_class="content.generate-worksheet",
+        consequence=Consequence.PREPARE,  # a draft worksheet; not assigned until a human acts
+    ))
+
+    reg.register(Capability(
+        name="planning.generate-course-outline",
+        description=(
+            "Generate a course outline (units -> topics -> outcomes) verified "
+            "against ontology coverage — every outcome must resolve."
+        ),
+        input_schema_ref="contract:ai.GenerateCourseOutlineInput",
+        output_schema_ref="contract:ai.CourseOutline",
+        track=1,
+        least_privilege=CapabilityScope(
+            purpose="course_outline_generation",
+            data_scopes=("ontology.skill", "curriculum.map"),
+            emits_events=True,
+        ),
+        requires_verification=True,  # ontology-coverage oracle passes the gate (INVARIANT 7)
+        task_class="planning.generate-course-outline",
+        consequence=Consequence.PREPARE,  # a draft outline; not published until a human acts
+    ))
+
+    reg.register(Capability(
+        name="planning.generate-lesson-plan",
+        description=(
+            "Generate an adaptive lesson plan for a topic (objectives, sequence, "
+            "checks-for-understanding, materials), engagement/instructional-model "
+            "aware. Prepared as a draft, approval-routed — never auto-published."
+        ),
+        input_schema_ref="contract:ai.GenerateLessonPlanInput",
+        output_schema_ref="contract:ai.LessonPlan",
+        track=1,
+        least_privilege=CapabilityScope(
+            purpose="lesson_plan_generation",
+            data_scopes=("ontology.skill", "curriculum.map"),
+            emits_events=True,
+        ),
+        requires_verification=True,
+        task_class="planning.generate-lesson-plan",
+        consequence=Consequence.PREPARE,  # prepared draft; publishing is the consequential human act
+    ))
+
+    reg.register(Capability(
+        name="planning.generate-session-plan",
+        description=(
+            "Generate a single-period (session) plan derived from a lesson plan "
+            "and a timetable slot. Prepared as a draft, approval-routed."
+        ),
+        input_schema_ref="contract:ai.GenerateSessionPlanInput",
+        output_schema_ref="contract:ai.SessionPlan",
+        track=1,
+        least_privilege=CapabilityScope(
+            purpose="session_plan_generation",
+            data_scopes=("ontology.skill", "curriculum.map"),
+            emits_events=True,
+        ),
+        requires_verification=True,
+        task_class="planning.generate-session-plan",
+        consequence=Consequence.PREPARE,  # prepared draft; publishing is the consequential human act
+    ))
+
+    reg.register(Capability(
         name="content.generate-lesson-visual",
         description=(
             "Generate a lesson visual (a plotted curve y = f(x), JSXGraph/Mafs-shaped) "

@@ -91,4 +91,12 @@ async def intelligence_read(
             status_code=422,
             content={"error": "unknown_view", "detail": str(exc)},
         )
-    return JSONResponse(status_code=200, content=jsonable_encoder(view_body))
+    # Surface the read's provenance OBSERVABLY on a header so even the bare-list
+    # views (gaps / recommendations) — which cannot carry an inline marker —
+    # are never mistaken for live when they are seed-degraded.
+    meta = intelligence_views.last_source_meta()
+    headers = {
+        "X-Intelligence-Source": str(meta.get("source", "unknown")),
+        "X-Intelligence-Degraded": "true" if meta.get("degraded") else "false",
+    }
+    return JSONResponse(status_code=200, content=jsonable_encoder(view_body), headers=headers)

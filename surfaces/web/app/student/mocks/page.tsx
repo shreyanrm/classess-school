@@ -4,7 +4,9 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 import { MOCK_BLUEPRINTS, type MockBlueprint } from '@/lib/mocksData';
 import { studentRevisionPlan } from '@/lib/loopData';
 
@@ -24,6 +26,9 @@ const WEIGHT_TONE = { light: 'neutral', core: 'info', heavy: 'warning' } as cons
 export default function MocksPage() {
   const [tab, setTab] = useState<Tab>('mocks');
   const [started, setStarted] = useState<string | null>(null);
+  // The seed read layer gives this surface the same five designed states
+  // (loading/error/offline/permission-denied/ready) every loop surface ships.
+  const { phase, refresh } = useSurfaceState();
   // Blueprints are static demo data (single source in lib/); the revision plan
   // is DERIVED live from the engine over the seed events — same layer Vidya and
   // /student/progress read, so a topic surfaces only when revision is truly due.
@@ -37,6 +42,10 @@ export default function MocksPage() {
       dockIntro="Your mocks mirror the real paper, and your revision plan brings a topic back exactly when it is fading — never to nag, only to help it stick. You choose when to begin."
       dockChips={['What should I revise today', 'Start a maths mock', 'Am I ready for trigonometry']}
     >
+      {phase !== 'ready' ? (
+        <ReadStates phase={phase} onRetry={refresh} />
+      ) : (
+      <>
       <section className="stack">
         <div className="ladder" role="group" aria-label="View" style={{ maxWidth: 360 }}>
           <button type="button" className={`ladder-rung${tab === 'mocks' ? ' active' : ''}`} onClick={() => setTab('mocks')}>
@@ -151,6 +160,8 @@ export default function MocksPage() {
             whySeeing="Your revision plan is shaped to keep what you have already earned. It adapts to time left and where the exam puts its weight."
           />
         </section>
+      )}
+      </>
       )}
     </SurfaceShell>
   );

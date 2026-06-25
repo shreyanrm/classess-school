@@ -4,17 +4,36 @@ import Link from 'next/link';
 import { Avatar, Cell, Icon, Matrix, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { useRole } from '@/lib/RoleContext';
+import { useStore } from '@/lib/useStore';
+import { useT } from '@/lib/i18n/LocaleContext';
+import { LOCALES } from '@/lib/i18n/dictionary';
+import { tierAllowsBehavioural } from '@/lib/store';
 import { ROLE_LABELS } from '@/lib/mock';
 
 /**
  * Profile — a calm, plain view of who you are in Classess and what Vidya knows.
- * Generic labels only: no real personal names, no PII. Identity is opaque; the
- * surface shows a role and a plain summary, never raw behavioural data. v4
- * throughout — no shadows, sharp corners, one accent.
+ * The role, workspace, language, and consent tier are read LIVE from the session
+ * store (the real source captured at onboarding) and the active locale provider —
+ * not a static placeholder. ROLE_LABELS stays a label dictionary (static display
+ * copy, never live data). Generic labels only: no real personal names, no PII.
+ * Identity is opaque; the surface shows a role and a plain summary, never raw
+ * behavioural data. v4 throughout — no shadows, sharp corners, one accent.
  */
 export default function ProfilePage() {
   const { role } = useRole();
+  const { account, consent, school } = useStore();
+  const { locale } = useT();
   const label = ROLE_LABELS[role];
+
+  // Live workspace: the institution the human set up (when present), else the
+  // role workspace. Never a baked-in class name.
+  const workspace = school?.institution.name ?? `${label} workspace`;
+  // Live language: the active locale's own-script label.
+  const language = LOCALES.find((l) => l.code === locale)?.label ?? 'English';
+  // Live consent: the tier captured at onboarding and whether profiling is on.
+  const tierLabel = consent?.tierLabel ?? 'Consent not yet set';
+  const personalizationOn = Boolean(consent?.personalization);
+  const behaviouralAllowed = consent ? tierAllowsBehavioural(consent.ageTier) : false;
 
   return (
     <SurfaceShell
@@ -45,10 +64,10 @@ export default function ProfilePage() {
             <Stat label="Role" value={label} />
           </Cell>
           <Cell>
-            <Stat label="Workspace" value="Class 10-B" />
+            <Stat label="Workspace" value={workspace} />
           </Cell>
           <Cell>
-            <Stat label="Language" value="English" />
+            <Stat label="Language" value={language} />
           </Cell>
         </Matrix>
       </section>
@@ -66,10 +85,20 @@ export default function ProfilePage() {
             </p>
           </Cell>
         </Matrix>
-        <div className="row" style={{ gap: 'var(--space-2)' }}>
-          <Tag tone="success">Consent-gated</Tag>
+        <div className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
+          <Tag tone="success">{tierLabel}</Tag>
+          <Tag tone={personalizationOn ? 'success' : 'neutral'}>
+            {personalizationOn ? 'Personalization on' : 'Personalization off'}
+          </Tag>
           <Tag tone="neutral">No personal data in reads</Tag>
         </div>
+        <p className="caption quiet">
+          {consent
+            ? behaviouralAllowed
+              ? 'Your tier permits inferred personalization; it stays within what you consented to and is revocable any time.'
+              : 'Your tier keeps personalization minimal and non-behavioural — the narrowest, by design.'
+            : 'Set your consent in onboarding to choose what Classess may personalise. Nothing is profiled until you do.'}
+        </p>
       </section>
 
       <section className="stack">
@@ -77,6 +106,7 @@ export default function ProfilePage() {
         <p className="caption muted">
           Change how Vidya helps you, your language, or your role from settings. Switching role
           re-shapes the whole workspace from the rail.
+          {account?.demo ? ' This is a demo identity — not a verified account.' : ''}
         </p>
         <div className="rec-actions">
           <Link href="/settings" className="btn btn-secondary btn-sm">

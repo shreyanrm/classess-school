@@ -116,7 +116,7 @@ never a fabricated history.
 
 | Name | Purpose |
 |------|---------|
-| `clss.intelligence.dev.database_url` | The event source to replay. PRESENCE selects the live gateway-backed `EventSource`; absent ⇒ in-memory degraded source. |
+| `clss.intelligence.dev.database_url` | The event source to replay. PRESENCE selects the live gateway-backed `EventSource`; absent ⇒ in-memory degraded source. The backend read faucet (`backend/intelligence_views.py`) also honours the shared `CLSS_DATABASE_URL` (the same pooler the web `/api/events` persists `platform.events` to) as a fallback selector when this intelligence-specific name is unset — read by NAME, value never logged. The read marks every response OBSERVABLY (`_meta.source`/`degraded` inline on dict views; `X-Intelligence-Source`/`X-Intelligence-Degraded` headers on the faucet) so seed-degraded output is never mistaken for live; a configured-but-unreachable source degrades to the seed and names the missing gateway var, never fabricates. |
 | `clss.intelligence.dev.gateway_url` | The only egress; the event store is read THROUGH it (`POST /v1/route/event-store/readEvents`, purpose-asserted, INVARIANT 6). |
 | `clss.intelligence.dev.gateway_token` | Bearer presented at the gateway wall for the event read. Read by NAME only; rides ONLY in the `Authorization` header, never logged. Absent ⇒ no read (fail safe, no fabricated events). |
 | `clss.intelligence.dev.event_sink_url` | Where derived-state events (`mastery.updated` / `gap.detected` / `gap.resolved`) are POSTed THROUGH the gateway. Absent ⇒ in-memory append-only sink. |

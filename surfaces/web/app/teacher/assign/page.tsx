@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { SourceNote } from '../../_components/SourceNote';
 import {
@@ -39,8 +40,9 @@ export default function AssignPage() {
   const [phase, setPhase] = useState<Phase>('compose');
 
   // Gateway-first read of the class gaps (engine fallback on degrade) — so the
-  // topics that carry confirmed gaps can be badged and mapped against.
-  const { insights, source } = useClassInsights();
+  // topics that carry confirmed gaps can be badged and mapped against. The same
+  // read carries the five designed states for the surface (one truth, reused).
+  const { insights, source, phase: readPhase, refresh } = useClassInsights();
   const { emit } = useEmit();
   const gapTopicIds = useMemo(
     () =>
@@ -74,6 +76,13 @@ export default function AssignPage() {
       dockIntro="Pick the topics and I will prepare a check mapped to the ontology. Nothing is sent until you approve it — assigning is consequential, so it always waits for you."
       dockChips={['Map this to last week’s gaps', 'Make it shorter', 'Add one harder item']}
     >
+      {/* Composing is offline-capable (the shell shows the calm offline banner)
+          and degrades gracefully, so offline is NOT a dead end — only the read's
+          loading/error/permission-denied gate the surface. */}
+      {readPhase === 'loading' || readPhase === 'error' || readPhase === 'permission-denied' ? (
+        <ReadStates phase={readPhase} onRetry={refresh} />
+      ) : (
+      <>
       <section className="stack">
         <p className="overline">1 · Choose the subject</p>
         <div className="ladder" role="group" aria-label="Subject" style={{ maxWidth: 360 }}>
@@ -242,6 +251,8 @@ export default function AssignPage() {
           )}
         </SpotlightCard>
       </section>
+      </>
+      )}
     </SurfaceShell>
   );
 }

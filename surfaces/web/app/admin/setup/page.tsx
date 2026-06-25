@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
 import { SETUP_STEPS } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 import { saveSchool, clearSchool, setSchoolLiveId, type GroupNode, type RosterMember } from '@/lib/store';
 import { draftStructure, draftRoster, countStructure, assembleSchool } from '@/lib/setupDraft';
 import { saveSchoolLive, loadSchoolLive } from '@/lib/opData';
@@ -19,6 +21,10 @@ import { sendEmail } from '@/lib/emailClient';
  */
 export default function AdminSetupPage() {
   const { school } = useStore();
+  // The blueprint read carries the five designed states. The wizard itself is
+  // offline-capable (it persists locally and re-syncs), so offline is NOT a dead
+  // end — only loading/error/permission-denied gate the surface.
+  const { phase: readPhase, refresh } = useSurfaceState();
 
   const [index, setIndex] = useState(0);
   const [name, setName] = useState(school?.institution.name ?? '');
@@ -154,6 +160,10 @@ export default function AdminSetupPage() {
       dockIntro="I can suggest a structure and draft a starter roster for you to approve. Nothing is created until you confirm — I only prepare, you decide."
       dockChips={['Suggest a structure', 'Draft a starter roster', 'What does each role see']}
     >
+      {readPhase === 'loading' || readPhase === 'error' || readPhase === 'permission-denied' ? (
+        <ReadStates phase={readPhase} onRetry={refresh} />
+      ) : (
+      <>
       <ol className="loop-steps" aria-label="Setup steps">
         {SETUP_STEPS.map((s, i) => (
           <li key={s.id} className={`loop-step${i === index ? ' active' : ''}${i < index ? ' done' : ''}`}>
@@ -360,6 +370,8 @@ export default function AdminSetupPage() {
             </p>
           ) : null}
         </SpotlightCard>
+      )}
+      </>
       )}
     </SurfaceShell>
   );

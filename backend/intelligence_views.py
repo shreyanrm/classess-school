@@ -24,6 +24,7 @@ read; the surface degrades to its in-browser port) — the deployable never brea
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, Optional
@@ -104,6 +105,88 @@ def _seed_events() -> list[Any]:
 
 
 # --------------------------------------------------------------------------- #
+# The REAL event source — replay the persisted event store through the ONE
+# engine when configured; degrade to the PII-free seed (observably) when not.
+#
+# The engine owns the source seam (``spine/intelligence/app/source.py``):
+# ``make_event_source`` returns the LIVE gateway-backed ``GatewayEventSource``
+# when ``clss.intelligence.dev.database_url`` (+ gateway url/token) are set, and
+# the in-memory degraded source otherwise — reading every secret by NAME from
+# the environment, never a literal. We pass ``events=_seed_events()`` so that
+# the degraded in-memory source replays the SAME deterministic scenario the web
+# fallback uses (one truth), while a configured deploy reads the persisted events
+# the web surface wrote to ``platform.events`` THROUGH the gateway.
+# --------------------------------------------------------------------------- #
+# The web persists ``platform.events`` keyed by ``CLSS_DATABASE_URL``; the engine
+# names its own ``CLSS_INTELLIGENCE_DEV_DATABASE_URL``. Honour BOTH as the event
+# source selector: if the intelligence-specific name is unset but the shared one
+# is present, treat the source as configured (read by NAME, value never logged).
+_SHARED_DB_ENV = "CLSS_DATABASE_URL"
+
+
+def _build_settings() -> Any:
+    """The engine settings with the shared ``CLSS_DATABASE_URL`` honoured as a
+    fallback event-source selector. Returns None if the engine is unavailable."""
+    if _engine is None:  # pragma: no cover - defensive
+        return None
+    settings = _engine.get_settings()
+    if not settings.database_url:
+        shared = os.environ.get(_SHARED_DB_ENV)
+        if shared and shared.strip():
+            # Re-derive settings with the shared DB url as the source selector.
+            # PRESENCE selects the live source; the gateway url/token still gate
+            # the actual read (fail-safe, no fabricated events without them).
+            settings = settings.model_copy(update={"database_url": shared})
+    return settings
+
+
+def _source_and_events(subject: Optional[uuid.UUID]) -> tuple[Any, list[Any], dict[str, Any]]:
+    """Resolve the active event source, the events to replay, and an OBSERVABLE
+    provenance marker. When a live source is configured we replay the PERSISTED
+    events; otherwise we replay the seed and mark the result ``degraded``."""
+    settings = _build_settings()
+    if settings is None:  # pragma: no cover - defensive
+        return None, _seed_events(), {"source": "seed", "degraded": True, "backend": "engine-unavailable"}
+
+    source = _engine.make_event_source(settings, events=_seed_events())
+    live = bool(getattr(settings, "has_event_source", False))
+    if not live:
+        return source, _seed_events(), {
+            "source": "seed",
+            "degraded": True,
+            "backend": source.backend,
+            "degraded_reasons": settings.degraded_reasons(),
+        }
+
+    events = source.read_events(subject=subject)
+    meta: dict[str, Any] = {"source": "live", "degraded": False, "backend": source.backend}
+    if not events:
+        # Configured but the gateway returned nothing (no token / unreachable /
+        # empty): degrade to the seed OBSERVABLY rather than show an empty,
+        # never-mistaken-for-live view.
+        logger.warning("intelligence: live source configured but returned no events; degrading to seed")
+        events = _seed_events()
+        meta = {
+            "source": "seed",
+            "degraded": True,
+            "backend": source.backend,
+            "degraded_reasons": settings.degraded_reasons() or ["live source returned no events"],
+        }
+    return source, events, meta
+
+
+# The provenance of the most recent read, so the HTTP faucet can surface it on a
+# response header (list views — gaps/recommendations — cannot carry an inline
+# marker, so the header is the observable seam for them).
+_last_source_meta: dict[str, Any] = {"source": "unknown", "degraded": True}
+
+
+def last_source_meta() -> dict[str, Any]:
+    """The provenance (source/degraded/backend) of the most recent ``read``."""
+    return dict(_last_source_meta)
+
+
+# --------------------------------------------------------------------------- #
 # View serialisation — plain JSON-able dicts. Plain-language only for humans; the
 # raw composite is included for ranking (the surface never shows it raw).
 # --------------------------------------------------------------------------- #
@@ -176,7 +259,8 @@ def recommendations() -> list[dict[str, Any]]:
     unavailable. Each item carries the stable ``recommendation_id``."""
     if _engine is None:
         return []
-    graph = _engine.build_learner_graph(_seed_events(), asof=_SCENARIO_NOW)
+    _, events, _ = _source_and_events(None)
+    graph = _engine.build_learner_graph(events, asof=_SCENARIO_NOW)
     return _recommendation_view(graph)
 
 
@@ -246,7 +330,6 @@ def read(*, view: Optional[str], subject_uuid: Optional[str]) -> Any:
     if _engine is None:  # pragma: no cover - defensive
         raise IntelligenceUnavailable("intelligence engine not loaded")
 
-    events = _seed_events()
     asof = _SCENARIO_NOW
     selector = (view or "").strip()
 
@@ -256,17 +339,32 @@ def read(*, view: Optional[str], subject_uuid: Optional[str]) -> Any:
             raise ValueError("learner view requires subject_uuid + topic")
         subject = uuid.UUID(subject_uuid)
         topic = uuid.UUID(topic_raw)
+        _, events, meta = _source_and_events(subject)
+        _last_source_meta.clear()
+        _last_source_meta.update(meta)
         proj = _engine.build_topic_projection(events, subject=subject, topic_id=topic, asof=asof)
         if kind == "mastery":
-            return _mastery_view(proj)
+            body = _mastery_view(proj)
+            body["_meta"] = meta  # dict view -> inline observable provenance
+            return body
+        # Gaps is a bare list (the web's shape guard checks Array.isArray); it
+        # cannot carry an inline marker — the faucet surfaces meta on a header.
         return [_gap_view(g) for g in proj.gaps]
 
     if selector == "recommendations":
+        _, events, meta = _source_and_events(None)
+        _last_source_meta.clear()
+        _last_source_meta.update(meta)
         graph = _engine.build_learner_graph(events, asof=asof)
         return _recommendation_view(graph)
 
     if selector == "class-insights":
+        _, events, meta = _source_and_events(None)
+        _last_source_meta.clear()
+        _last_source_meta.update(meta)
         graph = _engine.build_learner_graph(events, asof=asof)
-        return _class_insights_view(graph)
+        body = _class_insights_view(graph)
+        body["_meta"] = meta  # dict view -> inline observable provenance
+        return body
 
     raise ValueError(f"unknown intelligence view: {selector!r}")

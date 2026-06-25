@@ -1113,6 +1113,65 @@ a {
    vivid accent; sharp corners; no shadows. Tones are gentle, never alarming.
    ============================================================================ */
 
+/* The reader's language / region indicator — a calm, frosted hairline pill that
+   links to Settings. No shadow (v4.1): hairline border + tone + frost. Honours
+   reduced-motion via the .dot-live guard below. */
+.lang-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 6px var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--bg-surface) 78%, transparent);
+  backdrop-filter: blur(8px);
+  color: var(--text-secondary);
+  text-decoration: none;
+  width: fit-content;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.lang-badge:hover {
+  border-color: var(--accent);
+  color: var(--text-primary);
+}
+
+.lang-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex: none;
+}
+
+.lang-badge-lang {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.lang-badge-region {
+  color: var(--text-tertiary);
+}
+
+.lang-badge-state {
+  color: var(--text-tertiary);
+}
+
+/* The dot pulses only while a render is in flight — buttery, GPU-cheap (opacity
+   only), and silenced entirely under reduced-motion. */
+.lang-badge-dot.dot-live {
+  animation: lang-dot-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes lang-dot-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-badge-dot.dot-live { animation: none; }
+}
+
 /* The Child switcher — one-click switch that re-renders the surface. */
 .child-switcher {
   display: flex;

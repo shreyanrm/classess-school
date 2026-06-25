@@ -27,7 +27,7 @@ key of its own and holds no credentials (INVARIANT 8 — agents hold no creds).
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace as _dc_replace
 from enum import Enum
 from typing import Sequence
 
@@ -60,6 +60,11 @@ class MaterialKind(str, Enum):
     # shaped). Verified deterministically: the curve is re-evaluated at its
     # sample points before it is served (INVARIANT 7).
     LESSON_VISUAL = "lesson_visual"
+    # A worksheet of verified items (mixed item types) for a topic/outcome set,
+    # with an answer key. NOT generated as a single blob: each item rides the
+    # SAME per-item generate-and-verify path below, so the worksheet is just the
+    # set of items that individually passed the confidence gate (INVARIANT 7).
+    WORKSHEET = "worksheet"
 
 
 # Map a material kind to the ai-fabric capability that produces it. Only the
@@ -129,6 +134,37 @@ class GeneratedMaterial:
     localized: bool = False
     not_yet_localised: bool = False
     locale: LocaleContext | None = None
+
+
+@dataclass(frozen=True)
+class WorksheetItem:
+    """One verified worksheet item plus its answer-key entry."""
+
+    index: int
+    kind: MaterialKind
+    body: dict[str, object]
+    answer: object | None
+    confidence: float
+
+
+@dataclass(frozen=True)
+class WorksheetOutcome:
+    """The outcome of a worksheet generation request.
+
+    A worksheet is the SET OF ITEMS that each individually passed the confidence
+    gate (INVARIANT 7) — there is no separately-served "worksheet blob". Items
+    that the gate withheld are reported as ``withheld`` (their review reasons),
+    never served. ``served`` is True only when at least one item passed and all
+    requested items were resolvable; the worksheet is PREPARED as a draft (the
+    permission ladder — assigning to learners is a separate human act).
+    """
+
+    served: bool
+    items: tuple[WorksheetItem, ...]
+    answer_key: tuple[tuple[int, object | None], ...]
+    withheld: tuple[tuple[int, str], ...]
+    topic_id: str
+    outcome_ids: tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -342,3 +378,51 @@ class ContentGenerator:
         # Created as DRAFT; a human moves it through IN_REVIEW -> APPROVED.
         assert record.approval_state is ApprovalState.DRAFT
         return outcome, record
+
+    # -- worksheet --------------------------------------------------------
+
+    def generate_worksheet(
+        self,
+        topic_id: str,
+        item_requests: Sequence[MaterialRequest],
+        outcome_ids: tuple[str, ...] = (),
+    ) -> WorksheetOutcome:
+        """Generate a worksheet of VERIFIED items + an answer key.
+
+        Each item rides the SAME per-item generate-and-verify path (``generate``),
+        so the worksheet is exactly the set of items that individually passed the
+        confidence gate (INVARIANT 7). Mixed item types are supported by mixing
+        the per-item ``kind`` (practice items, worked examples, lesson visuals).
+        Withheld items are reported with their review reason, never served.
+
+        The worksheet is PREPARED, not assigned — assigning to learners is a
+        separate, consequential human act (the permission ladder, INVARIANT 8).
+        """
+        items: list[WorksheetItem] = []
+        answer_key: list[tuple[int, object | None]] = []
+        withheld: list[tuple[int, str]] = []
+        for idx, req in enumerate(item_requests):
+            # Force the worksheet's topic so the answer key stays coherent.
+            item_req = req if req.topic_id == topic_id else _dc_replace(req, topic_id=topic_id)
+            outcome = self.generate(item_req)
+            if outcome.served and outcome.material is not None:
+                body = outcome.material.body
+                answer = body.get("answer") if isinstance(body, dict) else None
+                items.append(WorksheetItem(
+                    index=idx,
+                    kind=item_req.kind,
+                    body=body,
+                    answer=answer,
+                    confidence=outcome.material.confidence,
+                ))
+                answer_key.append((idx, answer))
+            else:
+                withheld.append((idx, outcome.review_reason or "withheld by the confidence gate."))
+        return WorksheetOutcome(
+            served=bool(items),
+            items=tuple(items),
+            answer_key=tuple(answer_key),
+            withheld=tuple(withheld),
+            topic_id=topic_id,
+            outcome_ids=outcome_ids,
+        )

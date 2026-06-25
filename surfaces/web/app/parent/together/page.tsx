@@ -6,7 +6,9 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ChildSwitcher } from '../../_components/ChildSwitcher';
 import { ConsentGated } from '../../_components/ConsentGated';
 import { ReadStates } from '../../_components/ReadStates';
+import { LanguageBadge } from '../../_components/LanguageBadge';
 import { useParentRead } from '@/lib/useParentRead';
+import { useReaderText } from '@/lib/useReaderText';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
 import { requestPtm } from '@/lib/commData';
@@ -32,6 +34,14 @@ export default function ParentTogetherPage() {
   const { emit } = useEmit();
   const { t } = useT();
 
+  // The learn-alongside activities are composed in English by the read; render
+  // their generated free-text into the parent's language through the TRANSLATE
+  // capability (subject terms preserved). English readers skip the network.
+  const activities = data?.learnAlongside ?? [];
+  const { tx, rendering, rendered, locale } = useReaderText(
+    activities.flatMap((a) => [a.title, a.how, a.why]),
+  );
+
   useEffect(() => {
     if (phase === 'ready') {
       emit({
@@ -51,7 +61,10 @@ export default function ParentTogetherPage() {
       dockChips={[t('parent.together.chip1'), t('parent.together.chip2'), t('parent.together.chip3')]}
     >
       <section className="stack">
-        <p className="overline">{t('parent.together.choose')}</p>
+        <div className="row-between" style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <p className="overline" style={{ margin: 0 }}>{t('parent.together.choose')}</p>
+          <LanguageBadge locale={locale} rendering={rendering} rendered={rendered} />
+        </div>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
@@ -73,7 +86,7 @@ export default function ParentTogetherPage() {
             ) : (
               <div className="parent-links">
                 {data.learnAlongside.map((a) => (
-                  <LearnAlongsideCard key={a.id} activity={a} />
+                  <LearnAlongsideCard key={a.id} activity={a} tx={tx} />
                 ))}
               </div>
             )}
@@ -94,13 +107,20 @@ export default function ParentTogetherPage() {
   );
 }
 
-function LearnAlongsideCard({ activity }: { activity: LearnAlongside }) {
+function LearnAlongsideCard({
+  activity,
+  tx,
+}: {
+  activity: LearnAlongside;
+  /** Render generated text into the reader's language (falls back to original). */
+  tx: (text: string) => string;
+}) {
   const { t } = useT();
   return (
     <SpotlightCard padLg>
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
         <h3 className="body-lg" style={{ margin: 0 }}>
-          {activity.title}
+          {tx(activity.title)}
         </h3>
         <span className="row caption muted" style={{ gap: 'var(--space-2)' }}>
           <Icon name="clock" size="sm" />
@@ -109,11 +129,11 @@ function LearnAlongsideCard({ activity }: { activity: LearnAlongside }) {
       </div>
       <p className="body-sm" style={{ marginTop: 'var(--space-3)' }}>
         <span className="quiet">{t('parent.together.togetherLabel')} </span>
-        {activity.how}
+        {tx(activity.how)}
       </p>
       <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
         <span className="quiet">{t('parent.together.whyHelps')} </span>
-        {activity.why}
+        {tx(activity.why)}
       </p>
     </SpotlightCard>
   );

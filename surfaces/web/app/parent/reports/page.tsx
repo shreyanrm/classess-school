@@ -6,7 +6,9 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ChildSwitcher } from '../../_components/ChildSwitcher';
 import { ConsentGated } from '../../_components/ConsentGated';
 import { ReadStates } from '../../_components/ReadStates';
+import { LanguageBadge } from '../../_components/LanguageBadge';
 import { useParentRead } from '@/lib/useParentRead';
+import { useReaderText } from '@/lib/useReaderText';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
 import {
@@ -32,6 +34,14 @@ export default function ParentReportsPage() {
   const { emit } = useEmit();
   const { t } = useT();
 
+  // The report feedback / celebration / next-step are composed in English by the
+  // read; render them into the parent's language through the TRANSLATE capability
+  // (subject terms preserved). English readers skip the network.
+  const reports = data?.reports ?? [];
+  const { tx, rendering, rendered, locale } = useReaderText(
+    reports.flatMap((r) => [r.feedback, r.celebration, r.nextStep]),
+  );
+
   useEffect(() => {
     if (phase === 'ready') {
       emit({
@@ -51,7 +61,10 @@ export default function ParentReportsPage() {
       dockChips={['What does this mean', 'What should we do next', 'Show the celebration points']}
     >
       <section className="stack">
-        <p className="overline">{t('parent.reports.whose')}</p>
+        <div className="row-between" style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <p className="overline" style={{ margin: 0 }}>{t('parent.reports.whose')}</p>
+          <LanguageBadge locale={locale} rendering={rendering} rendered={rendered} />
+        </div>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
@@ -80,7 +93,7 @@ export default function ParentReportsPage() {
               {t('parent.reports.plainNote')}
             </p>
             {data.reports.map((r) => (
-              <ReportCard key={r.id} report={r} childLabel={child.label} />
+              <ReportCard key={r.id} report={r} childLabel={child.label} tx={tx} />
             ))}
           </section>
 
@@ -94,7 +107,16 @@ export default function ParentReportsPage() {
   );
 }
 
-function ReportCard({ report, childLabel }: { report: ParentReport; childLabel: string }) {
+function ReportCard({
+  report,
+  childLabel,
+  tx,
+}: {
+  report: ParentReport;
+  childLabel: string;
+  /** Render generated text into the reader's language (falls back to original). */
+  tx: (text: string) => string;
+}) {
   const { t } = useT();
   // "Email this report" — a real end-to-end trigger over /api/email. The browser
   // posts the typed { kind:'weekly-briefing', data } and the server route renders
@@ -150,20 +172,20 @@ function ReportCard({ report, childLabel }: { report: ParentReport; childLabel: 
       </div>
 
       <p className="body-sm" style={{ marginTop: 'var(--space-3)' }}>
-        {report.feedback}
+        {tx(report.feedback)}
       </p>
 
       <div className="parent-report-points">
         <div className="parent-report-point">
           <Tag tone="success">{t('parent.reports.celebrate')}</Tag>
           <p className="body-sm" style={{ margin: 0 }}>
-            {report.celebration}
+            {tx(report.celebration)}
           </p>
         </div>
         <div className="parent-report-point">
           <Tag tone="info">{t('parent.reports.nextStep')}</Tag>
           <p className="body-sm" style={{ margin: 0 }}>
-            {report.nextStep}
+            {tx(report.nextStep)}
           </p>
         </div>
       </div>

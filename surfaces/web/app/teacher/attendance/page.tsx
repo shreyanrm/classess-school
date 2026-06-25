@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 import { CLASS_LABEL, ROSTER, type Student } from '@/lib/loopData';
 
 /**
@@ -55,6 +57,9 @@ const RISK: Record<string, RiskInfo> = {
 };
 
 export default function AttendancePage() {
+  // The roster read carries the five designed states; capture works offline and
+  // syncs later, so offline is a calm last-synced read, never a dead end.
+  const { phase: readPhase, refresh } = useSurfaceState();
   const [method, setMethod] = useState<Method>('scan');
   const [phase, setPhase] = useState<Phase>('capture');
   const [marks, setMarks] = useState<Record<string, Mark>>({});
@@ -89,6 +94,13 @@ export default function AttendancePage() {
       dockIntro="Pick a capture method and I will propose the roll. You confirm it — attendance is never finalised on its own. I will flag consecutive and chronic patterns calmly, never as misconduct."
       dockChips={['Who has been away three days', 'Mark only the absent', 'Why is this flagged']}
     >
+      {/* Capture is offline-capable (the shell shows the calm offline banner),
+          so offline is NOT a dead end here — only loading/error/permission-denied
+          gate the surface; everything else renders and syncs later. */}
+      {readPhase === 'loading' || readPhase === 'error' || readPhase === 'permission-denied' ? (
+        <ReadStates phase={readPhase} onRetry={refresh} />
+      ) : (
+      <>
       <section className="stack">
         <p className="overline">1 · Choose a capture method</p>
         <p className="caption quiet">
@@ -241,6 +253,8 @@ export default function AttendancePage() {
           )}
         </SpotlightCard>
       </section>
+      </>
+      )}
     </SurfaceShell>
   );
 }

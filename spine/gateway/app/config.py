@@ -234,6 +234,22 @@ class GatewaySettings(BaseSettings):
                 base_url=self._self_capabilities(),
                 base_url_env="clss.gateway.dev.teacher_growth_base_url",
             ),
+            # CONTENT (B3): the generate-and-verify content door — practice items,
+            # lesson visuals, and WORKSHEETS. Dispatched in-process behind the wall;
+            # every served artifact passed the confidence gate (INVARIANT 7).
+            "content": CapabilityTarget(
+                name="content",
+                base_url=self._self_capabilities(),
+                base_url_env="clss.gateway.dev.content_base_url",
+            ),
+            # PLANNING (d6): course outlines, lesson plans, session/period plans.
+            # Each is PREPARED (a draft) behind the confidence gate; publishing is
+            # a separate consequential human act (the permission ladder).
+            "planning": CapabilityTarget(
+                name="planning",
+                base_url=self._self_capabilities(),
+                base_url_env="clss.gateway.dev.planning_base_url",
+            ),
             # The GOVERNANCE control plane (GAP#3/#5/#7): AI-control toggles,
             # policy version, break-glass and emergency-disable. Each PERSISTS and
             # emits an immutable audit event; an audit-trail READ exposes them.

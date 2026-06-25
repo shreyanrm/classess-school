@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button, Composer, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
+import { LanguageBadge } from '../_components/LanguageBadge';
 import { useRole } from '@/lib/RoleContext';
 import type { Role } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
@@ -359,9 +360,12 @@ export default function MessagesPage() {
           ) : (
             <>
               <div className="row-between">
-                <p className="overline" style={{ margin: 0 }}>
-                  {active?.name}
-                </p>
+                <span className="row" style={{ gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <p className="overline" style={{ margin: 0 }}>
+                    {active?.name}
+                  </p>
+                  <LanguageBadge locale={locale} rendered={Object.keys(renderedBodies).length > 0} />
+                </span>
                 <span className="row" style={{ gap: 'var(--space-2)' }}>
                   {present.length > 0 ? (
                     <Tag tone="success" dot data-testid="presence-indicator">

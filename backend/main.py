@@ -216,6 +216,13 @@ _ACTION_ALIASES = {
     "record_attempt": "write",                # learning practice attempt
     "record_practice": "write",               # learning practice attempt
     "generate_and_verify_content": "write",   # content generate-and-verify
+    # GenComplete: the new generate-and-verify fronts. Each PREPARES a verified
+    # draft behind the confidence gate; it never publishes/assigns (that is the
+    # separate consequential verb). They gate as writes (staff-gated, audited).
+    "generate_worksheet": "write",            # content worksheet (verified items + key)
+    "generate_course_outline": "write",       # planning course outline (ontology-verified)
+    "generate_lesson_plan": "write",          # planning adaptive lesson plan (prepared)
+    "generate_session_plan": "write",         # planning single-period plan (prepared)
     "mastery": "read",                        # CORE engine mastery read
     "gap": "read",                            # CORE engine gap read
     # GAP#10 — the Wave-2 feature-module fronts. Reads gate as reads; the

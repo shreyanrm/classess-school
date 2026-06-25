@@ -3,7 +3,9 @@
 import { useMemo, useState } from 'react';
 import { Button, ConfidenceBand, SpotlightCard, Tag, type Confidence } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
 import { ApprovalControl } from '../../_components/ApprovalControl';
+import { useSurfaceState } from '@/lib/useSurfaceState';
 import { CLASS_LABEL, CURRENT_STUDENT, topicInfo, LOOP_TOPIC_ID } from '@/lib/loopData';
 
 /**
@@ -78,6 +80,8 @@ const STATE_LABEL: Record<AnswerState, string> = {
 type RowDecision = 'pending' | 'confirmed' | 'adjusted';
 
 export default function EvaluatePage() {
+  // The submission read carries the five designed states from one place.
+  const { phase: readPhase, refresh } = useSurfaceState();
   const [decisions, setDecisions] = useState<Record<string, RowDecision>>({});
   const [returned, setReturned] = useState(false);
 
@@ -97,6 +101,10 @@ export default function EvaluatePage() {
       dockIntro="Per-response review for this submission. High confidence can stand; building and needs-review must be confirmed by you. Nothing is final until you sign off — that is the rule for any mark."
       dockChips={['Explain the misunderstood answer', 'Read marks by voice', 'Why is this flagged for review']}
     >
+      {readPhase !== 'ready' ? (
+        <ReadStates phase={readPhase} onRetry={refresh} />
+      ) : (
+      <>
       <section className="stack">
         <div className="row-between">
           <div>
@@ -235,6 +243,8 @@ export default function EvaluatePage() {
           />
         )}
       </section>
+      </>
+      )}
     </SurfaceShell>
   );
 }

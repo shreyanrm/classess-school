@@ -381,6 +381,137 @@ def _generate_and_verify_content(payload: dict[str, Any], approval: Optional[str
         return _degraded("generate_and_verify_content", f"engine error: {type(exc).__name__}")
 
 
+def _generate_worksheet(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    """content.generate_worksheet — a worksheet of VERIFIED items + an answer key.
+
+    Each item rides the SAME per-item generate-and-verify path; the worksheet is
+    exactly the set of items that individually passed the confidence gate
+    (INVARIANT 7). Withheld items are reported, never served. Prepared (a draft),
+    not assigned — assigning to learners is a separate human act.
+    """
+    mod = _mod("content")
+    if mod is None:
+        return _degraded("generate_worksheet", "content engine not loaded")
+    try:
+        gen_mod = __import__(f"{loader._alias_for('mod', 'content')}.generate", fromlist=["*"])
+        topic_id = str(payload.get("topic_id", "topic"))
+        item_requests = []
+        for spec in payload.get("items") or []:
+            kind_raw = str(spec.get("kind", "practice_item"))
+            try:
+                kind = gen_mod.MaterialKind(kind_raw)
+            except Exception:
+                kind = gen_mod.MaterialKind.PRACTICE_ITEM
+            item_requests.append(gen_mod.MaterialRequest(
+                topic_id=topic_id,
+                kind=kind,
+                payload=spec.get("content_payload") or {},
+                difficulty=spec.get("difficulty"),
+            ))
+        generator = gen_mod.ContentGenerator()
+        ws = generator.generate_worksheet(
+            topic_id=topic_id,
+            item_requests=item_requests,
+            outcome_ids=tuple(payload.get("outcome_ids") or ()),
+        )
+        return {
+            "dispatched": True,
+            "operation": "generate_worksheet",
+            "served": ws.served,
+            "item_count": len(ws.items),
+            "answer_key": [{"index": i, "answer": a} for i, a in ws.answer_key],
+            "withheld": [{"index": i, "reason": r} for i, r in ws.withheld],
+            "approval_honored": approval is not None,
+        }
+    except Exception as exc:
+        logger.warning("generate_worksheet dispatch degraded: %s", exc)
+        return _degraded("generate_worksheet", f"engine error: {type(exc).__name__}")
+
+
+def _planning_generator(payload: dict[str, Any]) -> Any:
+    """Build a planning generator with an ontology resolver derived from the
+    intent. The resolver accepts the outcome ids the caller declares as known
+    (``known_outcome_ids``) — the gateway-side ontology snapshot supplies these in
+    the wired path; here we honour the declared set so coverage is verified, not
+    assumed. With none declared, the resolver rejects all (withholds the outline)."""
+    gen_mod = __import__(f"{loader._alias_for('mod', 'planning')}.generate", fromlist=["*"])
+    known = {str(o) for o in (payload.get("known_outcome_ids") or [])}
+    resolve = (lambda ref: ref.outcome_id in known) if known else None
+    return gen_mod, gen_mod.PlanningContentGenerator(resolve_outcome=resolve)
+
+
+def _planning_outcome_to_dict(operation: str, outcome: Any, approval: Optional[str]) -> dict[str, Any]:
+    return {
+        "dispatched": True,
+        "operation": operation,
+        "served": outcome.served,
+        "provider_available": outcome.provider_available,
+        "requires_approval": outcome.requires_approval,
+        "review_reason": outcome.review_reason,
+        "confidence": outcome.confidence,
+        "unresolved_outcomes": list(getattr(outcome, "unresolved_outcomes", ()) or ()),
+        "approval_honored": approval is not None,
+    }
+
+
+def _generate_course_outline(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    """planning.generate_course_outline — units->topics->outcomes, VERIFIED against
+    ontology coverage + the confidence gate. Prepared as a draft, never published."""
+    mod = _mod("planning")
+    if mod is None:
+        return _degraded("generate_course_outline", "planning engine not loaded")
+    try:
+        _, generator = _planning_generator(payload)
+        outcome = generator.generate_course_outline(
+            subject_uuid=str(payload.get("subject_uuid", "subject")),
+            outline_payload=payload.get("outline_payload") or {},
+            claimed_outcome_ids=payload.get("claimed_outcome_ids") or [],
+            difficulty=payload.get("difficulty"),
+        )
+        return _planning_outcome_to_dict("generate_course_outline", outcome, approval)
+    except Exception as exc:
+        logger.warning("generate_course_outline dispatch degraded: %s", exc)
+        return _degraded("generate_course_outline", f"engine error: {type(exc).__name__}")
+
+
+def _generate_lesson_plan(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    """planning.generate_lesson_plan — adaptive lesson plan behind the confidence
+    gate. Prepared as a draft, approval-routed — never auto-published."""
+    mod = _mod("planning")
+    if mod is None:
+        return _degraded("generate_lesson_plan", "planning engine not loaded")
+    try:
+        _, generator = _planning_generator(payload)
+        outcome = generator.generate_lesson_plan(
+            topic_id=str(payload.get("topic_id", "topic")),
+            lesson_payload=payload.get("lesson_payload") or {},
+            difficulty=payload.get("difficulty"),
+        )
+        return _planning_outcome_to_dict("generate_lesson_plan", outcome, approval)
+    except Exception as exc:
+        logger.warning("generate_lesson_plan dispatch degraded: %s", exc)
+        return _degraded("generate_lesson_plan", f"engine error: {type(exc).__name__}")
+
+
+def _generate_session_plan(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    """planning.generate_session_plan — single-period plan from a lesson plan +
+    a timetable slot, behind the confidence gate. Prepared as a draft."""
+    mod = _mod("planning")
+    if mod is None:
+        return _degraded("generate_session_plan", "planning engine not loaded")
+    try:
+        _, generator = _planning_generator(payload)
+        outcome = generator.generate_session_plan(
+            lesson_plan_body=payload.get("lesson_plan") or {},
+            timetable_slot=payload.get("timetable_slot") or {},
+            difficulty=payload.get("difficulty"),
+        )
+        return _planning_outcome_to_dict("generate_session_plan", outcome, approval)
+    except Exception as exc:
+        logger.warning("generate_session_plan dispatch degraded: %s", exc)
+        return _degraded("generate_session_plan", f"engine error: {type(exc).__name__}")
+
+
 def _intel_engine() -> Any:
     """The ONE intelligence engine, loaded under its unique alias by
     :mod:`backend.intelligence_views` (NOT the bare ``import app`` bridge, which
@@ -1045,6 +1176,12 @@ _DISPATCH: dict[tuple[str, str], Handler] = {
     ("learning", "record_practice"): _record_practice,  # grade a topic-quiz batch
     ("learning", "record_attempt"): _record_attempt,     # record + EMIT one attempt event (the loop)
     ("content", "generate_and_verify_content"): _generate_and_verify_content,
+    ("content", "generate_worksheet"): _generate_worksheet,           # WORKSHEETS
+    # PLANNING (d6): course outline / lesson plan / session plan — each PREPARED
+    # behind the confidence gate (a draft; publishing is a separate human act).
+    ("planning", "generate_course_outline"): _generate_course_outline,
+    ("planning", "generate_lesson_plan"): _generate_lesson_plan,
+    ("planning", "generate_session_plan"): _generate_session_plan,
     ("learning", "mastery"): _mastery_read,
     ("learning", "gap"): _gap_read,
     # GAP#10 — the Wave-2 feature-module fronts, routed through the gateway.

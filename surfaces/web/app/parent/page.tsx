@@ -8,7 +8,9 @@ import { ChildSwitcher } from '../_components/ChildSwitcher';
 import { ConsentGated } from '../_components/ConsentGated';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { ReadStates } from '../_components/ReadStates';
+import { LanguageBadge } from '../_components/LanguageBadge';
 import { useParentRead } from '@/lib/useParentRead';
+import { useReaderText } from '@/lib/useReaderText';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
 import { routeToTask } from '@/lib/commData';
@@ -36,6 +38,23 @@ export default function ParentTodayPage() {
   const { emit } = useEmit();
   const { t } = useT();
 
+  // The absolution-engine briefings are composed in English by the read; render
+  // their generated free-text into the parent's language through the TRANSLATE
+  // capability (subject terms preserved). English readers skip the network. The
+  // original stands until/unless a render lands — nothing ever blanks.
+  const briefings = data?.briefings ?? [];
+  const { tx, rendering, rendered, locale } = useReaderText(
+    briefings.flatMap((b) => [
+      b.title,
+      b.why,
+      b.builds,
+      b.consequence,
+      b.nextAction,
+      b.whySeeing,
+      ...b.evidence,
+    ]),
+  );
+
   // The surface viewed event — attributed, consent-stamped, with the read source.
   useEffect(() => {
     if (phase === 'ready') {
@@ -56,7 +75,10 @@ export default function ParentTodayPage() {
       dockChips={[t('parent.week.chip1'), t('parent.week.chip2'), t('parent.week.chip3')]}
     >
       <section className="stack">
-        <p className="overline">{t('parent.week.whose')}</p>
+        <div className="row-between" style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
+          <p className="overline" style={{ margin: 0 }}>{t('parent.week.whose')}</p>
+          <LanguageBadge locale={locale} rendering={rendering} rendered={rendered} />
+        </div>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
@@ -74,7 +96,7 @@ export default function ParentTodayPage() {
               {t('parent.week.threeNote', { child: child.label })}
             </p>
             {data.briefings.map((b) => (
-              <ParentBriefingCard key={b.id} briefing={b} childId={childId} childLabel={child.label} />
+              <ParentBriefingCard key={b.id} briefing={b} childId={childId} childLabel={child.label} tx={tx} />
             ))}
           </section>
 
@@ -125,10 +147,13 @@ function ParentBriefingCard({
   briefing,
   childId,
   childLabel,
+  tx,
 }: {
   briefing: ParentBriefing;
   childId: string;
   childLabel: string;
+  /** Render generated text into the reader's language (falls back to original). */
+  tx: (text: string) => string;
 }) {
   const [deferred, setDeferred] = useState(false);
   const { emit } = useEmit();
@@ -170,7 +195,7 @@ function ParentBriefingCard({
     return (
       <SpotlightCard>
         <div className="row-between">
-          <span className="muted body-sm">{t('parent.week.setAside')} — {briefing.title}</span>
+          <span className="muted body-sm">{t('parent.week.setAside')} — {tx(briefing.title)}</span>
           <Button variant="ghost" size="sm" onClick={() => setDeferred(false)}>
             {t('parent.week.bringBack')}
           </Button>
@@ -183,7 +208,7 @@ function ParentBriefingCard({
     <SpotlightCard padLg>
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
         <h3 className="body-lg" style={{ margin: 0 }}>
-          {briefing.title}
+          {tx(briefing.title)}
         </h3>
         <Tag tone={TONE_TAG[briefing.tone]}>
           {briefing.tone === 'celebrate'
@@ -203,11 +228,11 @@ function ParentBriefingCard({
 
       <p className="body-sm" style={{ marginTop: 'var(--space-3)' }}>
         <span className="quiet">Why. </span>
-        {briefing.why}
+        {tx(briefing.why)}
       </p>
       <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
         <span className="quiet">It helps build. </span>
-        {briefing.builds}
+        {tx(briefing.builds)}
       </p>
 
       <div className="rec-meta">
@@ -227,11 +252,14 @@ function ParentBriefingCard({
         </div>
         <div>
           <div className="k">If left</div>
-          <div className="v">{briefing.consequence}</div>
+          <div className="v">{tx(briefing.consequence)}</div>
         </div>
       </div>
 
-      <EvidenceDrawer evidence={briefing.evidence} whySeeing={briefing.whySeeing} />
+      <EvidenceDrawer
+        evidence={briefing.evidence.map((line) => tx(line))}
+        whySeeing={briefing.whySeeing ? tx(briefing.whySeeing) : undefined}
+      />
 
       {taken ? (
         <div className="rec-actions" style={{ marginTop: 'var(--space-4)', alignItems: 'center' }}>
@@ -248,7 +276,7 @@ function ParentBriefingCard({
       ) : (
         <div className="rec-actions" style={{ marginTop: 'var(--space-4)' }}>
           <Button variant="primary" size="sm" disabled={acting} onClick={takeAction}>
-            {acting ? t('parent.week.acting') : briefing.nextAction}
+            {acting ? t('parent.week.acting') : tx(briefing.nextAction)}
             <Icon name="arrow-right" size="sm" />
           </Button>
           <Link href={briefing.target} className="btn btn-ghost btn-sm row" style={{ gap: 'var(--space-2)' }}>

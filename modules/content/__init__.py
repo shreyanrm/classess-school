@@ -38,6 +38,8 @@ from .generate import (
     GenerationOutcome,
     MaterialKind,
     MaterialRequest,
+    WorksheetItem,
+    WorksheetOutcome,
 )
 from .hyperlocalize import (
     Hyperlocalizer,
@@ -88,6 +90,8 @@ __all__ = [
     "GenerationOutcome",
     "MaterialKind",
     "MaterialRequest",
+    "WorksheetItem",
+    "WorksheetOutcome",
     # hyperlocalization
     "Hyperlocalizer",
     "HyperlocalizationOutcome",
