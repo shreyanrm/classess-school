@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Icon, ProgressBar, SpotlightCard, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
-import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useAdminConfig } from '@/lib/adminConfig';
 import {
   NETWORK_NODES,
   childrenOf,
@@ -22,20 +22,19 @@ import {
 export default function AdminNetworkPage() {
   const root = useMemo(() => networkRoot(NETWORK_NODES), []);
   const exceptionList = useMemo(() => exceptions(NETWORK_NODES), []);
-  const [openRegions, setOpenRegions] = useState<Set<string>>(
-    () => new Set(childrenOf(root?.id ?? null).map((r) => r.id)),
-  );
+  // Which regions a leader keeps open is governed config: rehydrated from the
+  // event store (a persisted open/closed wins over the all-open seed default), so
+  // the rollup returns the way they left it. Toggling is authorized at the wall
+  // and appended to the immutable store. The hook also carries the five states.
+  const surface = useAdminConfig('network');
+  const isOpen = (id: string): boolean => {
+    const saved = surface.config[`region:${id}`];
+    return typeof saved === 'boolean' ? saved : true; // seed default: all open
+  };
 
   function toggleRegion(id: string) {
-    setOpenRegions((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    void surface.set(`region:${id}`, !isOpen(id));
   }
-
-  const surface = useSurfaceState();
   if (surface.phase !== 'ready') {
     return (
       <SurfaceShell eyebrow="Network" title="Network leadership">
@@ -121,9 +120,14 @@ export default function AdminNetworkPage() {
 
       <section className="stack">
         <p className="overline">The full rollup</p>
+        <p className="caption quiet">
+          {surface.source === 'gateway'
+            ? 'The regions you keep open are read back from the event store, so the rollup returns the way you left it.'
+            : 'The regions you keep open record to the event store when it is reachable.'}
+        </p>
         <div className="net-tree">
           {regions.map((region) => {
-            const open = openRegions.has(region.id);
+            const open = isOpen(region.id);
             const campuses = childrenOf(region.id);
             return (
               <div key={region.id} className="net-region">

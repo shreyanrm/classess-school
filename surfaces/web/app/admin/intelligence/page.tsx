@@ -7,7 +7,7 @@ import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
 import { StudyQuadrant } from '../../_components/StudyQuadrant';
 import { Trajectory } from '../../_components/Trajectory';
-import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useAdminConfig } from '@/lib/adminConfig';
 import { SCHOOL_STATS, SCHOOL_TRENDS } from '@/lib/mock';
 import { ADMIN_CONCERNS, ADMIN_INTERVENTIONS } from '@/lib/mock';
 import { PACING_ROWS, TRAJECTORY, pacingSummary, type QuadrantBand, type QuadrantPoint } from '@/lib/adminData';
@@ -70,10 +70,21 @@ function answerFor(q: Query): string {
 }
 
 export default function AdminIntelligencePage() {
-  const [lens, setLens] = useState<Lens>('academics');
+  // The chosen lens is governed config: rehydrated from the event store (a
+  // persisted lens wins over the default), so the leader returns to the view they
+  // last worked in. Switching lens is authorized at the wall and appended to the
+  // immutable store. The hook also carries the five designed read states.
+  const surface = useAdminConfig('intelligence');
+  const savedLens = surface.config.lens;
+  const lens: Lens =
+    savedLens === 'behaviour' || savedLens === 'care' || savedLens === 'academics'
+      ? (savedLens as Lens)
+      : 'academics';
+  const setLens = (l: Lens) => {
+    void surface.set('lens', l);
+  };
   const [query, setQuery] = useState<Query | null>(null);
   const pacing = pacingSummary();
-  const surface = useSurfaceState();
 
   // The drill that ACTS — launch the suggested remedial/grouping set for a band
   // by handing the group to Vidya, which prepares it within the permission
@@ -119,7 +130,10 @@ export default function AdminIntelligencePage() {
         </div>
         <p className="caption quiet">
           Action-first, never routine stats. Each lens surfaces what needs a look, with the evidence
-          one tap away.
+          one tap away.{' '}
+          {surface.source === 'gateway'
+            ? 'Your lens is read back from the event store, so you return to the view you last worked in.'
+            : 'Your lens records to the event store when it is reachable.'}
         </p>
       </section>
 

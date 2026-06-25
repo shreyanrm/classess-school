@@ -139,6 +139,37 @@ def test_gate_withholds_with_no_checks():
     assert v.deterministic_checks_passed is False
 
 
+# -- no-oracle content: the second-model cross-check IS the verification ---
+
+def test_gate_serves_no_oracle_content_on_second_model_agreement():
+    """Content WITHOUT a deterministic oracle (free-form text) is served when the
+    INDEPENDENT second model agrees and confidence clears the gate — the brief's
+    second verification mode (INVARIANT 7)."""
+    gate = ConfidenceGate(threshold=0.85)
+    v = gate.evaluate([], second_model_agrees=True, confidence=0.9,
+                      deterministic_applicable=False)
+    assert v.served is True
+    assert v.review_reason is None
+
+
+def test_gate_withholds_no_oracle_content_when_second_model_abstains():
+    """No oracle AND the second model does not agree => withheld. Without an
+    independent confirmation, nothing is served (the gate never opens blind)."""
+    gate = ConfidenceGate(threshold=0.85)
+    v = gate.evaluate([], second_model_agrees=False, confidence=0.99,
+                      deterministic_applicable=False)
+    assert v.served is False
+    assert "second-model" in (v.review_reason or "")
+
+
+def test_gate_withholds_no_oracle_content_below_threshold():
+    gate = ConfidenceGate(threshold=0.85)
+    v = gate.evaluate([], second_model_agrees=True, confidence=0.4,
+                      deterministic_applicable=False)
+    assert v.served is False
+    assert "confidence" in (v.review_reason or "")
+
+
 # -- lesson-visual deterministic verifier (plotted curve y = f(x)) ---------
 
 def test_eval_at_binds_variable_but_safe_eval_still_rejects_names():

@@ -32,6 +32,19 @@ import json
 import logging
 from typing import Any, Optional
 
+# RS256 verification is available only when PyJWT is installed. When it is NOT,
+# a configured public key cannot be used to verify a signed token, so we degrade
+# OBSERVABLY (log + deny the signed token) rather than silently accept it.
+try:
+    import jwt
+    from jwt import InvalidTokenError
+
+    _JWT_AVAILABLE = True
+except Exception:  # pragma: no cover - exercised when PyJWT absent
+    jwt = None  # type: ignore
+    InvalidTokenError = Exception  # type: ignore
+    _JWT_AVAILABLE = False
+
 logger = logging.getLogger("clss.backend.wall_auth")
 
 _UNSIGNED_DEV_PREFIX = "DEV-UNSIGNED."
@@ -55,16 +68,28 @@ class WallTokenVerifier:
         principal_cls: Any,
         public_key: Optional[str],
         introspect_url: Optional[str],
+        issuer: str = "clss.identity",
+        audience: str = "clss.gateway",
+        algorithm: str = "RS256",
     ) -> None:
         self._principal_cls = principal_cls
         self._public_key = public_key
         self._introspect_url = introspect_url
+        self._issuer = issuer
+        self._audience = audience
+        self._algorithm = algorithm
         self._dev_only = not public_key and not introspect_url
         if self._dev_only:
             logger.warning(
                 "wall token verifier in DEV-ONLY mode: no public key / introspect "
                 "configured; DEV-UNSIGNED tokens are accepted (local/deploy dev). "
                 "Set CLSS_GATEWAY_DEV_JWT_PUBLIC_KEY for signed verification."
+            )
+        elif public_key and not _JWT_AVAILABLE:
+            logger.warning(
+                "CLSS_GATEWAY_DEV_JWT_PUBLIC_KEY is set but PyJWT is not installed; "
+                "signed RS256 tokens CANNOT be verified in-process and are denied. "
+                "Install PyJWT to enable the signed wall."
             )
 
     # -- public collaborator surface (sync, as the Wall expects) ---------- #
@@ -96,10 +121,26 @@ class WallTokenVerifier:
                 return None
             return claims
 
-        # A non-dev token requires a real verification path. In the in-process
-        # deployable we do not hold the private key; signed verification is the
-        # gateway's /v1 surface. Here, without a configured key/introspect, a
-        # non-dev token cannot be verified -> deny by default.
+        # A signed (non-dev) token: verify the RS256 signature with the PUBLIC
+        # key (CLSS_GATEWAY_DEV_JWT_PUBLIC_KEY). We hold ONLY the public key —
+        # never the private signing key (identity holds that). This mirrors the
+        # gateway's verify.py so the in-process Wall honours the SAME trust policy
+        # as the /v1 surface.
+        if self._public_key and _JWT_AVAILABLE:
+            try:
+                return jwt.decode(  # type: ignore[union-attr]
+                    token,
+                    self._public_key,
+                    algorithms=[self._algorithm],
+                    audience=self._audience,
+                    issuer=self._issuer,
+                )
+            except InvalidTokenError as exc:  # type: ignore[misc]
+                logger.warning("signed token rejected: %s", type(exc).__name__)
+                return None
+
+        # No usable verification path (no public key, or PyJWT absent): a signed
+        # token cannot be verified in-process -> deny by default.
         return None
 
     def _principal_from_claims(self, claims: dict) -> Optional[Any]:

@@ -30,6 +30,7 @@ import { VoiceBloom } from './VoiceBloom';
 import { VidyaSteps } from './VidyaSteps';
 import { VidyaSpotlight } from './VidyaSpotlight';
 import { VidyaCanvas } from './VidyaCanvas';
+import { VidyaWatch } from './VidyaWatch';
 import { VidyaAttach } from './VidyaAttach';
 import type { VidyaAttachment } from '@/lib/vidya';
 import { useVidya } from '@/lib/useVidya';
@@ -280,6 +281,14 @@ export function VidyaOrb() {
           onOpenHref={(href) => router.push(href)}
         />
       ) : null}
+
+      {/* VidyaWatch — the ambient, screen-aware proactive offer (Pillar 1). It
+          watches the in-app state and surfaces ONE quiet, dismissible offer when
+          the user looks stuck on a hard step; accepting hands off to THIS orb.
+          Hidden while the panel is open (Vidya is already engaged) and on the
+          auth/onboarding flows (no shell). It is the orb's quiet proactive layer,
+          not a second Vidya. */}
+      {!open ? <VidyaWatch /> : null}
 
       {open ? (
         <div

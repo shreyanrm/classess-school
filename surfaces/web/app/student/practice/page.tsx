@@ -167,7 +167,10 @@ export default function PracticePage() {
               </SpotlightCard>
             </section>
           ) : (
-            <section>
+            // VidyaWatch reads the step the learner is on. The active item is a
+            // HARD step (worth a quiet nudge) once it is Core/Stretch — Vidya may
+            // then offer to walk it through on screen, never just hand the answer.
+            <section data-vidya-step={item.id} data-vidya-hard={item.difficulty > 0.4 ? 'true' : 'false'}>
               <SpotlightCard padLg>
                 <div className="row-between" style={{ alignItems: 'flex-start' }}>
                   <p className="overline" style={{ margin: 0 }}>

@@ -29,11 +29,12 @@ the term-protection are pure and deterministic.
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass, field
-from typing import Iterable, Literal
+from typing import Any, Iterable, Literal, Protocol
 
-from .config import CommunicationSettings, get_settings
+from .config import CommunicationSettings, env_var_name, get_settings
 
 
 # A small, illustrative protected glossary. In production this is sourced from
@@ -82,6 +83,43 @@ class TranslationResult:
 
 _TOKEN = "␟"  # a unit-separator sentinel unlikely to appear in real text.
 
+# The gateway bearer, read by NAME at call time only (INVARIANT 4, 8 — never a
+# literal, never stored, never logged). Mapped OS env key below.
+GATEWAY_TOKEN_SECRET_NAME = "clss.communication.dev.gateway_token"
+GATEWAY_TOKEN_ENV_VAR = env_var_name(GATEWAY_TOKEN_SECRET_NAME)
+
+# The gateway's generic route entrypoint + the communication translate operation
+# (the AI fabric / model router — Gemini — sits behind it). Public route
+# templates, not secrets.
+GATEWAY_ROUTE_PATH = "/v1/route/communication/translate"
+
+
+class TranslationTransport(Protocol):
+    """The HTTP seam the live translation posts through (the gateway route to the
+    model router). Injected in tests so the round-trip runs fully OFFLINE; a real
+    implementation wraps httpx. Returns the parsed JSON body; raises on transport
+    / non-2xx so the interface degrades to passthrough."""
+
+    def post_json(
+        self, *, url: str, headers: dict[str, str], json_body: dict, timeout: float
+    ) -> Any:
+        ...
+
+
+@dataclass
+class HttpxTranslationTransport:
+    """A real httpx-backed transport. Imported lazily to stay import-safe."""
+
+    def post_json(
+        self, *, url: str, headers: dict[str, str], json_body: dict, timeout: float
+    ) -> Any:
+        import httpx  # local import: module stays import-safe / tests stay offline
+
+        with httpx.Client(timeout=timeout) as client:
+            resp = client.post(url, headers=headers, json=json_body)
+            resp.raise_for_status()
+            return resp.json()
+
 
 class TranslationInterface:
     """Renders messages across languages while preserving subject terminology
@@ -92,8 +130,14 @@ class TranslationInterface:
         *,
         protected_terms: Iterable[str] | None = None,
         settings: CommunicationSettings | None = None,
+        transport: TranslationTransport | None = None,
+        timeout_seconds: float = 20.0,
     ) -> None:
         self._settings = settings or get_settings()
+        # The live egress transport (the gateway route to the model router).
+        # Injectable for offline tests; absent => the real httpx transport.
+        self._transport: TranslationTransport = transport or HttpxTranslationTransport()
+        self._timeout = timeout_seconds
         terms = tuple(protected_terms) if protected_terms is not None else DEFAULT_PROTECTED_TERMS
         # Longest-first so multi-word terms match before their parts.
         self._terms = tuple(sorted(terms, key=len, reverse=True))
@@ -177,36 +221,125 @@ class TranslationInterface:
         protected terms and code-switch spans identified — never dropped, never
         garbled, never sent off-box.
 
-        Wired: would mask protected terms, send the masked text through the
-        gateway translation provider (token read from the environment by NAME),
-        then restore the terms verbatim. That egress path is intentionally not
-        implemented while no provider exists.
+        Wired: masks protected terms, sends the masked text through the gateway
+        translation route to the model router (Gemini, token read from the
+        environment by NAME), then restores the terms verbatim. Any missing
+        token / transport / parse failure DEGRADES to passthrough — the text is
+        returned intact, never dropped, never garbled.
         """
         preserved = self.find_protected_terms(text)
         spans = self.detect_spans(text)
 
         if not self._settings.has_translation:
-            return TranslationResult(
-                source_text=text,
-                rendered_text=text,  # intact — never dropped.
-                source_lang=source_lang,
-                target_lang=target_lang,
-                status="passthrough",
-                preserved_terms=preserved,
-                spans=spans,
-                provider="none_passthrough",
-            )
+            return self._passthrough(text, source_lang, target_lang, preserved, spans)
 
-        # Provider configured but egress not wired yet — keep the surface honest:
-        # mask the terms so the contract is exercised, then refuse to fabricate a
-        # translation. Callers should leave the var unset to use passthrough.
-        raise NotImplementedError(
-            "Gateway-backed translation is not wired yet. Configure "
-            "clss.communication.dev.gateway_url + "
-            "clss.communication.dev.translation_url and implement the masked "
-            "round-trip behind this method (token read from the environment by "
-            "NAME). Until then leave them unset to use the passthrough path."
+        # WIRED: the real masked round-trip through the gateway to the model
+        # router. A failure at any step degrades to passthrough (observably),
+        # never a fabricated or garbled translation.
+        rendered = self._translate_via_gateway(
+            text, target_lang=target_lang, source_lang=source_lang
         )
+        if rendered is None:
+            return self._passthrough(text, source_lang, target_lang, preserved, spans)
+        return TranslationResult(
+            source_text=text,
+            rendered_text=rendered,
+            source_lang=source_lang,
+            target_lang=target_lang,
+            status="translated",
+            preserved_terms=preserved,
+            # Re-detect spans on the rendered text so a code-switched output keeps
+            # its switch points (the provider may translate one span, keep another).
+            spans=self.detect_spans(rendered),
+            provider="gateway_translation",
+        )
+
+    def _passthrough(
+        self,
+        text: str,
+        source_lang: str,
+        target_lang: str,
+        preserved: tuple[str, ...],
+        spans: tuple[LanguageSpan, ...],
+    ) -> TranslationResult:
+        return TranslationResult(
+            source_text=text,
+            rendered_text=text,  # intact — never dropped.
+            source_lang=source_lang,
+            target_lang=target_lang,
+            status="passthrough",
+            preserved_terms=preserved,
+            spans=spans,
+            provider="none_passthrough",
+        )
+
+    def _raw_gateway_token(self) -> str | None:
+        """The gateway bearer, read by NAME, or ``None``. Never returned/logged."""
+        raw = os.environ.get(GATEWAY_TOKEN_ENV_VAR)
+        if raw is None or not raw.strip():
+            return None
+        return raw
+
+    def _translate_via_gateway(
+        self, text: str, *, target_lang: str, source_lang: str
+    ) -> str | None:
+        """Mask protected terms, POST the masked text through the gateway to the
+        model router, restore the terms verbatim. Returns the rendered text, or
+        ``None`` to signal a clean degrade to passthrough.
+
+        INVARIANT 4/8: the bearer is read by NAME at call time and rides ONLY in
+        the Authorization header; the engine holds no credential of its own. The
+        request asserts the purpose (INVARIANT 6). Subject terminology is masked
+        before egress and restored after, so it is NEVER sent to or altered by the
+        provider — meaning is preserved across the translation."""
+        token = self._raw_gateway_token()
+        gateway_url = self._settings.gateway_url
+        if token is None or not gateway_url:
+            return None  # no credential / no egress => degrade to passthrough.
+
+        masked, mapping = self.mask_protected_terms(text)
+        url = gateway_url.rstrip("/") + GATEWAY_ROUTE_PATH
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "X-Consent-Purpose": "communication",
+            "Content-Type": "application/json",
+        }
+        body = {
+            "text": masked,
+            "target_lang": target_lang,
+            "source_lang": source_lang,
+            # The provider must keep these placeholders intact so the terms can be
+            # restored verbatim — subject terminology is preserved by construction.
+            "preserve_tokens": list(mapping.keys()),
+        }
+        try:
+            data = self._transport.post_json(
+                url=url, headers=headers, json_body=body, timeout=self._timeout
+            )
+        except Exception:
+            return None  # transport failure => passthrough (never garble/drop).
+
+        translated = self._extract_translated_text(data)
+        if translated is None:
+            return None
+        # Restore the protected terms verbatim, whatever the provider returned.
+        return self.restore_protected_terms(translated, mapping)
+
+    @staticmethod
+    def _extract_translated_text(data: Any) -> str | None:
+        """Pull the translated string out of the gateway/model-router response.
+
+        Accepts ``{"rendered_text": ...}`` / ``{"translated_text": ...}`` /
+        ``{"text": ...}``. A shape we do not recognise => ``None`` (degrade), so a
+        malformed provider reply never garbles or drops the message."""
+        if isinstance(data, str):
+            return data
+        if isinstance(data, dict):
+            for key in ("rendered_text", "translated_text", "text", "output"):
+                value = data.get(key)
+                if isinstance(value, str) and value:
+                    return value
+        return None
 
     def render_for_reader(
         self,

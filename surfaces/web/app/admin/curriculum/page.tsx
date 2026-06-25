@@ -6,7 +6,7 @@ import { SEED_ONTOLOGY } from '@classess/contracts';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
-import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useAdminConfig } from '@/lib/adminConfig';
 
 /**
  * d3 — Curriculum / ontology view. Board -> grade -> subject -> unit -> topic,
@@ -20,15 +20,24 @@ import { useSurfaceState } from '@/lib/useSurfaceState';
 
 export default function CurriculumPage() {
   const ont = SEED_ONTOLOGY;
-  const surface = useSurfaceState();
+  // The hyperlocalisation fields are governed config: read back from the event
+  // store (governed value wins over the seed), persisted on commit through the
+  // wall. The hook also carries the five designed read states.
+  const surface = useAdminConfig('curriculum');
   const [subjectId, setSubjectId] = useState<string>(ont.subjects[0]?.id ?? '');
   const [topicId, setTopicId] = useState<string | null>(null);
 
-  // Live hyperlocalisation config (board is a field, not a lock-in).
-  const [boardName, setBoardName] = useState(ont.board.name);
-  const [language, setLanguage] = useState('English');
-  const [region, setRegion] = useState(ont.board.region);
-  const [calendar, setCalendar] = useState('April–March');
+  // Live hyperlocalisation config (board is a field, not a lock-in). The seed is
+  // the baseline; the persisted value (when present) wins so the choice survives
+  // reload from the DB, not just this session.
+  const cfg = surface.config;
+  const boardName = typeof cfg.board === 'string' ? cfg.board : ont.board.name;
+  const language = typeof cfg.language === 'string' ? cfg.language : 'English';
+  const region = typeof cfg.region === 'string' ? cfg.region : ont.board.region;
+  const calendar = typeof cfg.calendar === 'string' ? cfg.calendar : 'April–March';
+  const setField = (key: 'board' | 'language' | 'region' | 'calendar', value: string) => {
+    void surface.set(key, value);
+  };
 
   const grade = ont.grades[0];
 
@@ -80,24 +89,27 @@ export default function CurriculumPage() {
         <p className="overline">Hyperlocalisation</p>
         <p className="caption quiet">
           Board terminology, language, regional calendar — all live configuration. The board is a
-          field; the contract stays board-agnostic.
+          field; the contract stays board-agnostic.{' '}
+          {surface.source === 'gateway'
+            ? 'Read back from the event store, recorded as you set it.'
+            : 'Saved as you set it; it records to the event store when it is reachable.'}
         </p>
         <div className="cols-2">
           <label className="stack" style={{ gap: 4 }}>
             <span className="caption muted">Board label</span>
-            <Input value={boardName} onChange={(e) => setBoardName(e.target.value)} aria-label="Board label" />
+            <Input value={boardName} onChange={(e) => setField('board', e.target.value)} aria-label="Board label" />
           </label>
           <label className="stack" style={{ gap: 4 }}>
             <span className="caption muted">Language of instruction</span>
-            <Input value={language} onChange={(e) => setLanguage(e.target.value)} aria-label="Language" />
+            <Input value={language} onChange={(e) => setField('language', e.target.value)} aria-label="Language" />
           </label>
           <label className="stack" style={{ gap: 4 }}>
             <span className="caption muted">Region</span>
-            <Input value={region} onChange={(e) => setRegion(e.target.value)} aria-label="Region" />
+            <Input value={region} onChange={(e) => setField('region', e.target.value)} aria-label="Region" />
           </label>
           <label className="stack" style={{ gap: 4 }}>
             <span className="caption muted">Academic calendar</span>
-            <Input value={calendar} onChange={(e) => setCalendar(e.target.value)} aria-label="Calendar" />
+            <Input value={calendar} onChange={(e) => setField('calendar', e.target.value)} aria-label="Calendar" />
           </label>
         </div>
         <div className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>

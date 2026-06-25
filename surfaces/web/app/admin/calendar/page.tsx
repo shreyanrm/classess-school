@@ -1,11 +1,10 @@
 'use client';
 
-import { useState } from 'react';
 import { Button, ConfidenceBand, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SCHEDULE_ALTERNATIVES, SUBSTITUTION_NEED } from '@/lib/mock';
-import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useAdminConfig } from '@/lib/adminConfig';
 
 type Decision = 'pending' | 'approved' | 'declined';
 
@@ -16,9 +15,27 @@ type Decision = 'pending' | 'approved' | 'declined';
  * picks and approves; only then is the change prepared to run.
  */
 export default function AdminCalendarPage() {
-  const [chosen, setChosen] = useState<string | null>(null);
-  const [decision, setDecision] = useState<Decision>('pending');
-  const surface = useSurfaceState();
+  // The chosen cover option and its approval are governed config: rehydrated from
+  // the event store (a persisted choice/decision wins over the blank seed), and
+  // selecting/approving is authorized at the wall and appended to the immutable
+  // store. The hook also carries the five designed read states.
+  const surface = useAdminConfig('calendar');
+  const savedChosen = typeof surface.config.chosen === 'string' ? surface.config.chosen : null;
+  const savedDecision =
+    surface.config.decision === 'approved' || surface.config.decision === 'declined'
+      ? (surface.config.decision as Decision)
+      : 'pending';
+  // Approving is consequential — it commits a timetable change — so it is recorded
+  // only on the human's explicit action, never auto-fired. A persisted choice wins.
+  const chosen = savedChosen;
+  const decision: Decision = savedDecision;
+  const choose = (id: string) => {
+    void surface.set('chosen', id);
+    void surface.set('decision', 'pending');
+  };
+  const setDecision = (d: Decision) => {
+    void surface.set('decision', d);
+  };
 
   return (
     <SurfaceShell
@@ -41,7 +58,10 @@ export default function AdminCalendarPage() {
       <section className="stack">
         <p className="overline">Scored alternatives</p>
         <p className="caption quiet">
-          Ranked by fit. Selecting one stages it; it is committed only when you approve.
+          Ranked by fit. Selecting one stages it; it is committed only when you approve.{' '}
+          {surface.source === 'gateway'
+            ? 'Your selection and approval are read back from the event store, recorded as you set them.'
+            : 'Your selection and approval record to the event store when it is reachable.'}
         </p>
 
         {SCHEDULE_ALTERNATIVES.map((alt, i) => {
@@ -69,10 +89,7 @@ export default function AdminCalendarPage() {
                 <Button
                   variant={selected ? 'primary' : 'secondary'}
                   size="sm"
-                  onClick={() => {
-                    setChosen(alt.id);
-                    setDecision('pending');
-                  }}
+                  onClick={() => choose(alt.id)}
                 >
                   {selected ? (
                     <>

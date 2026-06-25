@@ -15,6 +15,7 @@ private signing key.
 
 from __future__ import annotations
 
+import os
 from functools import lru_cache
 from typing import Literal
 
@@ -127,24 +128,39 @@ class GatewaySettings(BaseSettings):
             ),
         )
 
+    def self_base(self) -> str:
+        """The deployable's OWN base URL for in-process loopback forwarding.
+
+        In the single deployable, identity / event-store / intelligence /
+        workflow and the governed capability door all run in THIS process. The
+        gateway reaches them over loopback. The explicit
+        ``clss.gateway.dev.self_base_url`` overrides (e.g. behind a proxy / for a
+        split-out); when unset we DEFAULT to the deployable's own loopback —
+        ``http://127.0.0.1:{PORT}`` (PORT is what the deployable binds; Railway
+        sets it, else 8080). This is why the Wave-2 fronts resolve in-process
+        instead of returning 503 upstream_unconfigured. No secret is read here;
+        PORT is not a secret."""
+        if self.self_base_url:
+            return self.self_base_url.rstrip("/")
+        port = os.environ.get("PORT", "8080")
+        return f"http://127.0.0.1:{port}"
+
     def _internal_mount(self, name: str) -> str | None:
         """In-process loopback target for a spine service mounted under
-        ``/internal/<name>`` in the single deployable. ``None`` when no
-        ``self_base_url`` is configured (then the explicit per-capability base
-        url is the only source)."""
-        if not self.self_base_url:
-            return None
-        return self.self_base_url.rstrip("/") + f"/internal/{name}"
+        ``/internal/<name>`` in the single deployable. Defaults to the
+        deployable's own loopback base (so the in-process services resolve even
+        when ``self_base_url`` is unset); an explicit per-capability base url
+        still overrides upstream."""
+        return self.self_base().rstrip("/") + f"/internal/{name}"
 
-    def _self_capabilities(self) -> str | None:
+    def _self_capabilities(self) -> str:
         """Loopback target for the deployable's own GOVERNED capability door
         (``/capabilities/{cap}/{op}``) — the in-process front the Wave-2 feature
-        modules are dispatched behind. ``None`` when no ``self_base_url`` is
-        configured. The door is itself wall-gated, so the gateway forwarding here
-        is the same circuit: identity -> gateway -> capability door -> event."""
-        if not self.self_base_url:
-            return None
-        return self.self_base_url.rstrip("/") + "/capabilities"
+        modules are dispatched behind. Defaults to the deployable's own loopback
+        base, so the door resolves without ``self_base_url`` being set. The door
+        is itself wall-gated, so the gateway forwarding here is the same circuit:
+        identity -> gateway -> capability door -> event."""
+        return self.self_base().rstrip("/") + "/capabilities"
 
     def capability_targets(self) -> dict[str, CapabilityTarget]:
         # Prefer an explicit per-capability base url; otherwise, in the single
@@ -233,11 +249,9 @@ class GatewaySettings(BaseSettings):
         missing: list[str] = []
         if not self.jwt_public_key and not self.identity_introspect_url:
             missing.append("clss.gateway.dev.jwt_public_key (or clss.gateway.dev.identity_introspect_url)")
-        # In-process forwarding (self_base_url) satisfies these upstreams.
-        if not self.identity_base_url and not self.self_base_url:
-            missing.append("clss.gateway.dev.identity_base_url (or clss.gateway.dev.self_base_url)")
-        if not self.event_store_base_url and not self.self_base_url:
-            missing.append("clss.gateway.dev.event_store_base_url (or clss.gateway.dev.self_base_url)")
+        # The identity + event-store upstreams resolve in-process over the
+        # deployable's own loopback (self_base()), so they are NOT degraded when
+        # unset. An explicit base url only matters for a split-out deploy.
         if not self.database_url:
             missing.append("clss.gateway.dev.database_url (audit sink)")
         return missing

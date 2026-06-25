@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Button, Icon, Matrix, Cell, SpotlightCard, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
-import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useAdminConfig } from '@/lib/adminConfig';
 import {
   CONNECTORS,
   CONNECTOR_STATE_META,
@@ -14,6 +14,14 @@ import {
   type ConnectorState,
 } from '@/lib/ring2Data';
 
+const CONNECTOR_STATES: ReadonlySet<string> = new Set([
+  'enabled',
+  'available',
+  'pending',
+  'attention',
+  'error',
+]);
+
 /**
  * The connector hub — a tight matrix of education-interop standards (LTI,
  * OneRoster, xAPI, QTI, SCORM, CASE) and platform bridges (Clever, Ed-Fi, MCP),
@@ -22,14 +30,25 @@ import {
  * explicit Approve. The two tracks stay visibly separate.
  */
 export default function AdminIntegrationsPage() {
-  // Local view state so enable/approve feels live without a backend. The real
-  // path is the gateway + connector registry (env vars in lib/runtime.ts).
-  const [connectors, setConnectors] = useState<Connector[]>(CONNECTORS);
+  // Connector state is governed config: rehydrated from the event store (a
+  // persisted state wins over the seed), and every enable/approve/disconnect is
+  // authorized at the wall and appended to the immutable store. The hook also
+  // carries the five designed read states.
+  const surface = useAdminConfig('integrations');
+  const connectors = useMemo<Connector[]>(
+    () =>
+      CONNECTORS.map((c) => {
+        const saved = surface.config[c.id];
+        return typeof saved === 'string' && CONNECTOR_STATES.has(saved)
+          ? { ...c, state: saved as ConnectorState }
+          : c;
+      }),
+    [surface.config],
+  );
   const health = useMemo(() => connectorHealth(connectors), [connectors]);
-  const surface = useSurfaceState();
 
   function setState(id: string, state: ConnectorState) {
-    setConnectors((prev) => prev.map((c) => (c.id === id ? { ...c, state } : c)));
+    void surface.set(id, state);
   }
 
   const standards = connectors.filter((c) => c.track === 'standards');
@@ -55,7 +74,10 @@ export default function AdminIntegrationsPage() {
         </div>
         <p className="caption quiet">
           Last sync and health update on each call through the gateway. Behavioural records carry
-          only the opaque canonical id, never personal information.
+          only the opaque canonical id, never personal information.{' '}
+          {surface.source === 'gateway'
+            ? 'Connector states are read back from the event store, recorded as you set them.'
+            : 'Connector states save as you set them; they record to the event store when it is reachable.'}
         </p>
       </section>
 

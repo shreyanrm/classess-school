@@ -28,6 +28,7 @@ from typing import Protocol
 
 from .cache import VerifiedResponseCache
 from .capability_registry import Capability, CapabilityRegistry, default_registry
+from .generator import GeminiGenerator
 from .observability import Tracer
 from .retrieval import NullRetriever, RetrievedContext, Retriever
 from .router import (
@@ -184,6 +185,55 @@ class DeterministicVisualProvider:
         )
 
 
+@dataclass
+class LiveTrack1Provider:
+    """The LIVE Track-1 provider adapter — makes the real model call (INVARIANT 11
+    Track 1). It bridges a resolved route to :class:`~app.generator.GeminiGenerator`,
+    so a routed capability actually CALLS Gemini over HTTPS instead of stopping at
+    a route label.
+
+    The router has already confirmed the Track-1 key is present (``route.available``)
+    before this is ever reached; the generator independently reads the Gemini key by
+    NAME at call time and sends it only in the request header (never stored, never
+    logged, never returned). A missing key / transport / parse / validation failure
+    yields ``confidence=0.0`` so the confidence gate WITHHELDS — the orchestrator
+    never fabricates content.
+
+    The generated content has no deterministic oracle (it is free-form structured
+    text), so verification rests on the INDEPENDENT second-model cross-check + the
+    confidence gate (INVARIANT 7). Math/visual intents are served by the
+    deterministic stand-ins instead, which carry their own oracle.
+    """
+
+    generator: GeminiGenerator | None = None
+    # The structured fields the generated artifact must carry to be a candidate.
+    required_fields: tuple[str, ...] = ("answer",)
+
+    def __post_init__(self) -> None:
+        if self.generator is None:
+            self.generator = GeminiGenerator()
+
+    def generate(self, *, capability: Capability, route: RouteResolution, payload: dict) -> Candidate:
+        assert self.generator is not None
+        prompt = str(payload.get("prompt") or capability.description)
+        context = payload.get("_retrieved_context")
+        result = self.generator.generate(
+            prompt=prompt,
+            required_fields=self.required_fields,
+            context=list(context) if isinstance(context, list) else None,
+        )
+        if not result.available or result.content is None:
+            # Fail closed: no candidate the gate could pass (confidence 0 withholds),
+            # and no deterministic handle, so the gate refuses rather than fabricate.
+            return Candidate(content=None, confidence=0.0)
+        return Candidate(
+            content=result.content,
+            confidence=result.confidence,
+            prompt_tokens=result.prompt_tokens,
+            completion_tokens=result.completion_tokens,
+        )
+
+
 # ---------------------------------------------------------------------------
 # The orchestrator
 # ---------------------------------------------------------------------------
@@ -215,7 +265,10 @@ class Orchestrator:
         # otherwise it returns the abstaining model so the gate stays closed and
         # no unverified content is served (INVARIANT 7).
         self.second_model = second_model if second_model is not None else make_second_model()
-        self.provider = provider  # None => deterministic-only / unavailable
+        self.provider = provider  # None => deterministic-only / live-on-route
+        # The live Track-1 provider is built lazily on first need (when a route
+        # resolves an available external key) and reused thereafter.
+        self._live: ProviderAdapter | None = None
         self.tracer = tracer if tracer is not None else Tracer()
 
     def handle(self, intent: Intent) -> GenerateResult:
@@ -272,8 +325,9 @@ class Orchestrator:
                 span.record_model(route.model.model_label)
 
             # Resolve the provider: explicit adapter, else deterministic math
-            # stand-in when the payload supports it.
-            provider = self._provider_for(intent)
+            # stand-in when the payload supports it, else the LIVE Track-1 model
+            # when the route resolved an available external key (INVARIANT 11).
+            provider = self._provider_for(intent, route)
 
             if not route.available and provider is None:
                 # No live provider AND no deterministic stand-in => refusal.
@@ -342,8 +396,11 @@ class Orchestrator:
                 )
             span.record_cache_hit(False)
 
-            # GENERATE-AND-VERIFY: deterministic checks FIRST.
-            det_checks = self._deterministic_checks(candidate)
+            # GENERATE-AND-VERIFY: deterministic checks FIRST (where an oracle
+            # exists). Content with NO deterministic oracle (free-form text) is
+            # verified by the INDEPENDENT second-model cross-check instead — the
+            # brief's two verification modes (INVARIANT 7).
+            det_checks, det_applicable = self._deterministic_checks(candidate)
             agrees, sm_conf = self.second_model.cross_check(
                 task_class=cap.task_class, content=candidate.content
             )
@@ -353,7 +410,9 @@ class Orchestrator:
             # the aggregate down and the gate closes on confidence too.
             confidence = min(candidate.confidence, sm_conf)
 
-            verification = self.gate.evaluate(det_checks, agrees, confidence)
+            verification = self.gate.evaluate(
+                det_checks, agrees, confidence, deterministic_applicable=det_applicable
+            )
             span.record_quality(served=verification.served, confidence=confidence)
 
             content = candidate.content if verification.served else None
@@ -386,7 +445,9 @@ class Orchestrator:
         except Exception:
             return []
 
-    def _provider_for(self, intent: Intent) -> ProviderAdapter | None:
+    def _provider_for(
+        self, intent: Intent, route: RouteResolution | None = None
+    ) -> ProviderAdapter | None:
         if self.provider is not None:
             return self.provider
         # Deterministic math stand-in: available without any LLM when the
@@ -397,17 +458,37 @@ class Orchestrator:
         # sample points the generator claims lie on it — verified by recompute.
         if "expression" in intent.payload and "samples" in intent.payload:
             return DeterministicVisualProvider()
+        # LIVE Track-1 model: when the router resolved an AVAILABLE external route
+        # (the Gemini key is present, by NAME) and there is no deterministic
+        # handle, make the real model call. With no key the route is unavailable
+        # and this is never reached, so we degrade to a refusal — never fabricate.
+        if route is not None and route.available and route.selection.track == 1:
+            return self._live_provider()
         return None
 
+    def _live_provider(self) -> ProviderAdapter:
+        """The lazily-built live Track-1 provider (reused across requests)."""
+        if self._live is None:
+            self._live = LiveTrack1Provider()
+        return self._live
+
     @staticmethod
-    def _deterministic_checks(candidate: Candidate) -> list[DeterministicCheck]:
+    def _deterministic_checks(
+        candidate: Candidate,
+    ) -> tuple[list[DeterministicCheck], bool]:
+        """Return ``(checks, oracle_applicable)``.
+
+        A math/visual candidate carries a deterministic ORACLE: the checks must
+        all pass for the gate to open. Content with NO oracle (free-form text)
+        returns no checks and ``oracle_applicable=False`` — verification then
+        rests on the INDEPENDENT second-model cross-check + the confidence gate,
+        the second of the brief's two verification modes. The candidate is NEVER
+        served without an independent confirmation either way (INVARIANT 7).
+        """
         if candidate.math_item is not None:
-            return deterministic_checks_for_math(candidate.math_item)
+            return deterministic_checks_for_math(candidate.math_item), True
         if candidate.visual_item is not None:
-            return deterministic_checks_for_visual(candidate.visual_item)
-        # No deterministic handle => a single failing check, so the gate stays
-        # closed unless a checkable claim was provided (fail closed).
-        return [DeterministicCheck(
-            "deterministic-checkable", False,
-            "no deterministic handle on this content; cannot verify symbolically/numerically.",
-        )]
+            return deterministic_checks_for_visual(candidate.visual_item), True
+        # No deterministic handle: the deterministic dimension is N/A; the gate
+        # leans on the second-model cross-check (which must agree) instead.
+        return [], False

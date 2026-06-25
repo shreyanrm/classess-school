@@ -547,24 +547,91 @@ def _comm_make_tasks(payload: dict[str, Any], approval: Optional[str]) -> dict[s
         return _degraded("make_tasks", f"engine error: {type(exc).__name__}")
 
 
+def _ptm_available_slot(payload: dict[str, Any], ptm: Any) -> Any:
+    """Source a real PTM slot from a SCHEDULING/AVAILABILITY read — not a hard-
+    coded literal. The owner's free window is derived from the scheduling
+    module's academic calendar (the next working day on/after the requested
+    anchor); the within-day window comes from the requested time band. An
+    explicit ``slot_id``/``starts_at`` in the payload still overrides (a surface
+    that already picked a concrete offered slot). When scheduling is unavailable,
+    degrade to a COMPUTED slot (the next calendar weekday from today) rather than
+    a fixed date — still derived, never a frozen literal."""
+    from datetime import date, datetime, time, timedelta, timezone
+
+    owner_ref = str(payload.get("teacher_ref") or payload.get("subject_uuid") or "teacher")
+    owner_role = str(payload.get("owner_role", "teacher"))
+    # An explicit, surface-chosen slot wins (the human already picked it).
+    if payload.get("starts_at"):
+        starts_at = str(payload["starts_at"])
+        return ptm.MeetingSlot(
+            slot_id=str(payload.get("slot_id", f"slot-{starts_at}")),
+            owner_ref=owner_ref, owner_role=owner_role, starts_at=starts_at,
+            window_label=str(payload.get("window_label", starts_at)),
+        )
+
+    anchor = date.fromisoformat(payload["after"]) if payload.get("after") else date.today()
+    # The within-day window (e.g. a 15:30 PTM band). Read, not hard-coded literal.
+    band_hour = int(payload.get("window_hour", 15))
+    band_min = int(payload.get("window_minute", 30))
+    duration_min = int(payload.get("duration_minutes", 15))
+
+    meeting_day: date | None = None
+    mod = _mod("scheduling")
+    if mod is not None:
+        try:
+            cal = __import__(f"{_alias('scheduling')}.calendar", fromlist=["*"])
+            # Build the availability calendar from the payload's term window when
+            # supplied; the calendar's working-pattern + holiday math is the
+            # authority for which day is actually free (not a literal).
+            terms = []
+            for t in payload.get("terms") or []:
+                terms.append(cal.Term(term_id=str(t.get("term_id", "term")),
+                                      label=str(t.get("label", "Term")),
+                                      start=date.fromisoformat(t["start"]),
+                                      end=date.fromisoformat(t["end"])))
+            if not terms:
+                # Default availability horizon: a term running from the anchor.
+                terms = [cal.Term(term_id="term", label="Term", start=anchor,
+                                  end=anchor + timedelta(days=120))]
+            academic = cal.AcademicCalendar(
+                institution_id=str(payload.get("institution_id", "inst")),
+                label="availability", terms=terms,
+            )
+            meeting_day = academic.next_working_day(anchor, inclusive=False)
+        except Exception as exc:  # degrade to a computed weekday, never a literal
+            logger.warning("scheduling availability read degraded: %s", exc)
+            meeting_day = None
+    if meeting_day is None:
+        # Computed fallback: next weekday (Mon-Fri) after the anchor. Derived.
+        meeting_day = anchor + timedelta(days=1)
+        while meeting_day.weekday() >= 5:
+            meeting_day += timedelta(days=1)
+
+    starts = datetime.combine(meeting_day, time(hour=band_hour, minute=band_min, tzinfo=timezone.utc))
+    end = starts + timedelta(minutes=duration_min)
+    window_label = (f"{meeting_day.strftime('%a')} "
+                    f"{starts.strftime('%H:%M')}-{end.strftime('%H:%M')}")
+    return ptm.MeetingSlot(
+        slot_id=f"slot-{meeting_day.isoformat()}-{band_hour:02d}{band_min:02d}",
+        owner_ref=owner_ref, owner_role=owner_role,
+        starts_at=starts.isoformat(), window_label=window_label,
+    )
+
+
 def _comm_ptm(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
     """communication.ptm (GAP#12) — prepare a parent-teacher meeting booking
     (PROPOSED, awaiting human confirm — the RECOMMEND rung) and the parent's
-    screened prep. Reuses the EXISTING ``ptm.PtmService``. The booking request is
-    consequential prep -> emit ``ptm.requested``."""
+    screened prep. Reuses the EXISTING ``ptm.PtmService``; the offered slot is
+    sourced from a SCHEDULING/AVAILABILITY read (``_ptm_available_slot``), not a
+    hard-coded literal. The booking request is consequential prep -> emit
+    ``ptm.requested``."""
     mod = _mod("communication")
     if mod is None:
         return _degraded("ptm", "communication module not loaded")
     try:
         ptm = __import__(f"{_alias('communication')}.ptm", fromlist=["*"])
         svc = ptm.PtmService()
-        slot = ptm.MeetingSlot(
-            slot_id=str(payload.get("slot_id", "slot-1")),
-            owner_ref=str(payload.get("teacher_ref") or payload.get("subject_uuid") or "teacher"),
-            owner_role=str(payload.get("owner_role", "teacher")),
-            starts_at=str(payload.get("starts_at", "2026-07-01T10:00:00+00:00")),
-            window_label=str(payload.get("window_label", "Fri 3:30-3:45pm")),
-        )
+        slot = _ptm_available_slot(payload, ptm)
         booking = svc.request_booking(
             slot=slot,
             parent_ref=str(payload.get("parent_ref", "parent")),
@@ -832,16 +899,136 @@ def _loop_approve(payload: dict[str, Any], approval: Optional[str]) -> dict[str,
     }
 
 
+# --------------------------------------------------------------------------- #
+# CONCRETE EXECUTORS — the credentialled capability that PERFORMS a cleared,
+# post-approval action (INVARIANT 8: the workflow package AUTHORISES; THIS layer,
+# acting as the credentialled capability behind the gateway, PERFORMS). The
+# workflow ``execute`` gate returns ``cleared=True, performed=False`` for a
+# consequential action ("a governed capability is now authorised"); only AFTER
+# that clearance do these executors fire the REVERSIBLE side effect and report
+# ``performed=True``. Each reuses the module's EXISTING surface; none re-derives
+# judgment, and none fires without clearance. Consequential/irreversible ops are
+# NOT wired here — they stay authorised-but-not-auto-performed.
+# --------------------------------------------------------------------------- #
+def _exec_make_tasks(payload: dict[str, Any]) -> dict[str, Any]:
+    """Reversible: promote a screened message into an owned, tracked task (a task
+    can be closed/reassigned). Reuses communication ``hub.post`` + ``route_to_task``."""
+    return _comm_make_tasks(payload, "cleared")
+
+
+def _exec_attendance_mark(payload: dict[str, Any]) -> dict[str, Any]:
+    """Reversible: finalise (confirm) an attendance roll with the approving human's
+    opaque ref. Reuses attendance ``capture.capture_absent_only`` + ``confirm_roll``
+    (the single human-attributed path to a finalised roll). A finalised roll can
+    later be corrected by an authorising human, so the act is reversible."""
+    mod = _mod("attendance")
+    if mod is None:
+        return _degraded("attendance_mark", "attendance module not loaded")
+    capture = __import__(f"{_alias('attendance')}.capture", fromlist=["*"])
+    confirmed_by = str(payload.get("confirmed_by") or payload.get("decided_by")
+                       or payload.get("subject_uuid") or "")
+    if not confirmed_by.strip():
+        return _degraded("attendance_mark", "confirm requires an opaque human ref (confirmed_by)")
+    roll = capture.capture_absent_only(
+        session_id=str(payload.get("session_id", "session-1")),
+        roster_refs=[str(r) for r in (payload.get("roster_refs") or [])],
+        absent_refs=[str(r) for r in (payload.get("absent_refs") or [])],
+    )
+    final = capture.confirm_roll(roll, confirmed_by=confirmed_by, note=payload.get("note"))
+    event = _emit_capability_event(
+        app_="attendance",
+        type_="attendance.finalised",
+        payload={"session_id": final.session_id, "is_final": final.is_final,
+                 "confirmed_by": "[opaque]"},
+        subject=payload.get("subject_uuid") or payload.get("session_id"),
+        consent_ref=payload.get("consent_ref"),
+    )
+    return {"performed": True, "operation": "attendance_mark",
+            "session_id": final.session_id, "is_final": final.is_final, "event": event}
+
+
+def _exec_message_send(payload: dict[str, Any]) -> dict[str, Any]:
+    """Reversible: post a screened message to the monitored hub (a posted message
+    can be retracted/superseded). Reuses communication ``hub.post`` — ALWAYS
+    screened, so a flagged message rides its escalation rather than being dropped."""
+    mod = _mod("communication")
+    if mod is None:
+        return _degraded("message_send", "communication module not loaded")
+    hub = __import__(f"{_alias('communication')}.hub", fromlist=["*"])
+    message = hub.CommunicationHub().post(
+        surface=str(payload.get("surface", "hub")),
+        sender_ref=str(payload.get("sender_ref") or payload.get("subject_uuid") or "sender"),
+        context_ref=str(payload.get("context_ref", "ctx")),
+        body=str(payload.get("body", "")),
+    )
+    event = _emit_capability_event(
+        app_="communication",
+        type_="communication.message_sent",
+        payload={"message_id": message.message_id, "flagged": message.is_flagged,
+                 "needs_human": message.needs_human},
+        subject=payload.get("subject_uuid") or payload.get("sender_ref"),
+        consent_ref=payload.get("consent_ref"),
+    )
+    return {"performed": True, "operation": "message_send",
+            "message_id": message.message_id, "needs_human": message.needs_human, "event": event}
+
+
+# Map the cleared action's effect to its concrete reversible executor. The key is
+# the action's ``effect`` label the surface attaches to the execute payload (or
+# the recommendation's action kind). Only REVERSIBLE safe actions are listed.
+_EXECUTORS: dict[str, Callable[[dict[str, Any]], dict[str, Any]]] = {
+    "make_tasks": _exec_make_tasks,
+    "create_task": _exec_make_tasks,
+    "attendance_mark": _exec_attendance_mark,
+    "mark_attendance": _exec_attendance_mark,
+    "message_send": _exec_message_send,
+    "send_message": _exec_message_send,
+    "send": _exec_message_send,
+}
+
+
+def _perform_cleared_action(payload: dict[str, Any]) -> dict[str, Any] | None:
+    """Perform the concrete reversible side effect for a CLEARED execute, or None
+    when the named effect has no wired executor (then it stays authorised-but-not-
+    auto-performed — the workflow result already carries the action.executed
+    clearance event). Degrades cleanly: an executor error is reported, never
+    crashes the door."""
+    effect = str(payload.get("effect") or payload.get("action_kind")
+                 or payload.get("effect_verb") or "").strip().lower()
+    executor = _EXECUTORS.get(effect)
+    if executor is None:
+        return None
+    try:
+        return executor(payload)
+    except PermissionError as exc:  # consent refusal surfaces, never crashes
+        logger.warning("cleared executor %s consent-refused: %s", effect, exc)
+        return {"performed": False, "operation": effect, "degraded": True,
+                "reason": f"consent_required: {exc}"}
+    except Exception as exc:
+        logger.warning("cleared executor %s degraded: %s", effect, exc)
+        return {"performed": False, "operation": effect, "degraded": True,
+                "reason": f"executor error: {type(exc).__name__}"}
+
+
 def _loop_execute(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
     from . import workflow_app
 
     status, body = workflow_app.do_execute(payload)
-    return {
+    out = {
         "dispatched": status == 200,
         "operation": "execute",
         "approval_honored": approval is not None,
         **body,
     }
+    # INVARIANT 8: perform the concrete reversible side effect ONLY after the
+    # workflow gate cleared the action (human approval recorded). The workflow
+    # package authorised it; here, as the credentialled capability, we PERFORM.
+    if body.get("cleared") and not body.get("performed"):
+        performed = _perform_cleared_action(payload)
+        if performed is not None:
+            out["execution"] = performed
+            out["performed"] = bool(performed.get("performed"))
+    return out
 
 
 # --------------------------------------------------------------------------- #

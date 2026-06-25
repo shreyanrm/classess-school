@@ -2295,6 +2295,96 @@ a {
   }
 }
 
+/* --- VidyaWatch: the quiet ambient offer (calm-first, never a nag). ---
+   A hairline-framed frosted pill anchored just above the orb (bottom-right). It
+   rises in on transform/opacity with var(--ease) — buttery, GPU-only, no shadow.
+   A small living dot (the orb gradient family) marks it as Vidya, subtly. */
+.vidya-watch {
+  position: fixed;
+  right: var(--space-5, 24px);
+  bottom: calc(56px + var(--space-5, 24px) + var(--space-3, 12px)); /* clear the orb */
+  z-index: 999; /* under the orb (1000), over the page */
+  display: flex;
+  align-items: center;
+  gap: var(--space-3, 12px);
+  max-width: 320px;
+  padding: var(--space-2, 8px) var(--space-3, 12px);
+  background: var(--frost-bg, var(--bg-surface));
+  -webkit-backdrop-filter: var(--frost-blur, blur(12px));
+  backdrop-filter: var(--frost-blur, blur(12px));
+  border: var(--border-width, 0.5px) solid var(--hairline, var(--border));
+  border-radius: var(--radius-lg, 12px);
+  transform-origin: bottom right;
+  animation: vidya-watch-rise 0.36s var(--ease) forwards;
+}
+.vidya-watch-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 30% 30%,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 55%, var(--signature, var(--accent)))
+  );
+  animation: vidya-watch-breathe 3.6s var(--ease) infinite;
+}
+.vidya-watch-caption {
+  margin: 0;
+  color: var(--text-primary);
+  line-height: 1.35;
+}
+.vidya-watch-actions {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-1, 4px);
+}
+.vidya-watch-accept {
+  background: none;
+  border: none;
+  padding: var(--space-1, 4px) var(--space-2, 8px);
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  white-space: nowrap;
+  transition: background 0.2s var(--ease);
+}
+.vidya-watch-accept:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.vidya-watch-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  background: none;
+  border: none;
+  color: var(--text-muted, var(--muted));
+  cursor: pointer;
+  border-radius: var(--radius-sm, 6px);
+  transition: color 0.2s var(--ease), background 0.2s var(--ease);
+}
+.vidya-watch-dismiss:hover {
+  color: var(--text-primary);
+  background: color-mix(in srgb, var(--text-primary) 8%, transparent);
+}
+@keyframes vidya-watch-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes vidya-watch-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.18); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  /* Placed, not risen; the living dot holds still. */
+  .vidya-watch { animation: none; opacity: 1; transform: none; }
+  .vidya-watch-dot { animation: none; }
+}
+
 /* ============================================================================
    The role landing (home) — greeting + chips + briefings + quick links.
    Calm and spacious; no central chat space (the conversation lives in the orb).

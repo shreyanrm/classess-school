@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import threading
 from datetime import datetime, timezone
 from typing import Any, Optional
 from uuid import UUID, uuid4
@@ -36,6 +37,36 @@ logger = logging.getLogger("clss.backend.event_sink")
 
 _store: Any | None = None
 _connected = False
+
+# ONE dedicated background event loop for ALL store I/O. A real Postgres store
+# (asyncpg pool) is bound to the loop it was created on, so every append + the
+# one-time connect MUST run on the SAME loop — a per-call ``asyncio.run`` (a new
+# loop each time) breaks the pool. We own a single long-lived loop on a daemon
+# thread and marshal every coroutine onto it. The in-memory store works on this
+# loop too, so there is one code path with or without a DB.
+_loop: asyncio.AbstractEventLoop | None = None
+_loop_lock = threading.Lock()      # guards the one-time loop-thread start
+_connect_lock = threading.Lock()   # guards the one-time store.connect()
+
+
+def _background_loop() -> asyncio.AbstractEventLoop:
+    """Return the process's single dedicated store loop, starting its daemon
+    thread on first use. Idempotent + thread-safe."""
+    global _loop
+    if _loop is not None:
+        return _loop
+    with _loop_lock:
+        if _loop is not None:  # pragma: no cover - double-checked locking
+            return _loop
+        loop = asyncio.new_event_loop()
+
+        def _serve() -> None:
+            asyncio.set_event_loop(loop)
+            loop.run_forever()
+
+        threading.Thread(target=_serve, name="clss-event-sink-loop", daemon=True).start()
+        _loop = loop
+    return _loop
 
 
 def _to_uuid(v: Any) -> UUID:
@@ -69,23 +100,18 @@ def _build_store() -> Any | None:
 
 
 def _run(coro: Any) -> Any:
-    """Drive an async coroutine to completion from a sync context.
+    """Drive a store coroutine to completion on the ONE dedicated background loop.
 
-    The capability door / workflow handler runs INSIDE the event loop (FastAPI),
-    so ``asyncio.run`` would raise. We run the append on a private loop in a fresh
-    thread when a loop is already running; otherwise we run it directly. The
-    in-memory store's append never blocks, so this is cheap."""
-    try:
-        running = asyncio.get_running_loop()
-    except RuntimeError:
-        running = None
-    if running is None:
-        return asyncio.run(coro)
-    # Inside a running loop: execute on a dedicated loop in a worker thread.
-    import concurrent.futures
-
-    with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-        return pool.submit(lambda: asyncio.run(coro)).result()
+    The capability door / workflow handler runs INSIDE FastAPI's request loop, so
+    ``asyncio.run`` would raise (a loop is already running). And a fresh loop per
+    call breaks a real asyncpg pool (it is bound to one loop). So we submit every
+    coroutine to the single long-lived background loop via ``run_coroutine_
+    threadsafe`` and block on the result — connect + append + read all share that
+    loop, which is what a real Postgres pool requires. The in-memory store works
+    on the same path (its append never blocks), so there is one code path."""
+    loop = _background_loop()
+    future = asyncio.run_coroutine_threadsafe(coro, loop)
+    return future.result()
 
 
 def available() -> bool:
@@ -114,8 +140,14 @@ def append_emit_input(emit_input: dict[str, Any]) -> dict[str, Any]:
         occurred_dt = datetime.now(timezone.utc)
     try:
         if not _connected:
-            _run(store.connect())
-            _connected = True
+            # Connect ONCE on the shared loop (a real pool binds to it). Use a
+            # SEPARATE lock from the loop-start lock: _run() acquires _loop_lock
+            # to start the loop thread, so guarding connect with _loop_lock too
+            # would self-deadlock (threading.Lock is non-reentrant).
+            with _connect_lock:
+                if not _connected:
+                    _run(store.connect())
+                    _connected = True
         stored = _run(
             store.append(
                 canonical_uuid=_to_uuid(emit_input.get("canonical_uuid")),

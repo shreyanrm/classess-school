@@ -6,7 +6,7 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
 import { SCAN_ROWS } from '@/lib/examsData';
-import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useAdminConfig } from '@/lib/adminConfig';
 
 /**
  * d10 — Exam operations (admin). Scheduling, seating, secure-print packaging,
@@ -27,16 +27,24 @@ const STAGES: { id: Stage; label: string; icon: 'calendar' | 'grid' | 'send' | '
 
 export default function ExamsPage() {
   const [stage, setStage] = useState<Stage>('schedule');
-  const surface = useSurfaceState();
-  const [approved, setApproved] = useState<Record<Stage, boolean>>({
-    schedule: false,
-    seating: false,
-    print: false,
-    intake: false,
-  });
+  // Each stage approval is governed config: rehydrated from the event store (a
+  // persisted approval wins over the un-approved seed), and approving — a
+  // consequential publish/print/grade step — is authorized at the wall and
+  // appended to the immutable store on the human's explicit action, never
+  // auto-fired. The hook also carries the five designed read states.
+  const surface = useAdminConfig('exams');
+  const approved: Record<Stage, boolean> = {
+    schedule: surface.config.schedule === true,
+    seating: surface.config.seating === true,
+    print: surface.config.print === true,
+    intake: surface.config.intake === true,
+  };
 
   function approve(s: Stage) {
-    setApproved((prev) => ({ ...prev, [s]: true }));
+    void surface.set(s, true);
+  }
+  function reopen(s: Stage) {
+    void surface.set(s, false);
   }
 
   const stageMeta: Record<Stage, { title: string; prepared: string; consequence: string; cta: string }> = {
@@ -80,6 +88,11 @@ export default function ExamsPage() {
       ) : (
       <>
       <section className="stack">
+        <p className="caption quiet">
+          {surface.source === 'gateway'
+            ? 'Each approval is read back from the event store — recorded the moment you approve, never auto-fired.'
+            : 'Each approval is recorded on your explicit action; it persists to the event store when it is reachable.'}
+        </p>
         <div className="ladder" role="group" aria-label="Exam stage" style={{ maxWidth: 520 }}>
           {STAGES.map((s) => (
             <button
@@ -166,7 +179,7 @@ export default function ExamsPage() {
                   ? 'Clean reads sent to the gradebook. Flagged sheets are waiting for a human read.'
                   : `${meta.title} approved. The downstream steps stay gated behind their own approvals.`}
               </span>
-              <Button variant="ghost" size="sm" onClick={() => setApproved((p) => ({ ...p, [stage]: false }))}>
+              <Button variant="ghost" size="sm" onClick={() => reopen(stage)}>
                 Reopen
               </Button>
             </div>

@@ -77,6 +77,15 @@ def _u(v: Any, default: UUID | None = None) -> UUID:
 
 
 def _audit_log() -> Any:
+    """Build the governance audit log ONCE.
+
+    DB-backed when ``clss.governance.dev.audit_database_url`` is set (the Supabase
+    pooler URL — the same DB the web /api/governance writes to) and asyncpg is
+    present: ``build_audit_log`` returns the Postgres adapter, whose pool we
+    ``connect`` on the SHARED event-sink loop (a real pool binds to one loop).
+    Unset / asyncpg-absent -> the in-memory append-only ledger (observable
+    degrade: the ``backend`` label says so). Either way the query contract is
+    identical, so the audit-trail READ works in both modes."""
     global _AUDIT
     if _AUDIT is None:
         try:
@@ -84,7 +93,19 @@ def _audit_log() -> Any:
             audit_db = getattr(settings, "audit_database_url", None)
         except Exception:  # pragma: no cover - settings degrade
             audit_db = None
-        _AUDIT = _gov_audit.build_audit_log(audit_db)
+        log = _gov_audit.build_audit_log(audit_db)
+        # The Postgres adapter needs its pool opened before record/query; the
+        # in-memory ledger has no connect(). Open it on the shared sink loop so
+        # the pool lives where every subsequent record/query runs. Degrade
+        # cleanly (in-memory) if the connect fails (e.g. URL set but DB down).
+        connect = getattr(log, "connect", None)
+        if callable(connect):
+            try:
+                event_sink._run(connect())
+            except Exception as exc:  # pragma: no cover - needs a live DB
+                logger.warning("audit store connect failed; degrading to in-memory: %s", exc)
+                log = _gov_audit.InMemoryAuditLog()
+        _AUDIT = log
     return _AUDIT
 
 

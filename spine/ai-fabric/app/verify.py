@@ -236,19 +236,38 @@ class ConfidenceGate:
         deterministic_checks: list[DeterministicCheck],
         second_model_agrees: bool,
         confidence: float,
+        deterministic_applicable: bool = True,
     ) -> GenerateVerification:
+        """Apply the gate (INVARIANT 7).
+
+        ``deterministic_applicable`` distinguishes two cases the brief names
+        explicitly:
+
+          - a deterministic ORACLE exists (math/physics/visual/schema): the
+            checks MUST be present and ALL pass — this is the default, and an
+            empty/failed check set withholds, exactly as before;
+          - NO deterministic oracle exists (free-form explanatory/conversational
+            content): verification rests on the INDEPENDENT second-model
+            cross-check AND the confidence threshold. The second model is then the
+            verification substrate, not an optional add-on — it must agree and the
+            confidence must clear the gate, so unverified content is never served.
+        """
         det_passed = bool(deterministic_checks) and all(c.passed for c in deterministic_checks)
-        # The gate: deterministic FIRST, then second model, then threshold.
-        served = det_passed and second_model_agrees and confidence >= self.threshold
+        # When an oracle applies, the deterministic dimension must pass. When none
+        # applies, that dimension is N/A and the second-model cross-check carries
+        # verification — the gate NEVER opens without an independent confirmation.
+        det_gate = det_passed if deterministic_applicable else True
+        served = det_gate and second_model_agrees and confidence >= self.threshold
 
         review_reason: str | None = None
         if not served:
             reasons: list[str] = []
-            if not deterministic_checks:
-                reasons.append("no deterministic checks were run")
-            elif not det_passed:
-                failed = [c.name for c in deterministic_checks if not c.passed]
-                reasons.append(f"deterministic checks failed: {', '.join(failed)}")
+            if deterministic_applicable:
+                if not deterministic_checks:
+                    reasons.append("no deterministic checks were run")
+                elif not det_passed:
+                    failed = [c.name for c in deterministic_checks if not c.passed]
+                    reasons.append(f"deterministic checks failed: {', '.join(failed)}")
             if not second_model_agrees:
                 reasons.append("second-model cross-check did not agree")
             if confidence < self.threshold:
@@ -257,7 +276,9 @@ class ConfidenceGate:
 
         return GenerateVerification(
             deterministic_checks=deterministic_checks,
-            deterministic_checks_passed=det_passed,
+            # Reflects the deterministic GATE dimension: the checks passed, or the
+            # dimension was not applicable (no oracle) so it did not block.
+            deterministic_checks_passed=det_gate,
             second_model_agrees=second_model_agrees,
             confidence=confidence,
             gate_threshold=self.threshold,

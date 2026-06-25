@@ -81,6 +81,9 @@ _wall_verifier = WallTokenVerifier(
     principal_cls=_gw_caps.Principal,
     public_key=_gw_settings.jwt_public_key,
     introspect_url=_gw_settings.identity_introspect_url,
+    issuer=_gw_settings.jwt_issuer,
+    audience=_gw_settings.jwt_audience,
+    algorithm=_gw_settings.jwt_algorithm,
 )
 # consent/child-safety remain SAFE defaults (cross-context reads still gate;
 # free text fails closed). Audit is the in-memory ring when no DB is wired. The
