@@ -42,6 +42,16 @@ class Action(str, Enum):
     # (permission ladder).
     APPROVE = "approve"
     EXPORT = "export"
+    # The proactive-loop / permission-ladder rungs (spine A5 workflow runtime):
+    #   recommend -> approve -> execute. RECOMMEND surfaces a suggestion (the
+    #   lowest, non-consequential rung). APPROVE records the human decision (the
+    #   gate itself — it does not require a prior approval token). EXECUTE is the
+    #   execute-with-permission rung for a consequential action: it is marked
+    #   consequential so the WALL forces an X-Approval-Token (it can never
+    #   auto-fire). The consequential write verbs (grade/send/publish/delete/
+    #   charge) route onto EXECUTE so the wall gates them on the ladder.
+    RECOMMEND = "recommend"
+    EXECUTE = "execute"
 
 
 @dataclass(frozen=True)
@@ -188,6 +198,29 @@ _WRITE_NOTE_SCHEMA = RequestSchema(
     strict=True,
 )
 
+# The proactive-loop envelope the wall governs (recommend / approve / execute).
+# It carries opaque refs only: the recommendation under decision, the human's
+# decision (approve/adjust/decline), and the consequence flag the surface marks.
+# The full domain payload (evidence, signals) is the MODULE's concern and travels
+# to the engine handler; the wall validates only this admission envelope. A
+# free-text adjustment note is child-safety screened by the wall.
+_LOOP_SCHEMA = RequestSchema(
+    fields={
+        "subject_uuid": FieldSpec(FieldType.STRING, required=False, min_length=1),
+        "recommendation_id": FieldSpec(FieldType.STRING, required=False, min_length=1),
+        "decision": FieldSpec(
+            FieldType.STRING, required=False,
+            choices=("approve", "adjust", "decline"),
+        ),
+        "decided_by": FieldSpec(FieldType.STRING, required=False, min_length=1),
+        "consequential": FieldSpec(FieldType.BOOLEAN, required=False),
+        "adjustment": FieldSpec(
+            FieldType.STRING, required=False, max_length=2000, free_text=True
+        ),
+    },
+    strict=True,
+)
+
 # Standard role bundles ------------------------------------------------------
 _STAFF = ("admin", "teacher", "coordinator")
 _ADMIN = ("admin",)
@@ -272,4 +305,50 @@ def build_default_registry() -> CapabilityRegistry:
                     rate_limit=_EXPORT_LIMIT,
                 )
             )
+
+        # --- The proactive-loop rungs: recommend -> approve -> execute ------ #
+        # Every module's proactive behaviour rides the spine A5 workflow loop.
+        # RECOMMEND surfaces a suggestion (lowest, non-consequential rung).
+        reg.register(
+            Capability(
+                module=module,
+                action=Action.RECOMMEND,
+                roles=_ALL,
+                abac=_same_institution,
+                consent_scope=consent_scope,
+                consequential=False,
+                schema=_LOOP_SCHEMA,
+                rate_limit=_READ_LIMIT,
+            )
+        )
+        # APPROVE records the human decision — the gate itself, so it does NOT
+        # require a prior approval token (that would be circular). Staff-gated.
+        reg.register(
+            Capability(
+                module=module,
+                action=Action.APPROVE,
+                roles=_STAFF,
+                abac=_same_institution,
+                consent_scope=None,
+                consequential=False,
+                schema=_LOOP_SCHEMA,
+                rate_limit=_WRITE_LIMIT,
+            )
+        )
+        # EXECUTE is the execute-with-permission rung for a consequential action.
+        # It is CONSEQUENTIAL: the wall forces an X-Approval-Token (step 8) and it
+        # can never auto-fire. The consequential write verbs (grade/send/publish/
+        # delete/charge) route onto this action in the deployable door.
+        reg.register(
+            Capability(
+                module=module,
+                action=Action.EXECUTE,
+                roles=_STAFF,
+                abac=_same_institution,
+                consent_scope=None,
+                consequential=True,
+                schema=_LOOP_SCHEMA,
+                rate_limit=_WRITE_LIMIT,
+            )
+        )
     return reg

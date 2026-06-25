@@ -29,6 +29,7 @@ import { openCommandPalette } from './CommandPalette';
 import { useOnline } from '@/lib/useOnline';
 import { useRole } from '@/lib/RoleContext';
 import { useT } from '@/lib/i18n';
+import { useProactive } from '@/lib/useProactive';
 import { GREETING, HOME_CHIPS, ROLE_LABELS } from '@/lib/mock';
 
 /** The molten / ultramarine / violet bloom blobs — atmosphere only, low alpha. */
@@ -67,6 +68,18 @@ export function RoleLanding() {
   const { theme, toggleTheme } = useTheme();
   const { t } = useT();
   const [value, setValue] = useState('');
+  // The suggestion chips are real next actions drawn from the proactive loop
+  // (spec 16.1 / 13 b11): gateway-first via the recommend endpoint, falling back
+  // to the persona-shaped HOME_CHIPS while the feed loads / is unavailable. Each
+  // chip seeds Vidya with that prepared action — the decision still happens in
+  // the conversation or the approval queue (never auto-fires here).
+  const proactive = useProactive();
+  const liveChips =
+    proactive.phase === 'ready' && proactive.recommendations.length > 0
+      ? proactive.recommendations.slice(0, 5).map((r) => ({ key: r.id, label: r.actionLabel, prompt: r.title }))
+      : null;
+  const chips =
+    liveChips ?? HOME_CHIPS[role].map((c) => ({ key: c, label: c, prompt: c }));
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   // The "Auto" model selector — a small anchored frosted popover (spec 16.3 /
   // 16.4). Config only: it picks how the turn is routed, never price or scope;
@@ -232,10 +245,15 @@ export function RoleLanding() {
             </div>
 
             <div className="ch-chips">
-              {HOME_CHIPS[role].map((chip, i) => (
-                <button key={chip} className="ch-chip" onClick={() => ask(chip)}>
+              {chips.map((chip, i) => (
+                <button
+                  key={chip.key}
+                  className="ch-chip"
+                  onClick={() => ask(chip.prompt)}
+                  title={liveChips ? chip.prompt : undefined}
+                >
                   <span className="ch-dot" style={{ background: CHIP_DOTS[i % CHIP_DOTS.length] }} />
-                  {chip}
+                  {chip.label}
                 </button>
               ))}
             </div>

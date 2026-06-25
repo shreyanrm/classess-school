@@ -99,12 +99,33 @@ class Node:
 
 # The kinds of cross-cutting relationship the many-to-many graph models. These
 # are NOT containment — containment is the tree's parent edge.
+#
+# The OVERLAY kinds (ownership / management / affiliation / funding) are the
+# governance overlays the spec calls for (/admin/hierarchy: "ownership/management/
+# affiliation/funding edges"): a school can sit in a group, be managed by a
+# trust, be affiliated to a board/exam centre, and draw funding from a programme
+# all at once — each a scoped, time-bound edge, none of them containment. The
+# remaining kinds model academic cross-cutting (shared department, combined
+# section, feeder, coordination).
 RELATIONSHIP_KINDS: tuple[str, ...] = (
     "shared_department",   # one department serves several campuses/schools
     "combined_section",    # a section drawing learners from >1 grade
     "feeder",              # one node feeds learners into another (campus -> school)
     "coordination",        # a coordinating node scoped over a set of nodes
     "affiliation",         # a node affiliated to another (board/exam centre)
+    "ownership",           # one node OWNS another (a group owns a school)
+    "management",          # one node MANAGES another (a trust runs a campus)
+    "funding",             # one node FUNDS another (a programme funds a grade)
+)
+
+# The governance overlays: who owns, who runs, who is affiliated, who funds.
+# Distinct from the academic cross-cutting edges; surfaced as "relationship
+# overlays" on /admin/hierarchy.
+OVERLAY_KINDS: tuple[str, ...] = (
+    "ownership",
+    "management",
+    "affiliation",
+    "funding",
 )
 
 
@@ -339,6 +360,34 @@ class Hierarchy:
             other_id = rel.target_id if rel.source_id == node_id else rel.source_id
             out.append(self._nodes[other_id])
         return out
+
+    def overlays_of(
+        self,
+        node_id: str,
+        *,
+        kind: Optional[str] = None,
+        as_of: Optional[date] = None,
+        direction: str = "both",
+    ) -> list[Relationship]:
+        """The governance-overlay edges (ownership/management/affiliation/funding)
+        touching ``node_id``.
+
+        A thin filter over :meth:`relationships_of` restricted to the overlay
+        kinds, so a surface can ask "who owns/runs/funds this node as of today"
+        in one call. ``kind`` (if given) must itself be an overlay kind.
+        """
+        if kind is not None and kind not in OVERLAY_KINDS:
+            raise ValueError(
+                f"{kind!r} is not a governance overlay. Overlays: "
+                f"{', '.join(OVERLAY_KINDS)}."
+            )
+        return [
+            rel
+            for rel in self.relationships_of(
+                node_id, kind=kind, as_of=as_of, direction=direction
+            )
+            if rel.kind in OVERLAY_KINDS
+        ]
 
     def all_nodes(self) -> list[Node]:
         return list(self._nodes.values())

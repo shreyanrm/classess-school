@@ -1,15 +1,18 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { CrystallizeNode, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ChildSwitcher } from '../../_components/ChildSwitcher';
 import { ProofArtifact } from '../../_components/ProofArtifact';
 import { ConsentGated } from '../../_components/ConsentGated';
+import { ReadStates } from '../../_components/ReadStates';
+import { useParentRead } from '@/lib/useParentRead';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 import {
   DEFAULT_CHILD_ID,
   findChild,
-  selectChildData,
   TONE_TAG,
   type PlainPoint,
   type TimelineMoment,
@@ -24,7 +27,21 @@ import {
 export default function ParentChildPage() {
   const [childId, setChildId] = useState(DEFAULT_CHILD_ID);
   const child = findChild(childId);
-  const data = useMemo(() => selectChildData(childId), [childId]);
+  // Gateway-first governed read; the mock bundle answers on degrade. Switching
+  // child re-reads the whole timeline. Five designed states via the hook.
+  const { phase, data, source } = useParentRead(childId);
+  const { emit } = useEmit();
+
+  useEffect(() => {
+    if (phase === 'ready') {
+      emit({
+        type: 'surface.viewed',
+        purpose: EVENT_PURPOSE.learning,
+        payload: { surface: 'parent.child', child: childId, source },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, childId]);
 
   return (
     <SurfaceShell
@@ -38,7 +55,11 @@ export default function ParentChildPage() {
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
-      {!child || !data ? (
+      {phase === 'permission-denied' ? (
+        <ConsentGated label={child?.label} />
+      ) : phase !== 'ready' ? (
+        <ReadStates phase={phase} />
+      ) : !child || !data ? (
         <ConsentGated label={child?.label} />
       ) : (
         <>

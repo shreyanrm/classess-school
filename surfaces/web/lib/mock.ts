@@ -199,6 +199,22 @@ export interface Recommendation {
   due: string;
   consequence: string;
   whySeeing: string;
+  /** The prepared next action's verb — the rise-fill primary on the card. */
+  actionLabel: string;
+  /**
+   * Consequential (send/submit/publish/delete/charge/grade) -> the action raises
+   * the ApprovalControl and commits ONLY on Approve. Reversible/safe-automatic
+   * actions execute directly and offer an undo toast. (Permission ladder, `11`.)
+   */
+  consequential: boolean;
+  /** Where Approve/Execute routes the human after it commits — a real page. */
+  target: string;
+  /**
+   * When this recommendation closes a learner's support-dependency/prerequisite
+   * gap into independent mastery, executing it surfaces the CrystallizeNode
+   * moment + a `gap.resolved` line. Optional: the plain-language mastery line.
+   */
+  crystallizes?: string;
 }
 
 export const RECOMMENDATIONS: Recommendation[] = [
@@ -219,6 +235,11 @@ export const RECOMMENDATIONS: Recommendation[] = [
     consequence: 'The ratios unit will stand on a weak prerequisite and the gap will widen.',
     whySeeing:
       'A prerequisite gap was confirmed from fresh, repeated evidence — not a single low score.',
+    // Preparing a reset block is reversible and policy-permitted -> executes
+    // directly with an undo. The teacher still reviews it on the plan page.
+    actionLabel: 'Prepare the reset',
+    consequential: false,
+    target: '/teacher/plan',
   },
   {
     id: 'r2',
@@ -237,6 +258,12 @@ export const RECOMMENDATIONS: Recommendation[] = [
     consequence: 'Support dependency hardens and the student stays reliant on prompts.',
     whySeeing:
       'The independence dimension separated "can do with help" from "can do alone" and flagged the gap.',
+    // Assigning to a student is consequential -> ApprovalControl, commit on
+    // Approve only. Clearing the support-dependency gap is the crystallize moment.
+    actionLabel: 'Assign the task',
+    consequential: true,
+    target: '/teacher/assign',
+    crystallizes: 'Student A can now do this on their own',
   },
 ];
 

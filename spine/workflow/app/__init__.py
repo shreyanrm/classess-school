@@ -30,6 +30,20 @@ from .approvals import (
     ApprovalState,
     InMemoryApprovalLedger,
 )
+from .events import (
+    WORKFLOW_APP,
+    CollectingSink,
+    EventRefused,
+    WorkflowEvent,
+    WorkflowEventSink,
+    WorkflowEventType,
+    action_executed,
+    approval_events_from_trail,
+    approval_given,
+    emit,
+    recommendation_actioned,
+    recommendation_created,
+)
 from .loop import (
     ExecutionResult,
     InterpretedSignal,
@@ -90,6 +104,19 @@ __all__ = [
     "ApprovalRecord",
     "ApprovalLedger",
     "InMemoryApprovalLedger",
+    # events (the workflow/proactive boundary — builders the Integration agent wires)
+    "WorkflowEventType",
+    "WORKFLOW_APP",
+    "EventRefused",
+    "WorkflowEvent",
+    "recommendation_created",
+    "recommendation_actioned",
+    "approval_given",
+    "approval_events_from_trail",
+    "action_executed",
+    "WorkflowEventSink",
+    "CollectingSink",
+    "emit",
     # loop
     "ObservedEvent",
     "InterpretedSignal",

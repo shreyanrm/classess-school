@@ -9,6 +9,10 @@ that claims to be anything else.
 Event types emitted:
   - ``coaching.signal_generated`` — a private coaching reflection was produced for
                                     a teacher's own lesson.
+  - ``growth.plan_updated`` — a teacher's PRIVATE development plan was (re)built
+                              from their own signals over time (also private +
+                              teacher-first; carries a trajectory shape, never a
+                              score, rank, or another teacher's data).
   - ``quality.review_signed_off`` — a HUMAN reviewer signed off a quality review
                                     (carries the opaque reviewer ref; refuses to
                                     build without one — INVARIANT 8).
@@ -48,12 +52,16 @@ Purpose = Literal[
 
 TeacherGrowthEventType = Literal[
     "coaching.signal_generated",
+    "growth.plan_updated",
     "quality.review_signed_off",
     "continuity.handover_recorded",
 ]
 
 # B10 event types that are ALWAYS private + teacher-first, regardless of caller.
-_PRIVATE_TYPES: frozenset[str] = frozenset({"coaching.signal_generated"})
+# A development-plan update is just as private as a coaching signal.
+_PRIVATE_TYPES: frozenset[str] = frozenset(
+    {"coaching.signal_generated", "growth.plan_updated"}
+)
 
 
 def _now_iso() -> str:
@@ -130,6 +138,28 @@ def build_coaching_signal_payload(
         "dimension": dimension,
         "direction": direction,
         "confidence": confidence,
+        "private": True,
+        "visibility": "teacher_first",
+    }
+
+
+def build_plan_updated_payload(
+    *,
+    teacher_ref: str,
+    lessons_observed: int,
+    focus_dimensions: list[str],
+) -> dict[str, Any]:
+    """Payload for ``growth.plan_updated`` — a private development plan changed.
+
+    Carries the coverage (how many lessons informed the plan) and the dimensions
+    currently in focus — the *shape* only. It never carries the free-text plan,
+    a per-dimension trajectory verdict for another reader to grade, a score, or a
+    rank. The detail stays in the teacher's private plan.
+    """
+    return {
+        "teacher_ref": teacher_ref,
+        "lessons_observed": lessons_observed,
+        "focus_dimensions": list(focus_dimensions),
         "private": True,
         "visibility": "teacher_first",
     }
@@ -274,6 +304,30 @@ class EventEmitter:
             consent_ref=consent_ref,
             payload=payload,
             event_type="coaching.signal_generated",
+            occurred_at=occurred_at,
+        )
+        return self.emit(envelope)
+
+    def emit_plan_updated(
+        self,
+        *,
+        canonical_uuid: str,
+        consent_ref: str,
+        teacher_ref: str,
+        lessons_observed: int,
+        focus_dimensions: list[str],
+        occurred_at: str | None = None,
+    ) -> EmittedEvent:
+        payload = build_plan_updated_payload(
+            teacher_ref=teacher_ref,
+            lessons_observed=lessons_observed,
+            focus_dimensions=focus_dimensions,
+        )
+        envelope = build_envelope(
+            canonical_uuid=canonical_uuid,
+            consent_ref=consent_ref,
+            payload=payload,
+            event_type="growth.plan_updated",
             occurred_at=occurred_at,
         )
         return self.emit(envelope)

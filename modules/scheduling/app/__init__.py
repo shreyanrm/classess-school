@@ -12,6 +12,11 @@ protection, and teacher knowledge transfer. The package surface:
                        produces ranked, human-approvable substitute options.
   - ``pacing``       — planned-vs-delivered tracking, drift detection, and the
                        teacher knowledge-transfer (handover) note.
+  - ``optimisation`` — the calendar's CONTINUOUS-OPTIMISATION loop: measures
+                       instructional time lost when the calendar changes,
+                       re-projects whether each plan still finishes the term, and
+                       recommends a calendar response (a compensatory day or a
+                       re-pace) for human approval. Never reshapes the calendar.
   - ``events``       — emit timetable/attendance-trigger/pacing events on the
                        contract envelope (opaque ids only; append-only).
   - ``config``       — env-var NAMES only (degrades gracefully with none set).
@@ -28,6 +33,7 @@ from . import (  # noqa: F401
     calendar,
     config,
     events,
+    optimisation,
     pacing,
     substitution,
     timetable,
@@ -37,6 +43,7 @@ __all__ = [
     "calendar",
     "config",
     "events",
+    "optimisation",
     "pacing",
     "substitution",
     "timetable",

@@ -3,6 +3,8 @@
 import { useMemo, useState } from 'react';
 import { Button, Icon, ProgressBar, SpotlightCard, Stat, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { RecommendationItem } from '../../_components/RecommendationItem';
+import { ReadStates } from '../../_components/ReadStates';
 import {
   TRACK_USAGE,
   TRACK_LABEL,
@@ -10,23 +12,35 @@ import {
   LINEAGE_LOG,
   type TrackUsage,
 } from '@/lib/ring2Data';
+import { AGENTS, agentEnabled, type Agent } from '@/lib/adminData';
+import { useStore } from '@/lib/useStore';
+import { setAgentEnabled } from '@/lib/store';
+import { useProactive } from '@/lib/useProactive';
 
 /**
- * The AI control centre — model usage with a clear Track 1 / Track 2 split, the
- * confidence-gate pass/withhold picture, an emergency-disable control that takes
- * an explicit human confirmation, and the break-glass + lineage view. Autonomy
- * is always bounded: the gate withholds low-confidence output for a human, and
- * nothing consequential auto-fires.
+ * The AI control centre — the institution-level governance of which agents run,
+ * the tools they may reach, and model routing, with a LIVE approval queue and an
+ * emergency disable. The most powerful surface, the best governed:
+ *   - Per-agent governance: enable/disable each agent. The choice PERSISTS
+ *     (survives reload). A consequential agent may prepare but never act on its
+ *     own — its act is gated by the permission ladder.
+ *   - Approval queue: the live proactive feed, read gateway-first; an Approve
+ *     runs the prepared action THROUGH the ladder (the wall enforces it).
+ *   - The confidence gate withholds low-confidence output for a human.
+ *   - Emergency disable halts all autonomy at once, with a typed confirmation.
+ * Every decision keeps its lineage in an append-only, immutable log.
  */
 export default function AdminControlCentrePage() {
   const totals = useMemo(() => gateTotals(TRACK_USAGE), []);
+  const { adminConfig } = useStore();
+  const proactive = useProactive();
 
   return (
     <SurfaceShell
       eyebrow="Governance"
       title="The AI control centre"
-      dockIntro="This is where you watch and bound the intelligence. The confidence gate holds back anything uncertain for a human. Track 1 and Track 2 are reported apart. Ask me to explain any number here."
-      dockChips={['What does the gate withhold', 'Track 1 vs Track 2', 'Show the break-glass log']}
+      dockIntro="This is where you watch and bound the intelligence. You choose which agents run and their tools; the confidence gate holds back anything uncertain; the approval queue acts only on your say-so. Ask me to explain any number here."
+      dockChips={['What does the gate withhold', 'Which agents are running', 'Show the break-glass log']}
     >
       <section className="stack">
         <p className="overline">Confidence gate, this window</p>
@@ -52,6 +66,54 @@ export default function AdminControlCentrePage() {
             generate-and-verify rule, made visible.
           </p>
         </SpotlightCard>
+      </section>
+
+      <section className="stack">
+        <p className="overline">Agents and their tools</p>
+        <p className="caption quiet">
+          Which agents run, what they may reach, and on which model track. Turning one on or off is
+          saved and survives a reload. A consequential agent can prepare but never act on its own.
+        </p>
+        <div className="cols-2">
+          {AGENTS.map((agent) => (
+            <AgentCard
+              key={agent.id}
+              agent={agent}
+              enabled={agentEnabled(agent, adminConfig?.agents)}
+              onToggle={(next) => setAgentEnabled(agent.id, next)}
+            />
+          ))}
+        </div>
+      </section>
+
+      <section className="stack">
+        <p className="overline">Approval queue</p>
+        <p className="caption quiet">
+          What the agents have prepared, waiting on your decision. Approving runs the action through
+          the permission ladder — nothing consequential fires until you approve.
+        </p>
+        {proactive.phase !== 'ready' ? (
+          <ReadStates phase={proactive.phase} onRetry={proactive.refresh} />
+        ) : proactive.recommendations.length === 0 ? (
+          <SpotlightCard>
+            <div className="empty">
+              <Icon name="check" size="lg" className="glyph" />
+              <h4 className="body">Nothing needs you right now</h4>
+              <p>The queue is clear. Prepared actions will appear here as agents surface them.</p>
+            </div>
+          </SpotlightCard>
+        ) : (
+          <div className="stack">
+            {proactive.source === 'fallback' ? (
+              <p className="caption quiet">
+                Showing the last-known queue. It will refresh from the live spine when it is reachable.
+              </p>
+            ) : null}
+            {proactive.recommendations.map((rec) => (
+              <RecommendationItem key={rec.id} rec={rec} onActioned={proactive.actioned} />
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="stack">
@@ -93,6 +155,66 @@ export default function AdminControlCentrePage() {
         </div>
       </section>
     </SurfaceShell>
+  );
+}
+
+/**
+ * A single governed agent — its purpose, the tools it may reach, its model
+ * track, and a real enable/disable that persists. A consequential agent shows
+ * the ladder note: it can prepare but never act on its own.
+ */
+function AgentCard({
+  agent,
+  enabled,
+  onToggle,
+}: {
+  agent: Agent;
+  enabled: boolean;
+  onToggle: (next: boolean) => void;
+}) {
+  return (
+    <SpotlightCard>
+      <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+        <div>
+          <h3 className="body-lg" style={{ margin: 0 }}>
+            {agent.name}
+          </h3>
+          <p className="body-sm muted" style={{ marginTop: 'var(--space-2)' }}>
+            {agent.purpose}
+          </p>
+        </div>
+        <Tag tone={enabled ? 'success' : 'neutral'} dot>
+          {enabled ? 'Running' : 'Paused'}
+        </Tag>
+      </div>
+
+      <div className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap', marginTop: 'var(--space-3)' }}>
+        <Tag tone="neutral">{TRACK_LABEL[agent.track]}</Tag>
+        {agent.consequential ? <Tag tone="warning">Prepares only — human acts</Tag> : null}
+      </div>
+
+      <p className="caption muted" style={{ marginTop: 'var(--space-3)' }}>
+        Tools: {agent.tools.join(' · ')}
+      </p>
+
+      <div className="rec-actions" style={{ marginTop: 'var(--space-3)' }}>
+        <Button
+          variant={enabled ? 'secondary' : 'primary'}
+          size="sm"
+          aria-pressed={enabled}
+          onClick={() => onToggle(!enabled)}
+        >
+          {enabled ? 'Pause this agent' : 'Enable this agent'}
+        </Button>
+        <span className="caption muted">
+          {enabled
+            ? agent.consequential
+              ? 'Running. It prepares; nothing it touches fires without your approval.'
+              : 'Running. It observes and recommends only.'
+            : 'Paused and saved. It will not run until you enable it.'}
+        </span>
+      </div>
+    </SpotlightCard>
   );
 }
 

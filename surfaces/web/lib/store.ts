@@ -246,6 +246,22 @@ export interface StoreState {
    * (voice + proactive on; sharing reads off).
    */
   preferences?: Preferences;
+  /**
+   * Admin governance configuration the control-centre persists: which agents are
+   * enabled, and the active policy versions. A map of opaque id -> boolean (agent
+   * enabled) and id -> version label (policy in force). Undefined entries follow
+   * their declared defaults so an un-touched control-centre reads its baseline.
+   * Survives reload — admin config is real configuration, not session state.
+   */
+  adminConfig?: AdminConfig;
+}
+
+/** Admin governance configuration, persisted across reload. */
+export interface AdminConfig {
+  /** Agent id -> enabled. Absent means "follow the agent's declared default". */
+  agents?: Record<string, boolean>;
+  /** Policy id -> the version label set in force. Absent means the latest. */
+  policyVersions?: Record<string, string>;
 }
 
 /** User-facing behaviour switches, all explicit and revocable. */
@@ -288,6 +304,28 @@ export function setPreference(key: keyof Preferences, value: boolean): void {
 /** Persist the chosen UI locale. Survives reload; read by the LocaleProvider. */
 export function setLocale(locale: string): void {
   updateStore((s) => ({ ...s, locale }));
+}
+
+/** Persist an agent's enabled state (admin control-centre). Survives reload. */
+export function setAgentEnabled(agentId: string, enabled: boolean): void {
+  updateStore((s) => ({
+    ...s,
+    adminConfig: {
+      ...s.adminConfig,
+      agents: { ...s.adminConfig?.agents, [agentId]: enabled },
+    },
+  }));
+}
+
+/** Persist the policy version set in force (admin governance). Survives reload. */
+export function setPolicyVersion(policyId: string, version: string): void {
+  updateStore((s) => ({
+    ...s,
+    adminConfig: {
+      ...s.adminConfig,
+      policyVersions: { ...s.adminConfig?.policyVersions, [policyId]: version },
+    },
+  }));
 }
 
 // ---------------------------------------------------------------------------

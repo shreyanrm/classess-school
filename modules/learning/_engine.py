@@ -24,16 +24,27 @@ credentials; in the degraded in-memory path it makes no network call at all.
 
 from __future__ import annotations
 
+import importlib.util
 import os
 import sys
 from functools import lru_cache
 from typing import Any
 
+# The spine intelligence package ships as ``app`` (designed to be the sole
+# ``app`` on its own path). In the SINGLE DEPLOYABLE many ``app`` packages live
+# in one process (the gateway, each spine service, ...), so a bare ``import app``
+# here would bind whichever ``app`` won the import race to ``sys.modules['app']``
+# — a latent, order-dependent collision. We load the engine under a UNIQUE alias
+# instead (same discipline as ``backend/loader.py``), so it never touches the
+# shared bare ``app`` name. Distinct from the deployable's own alias to avoid
+# clobbering it when both run in one process.
+_ENGINE_ALIAS = "clss_intelligence_engine"
+
 
 def _spine_intelligence_root() -> str | None:
     """Locate ``spine/intelligence`` (whose package is ``app``) relative to this
-    file, walking up to the repo root. Returns the directory to put on sys.path,
-    or None if not found."""
+    file, walking up to the repo root. Returns the directory containing the
+    ``app`` package, or None if not found."""
     here = os.path.dirname(os.path.abspath(__file__))
     # modules/learning -> modules -> repo root.
     cur = here
@@ -50,21 +61,38 @@ def _spine_intelligence_root() -> str | None:
 
 @lru_cache(maxsize=1)
 def _load() -> Any | None:
-    """Import the spine intelligence ``app`` package, putting its root on
-    sys.path. Cached. Returns the module object or None when unavailable
-    (missing dependency / missing spine)."""
+    """Import the spine intelligence ``app`` package UNDER A UNIQUE ALIAS, by its
+    explicit filesystem path. Cached. Returns the module object or None when
+    unavailable (missing dependency / missing spine).
+
+    Loading by path + alias (instead of a bare ``import app`` after a
+    ``sys.path`` insert) means this never binds — or reads — the shared top-level
+    ``app`` name, so it cannot collide with the other ``app`` packages composed
+    into the single deployable. If the engine was already loaded under this alias
+    in-process, we reuse it."""
+    if _ENGINE_ALIAS in sys.modules:
+        return sys.modules[_ENGINE_ALIAS]
     root = _spine_intelligence_root()
     if root is None:
         return None
-    if root not in sys.path:
-        sys.path.insert(0, root)
+    pkg_dir = os.path.join(root, "app")
+    init = os.path.join(pkg_dir, "__init__.py")
+    if not os.path.isfile(init):
+        return None
     try:
-        import app  # type: ignore  # the spine intelligence package
-
-        return app
+        spec = importlib.util.spec_from_file_location(
+            _ENGINE_ALIAS, init, submodule_search_locations=[pkg_dir]
+        )
+        assert spec and spec.loader
+        engine = importlib.util.module_from_spec(spec)
+        sys.modules[_ENGINE_ALIAS] = engine
+        spec.loader.exec_module(engine)
+        return engine
     except Exception:
         # Most likely pydantic is not installed in this environment. The flows
-        # degrade to their own deterministic heuristics.
+        # degrade to their own deterministic heuristics. Drop the half-bound
+        # alias so a later retry under a fixed env can succeed.
+        sys.modules.pop(_ENGINE_ALIAS, None)
         return None
 
 

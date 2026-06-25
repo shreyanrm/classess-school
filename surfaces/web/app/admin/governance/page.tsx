@@ -3,7 +3,13 @@
 import { useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { AI_CONTROLS, AUDIT_LOG, PERMISSION_MATRIX, type AiControl } from '@/lib/mock';
+import { POLICIES, policyInForce, type Policy } from '@/lib/adminData';
+import { useStore } from '@/lib/useStore';
+import { setPolicyVersion } from '@/lib/store';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 
 /**
  * Governance and audit — policy, the permissions matrix, the AI control centre,
@@ -56,6 +62,20 @@ export default function AdminGovernancePage() {
       </section>
 
       <section className="stack">
+        <p className="overline">Policies</p>
+        <p className="caption quiet">
+          Policies flow down the tree and are versioned with effective dates. Setting a different
+          version in force is a consequential governance action — it is recorded to the immutable
+          audit trail.
+        </p>
+        <div className="stack" style={{ gap: 'var(--space-3)' }}>
+          {POLICIES.map((policy) => (
+            <PolicyCard key={policy.id} policy={policy} />
+          ))}
+        </div>
+      </section>
+
+      <section className="stack">
         <p className="overline">AI control centre</p>
         <div className="cols-2">
           {AI_CONTROLS.map((c) => (
@@ -84,6 +104,116 @@ export default function AdminGovernancePage() {
 
       <BreakGlass />
     </SurfaceShell>
+  );
+}
+
+/**
+ * A versioned policy — the version in force (persisted), the full version ledger
+ * with effective dates, and a consequential "set in force" control. Choosing a
+ * version emits an attributed, consent-stamped audit event and persists the
+ * choice; nothing changes silently.
+ */
+function PolicyCard({ policy }: { policy: Policy }) {
+  const { adminConfig } = useStore();
+  const { emit } = useEmit();
+  const inForce = policyInForce(policy, adminConfig?.policyVersions);
+  const [expanded, setExpanded] = useState(false);
+  const [pending, setPending] = useState<string | null>(null);
+
+  async function setInForce(version: string) {
+    setPolicyVersion(policy.id, version);
+    setPending(null);
+    await emit({
+      type: 'policy.version.set',
+      purpose: EVENT_PURPOSE.teaching,
+      payload: { policyId: policy.id, version },
+    });
+  }
+
+  return (
+    <SpotlightCard>
+      <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
+        <div>
+          <h3 className="body-lg" style={{ margin: 0 }}>
+            {policy.name}
+          </h3>
+          <p className="caption muted" style={{ marginTop: 4 }}>
+            {policy.domain}
+          </p>
+        </div>
+        <Tag tone="info" dot>
+          {inForce.version} in force
+        </Tag>
+      </div>
+
+      <p className="body-sm" style={{ marginTop: 'var(--space-3)' }}>
+        <span className="quiet">In force since {inForce.effective}. </span>
+        {inForce.summary}
+      </p>
+
+      <div className="rec-actions" style={{ marginTop: 'var(--space-3)' }}>
+        <Button
+          variant="ghost"
+          size="sm"
+          aria-expanded={expanded}
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <Icon name={expanded ? 'chevron-down' : 'chevron-right'} size="sm" />
+          {expanded ? 'Hide version history' : 'Version history'}
+        </Button>
+      </div>
+
+      {expanded ? (
+        <div className="admin-list" style={{ marginTop: 'var(--space-3)' }}>
+          {policy.versions.map((v) => {
+            const current = v.version === inForce.version;
+            const confirming = pending === v.version;
+            return (
+              <div key={v.version} className="admin-list-row" style={{ alignItems: 'flex-start' }}>
+                <div>
+                  <div className="body-sm row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
+                    {v.version}
+                    {current ? <Tag tone="success">In force</Tag> : null}
+                  </div>
+                  <div className="caption muted">
+                    Effective {v.effective} · set by {v.setBy}
+                  </div>
+                  <div className="caption muted" style={{ marginTop: 4, maxWidth: 520 }}>
+                    {v.summary}
+                  </div>
+                  {confirming ? (
+                    <div className="rec-actions" style={{ marginTop: 'var(--space-2)' }}>
+                      <Button variant="accent" size="sm" onClick={() => setInForce(v.version)}>
+                        Set {v.version} in force and record
+                      </Button>
+                      <Button variant="ghost" size="sm" onClick={() => setPending(null)}>
+                        Cancel
+                      </Button>
+                      <span className="caption muted">
+                        This changes the policy in force across the tree and is recorded to audit.
+                      </span>
+                    </div>
+                  ) : null}
+                </div>
+                {!current && !confirming ? (
+                  <Button variant="secondary" size="sm" onClick={() => setPending(v.version)}>
+                    Set in force
+                  </Button>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+
+      <EvidenceDrawer
+        evidence={[
+          'Each version is an immutable record with an effective date and the role that set it; older versions are never edited.',
+          'Setting a version in force flows the policy down the tree and emits an attributed audit event.',
+        ]}
+        whySeeing="Versioning with effective dates keeps governance accountable: you can see exactly which rules were in force at any point, and who changed them."
+      />
+    </SpotlightCard>
   );
 }
 

@@ -56,3 +56,32 @@ def test_single_language_text_is_not_flagged_as_code_switched():
 def test_protected_terms_default_glossary_is_present():
     ti = _ti()
     assert "photosynthesis" in ti.protected_terms()
+
+
+def test_render_for_reader_with_no_preference_passes_text_through_intact():
+    # No preferred language -> honoured as "no translation wanted", never guessed.
+    ti = _ti()
+    result = ti.render_for_reader("Revise photosynthesis tonight.", preferred_lang=None)
+    assert result.status == "passthrough"
+    assert result.rendered_text == "Revise photosynthesis tonight."  # never dropped.
+    assert result.target_lang == "und"
+    assert "photosynthesis" in result.preserved_terms
+
+
+def test_render_for_reader_blank_preference_is_treated_as_no_preference():
+    ti = _ti()
+    result = ti.render_for_reader("Hello.", preferred_lang="  ")
+    assert result.status == "passthrough"
+    assert result.target_lang == "und"
+
+
+def test_render_for_reader_uses_the_readers_preferred_language_when_set():
+    # With a preference but no provider, it degrades to passthrough toward that
+    # language (never garbled, never sent off-box) — subject terms still kept.
+    ti = _ti()
+    result = ti.render_for_reader(
+        "The denominator stays the same.", preferred_lang="hi"
+    )
+    assert result.target_lang == "hi"
+    assert result.status == "passthrough"
+    assert "denominator" in result.preserved_terms

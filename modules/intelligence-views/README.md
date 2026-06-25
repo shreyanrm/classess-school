@@ -34,7 +34,8 @@ metrics are banded into plain language; the raw value stays internal.
 | `app/study_quadrant.py` | The effort x outcome quadrant; four quadrants, each a different response. |
 | `app/target_analytics.py` | Target (human-set goal) vs trajectory, with gap-to-target and full explainability. |
 | `app/prediction.py` | Trajectory / forecast from mastery + coverage; reproducible and advisory. |
-| `app/ask_anything.py` | A governed natural-language query over the semantic layer: consent-gated, safety-screened, one-definition. |
+| `app/ask_anything.py` | A governed natural-language query over the semantic layer: consent-gated, safety-screened, one-definition. `ask_aggregate` composes one question across many scopes (the `/admin/ask` dashboard), every scope resolved through the same definition so the rows are comparable, every gate held per scope. |
+| `app/resolution.py` | Surfaces `gap.resolved` — "what improved after the last intervention". Diffs a previous vs current governed profile (the same rule the spine emitter uses) into plain-language, fully evidence-linked improvement items; rolls up across a cohort with a learner count. Mints nothing; advisory. |
 | `app/spine_workflow.py` | Bridge that loads the spine workflow builders as source without an `app` name collision. |
 | `app/config.py` | Settings; degrades gracefully and names (only) the env vars it needs. |
 | `tests/` | pytest: every alert carries the full explainability set; one-metric-one-definition is enforced; predictions are reproducible; ask-anything governance holds. Import-safe, no network/DB. |

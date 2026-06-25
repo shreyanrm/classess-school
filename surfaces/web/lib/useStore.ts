@@ -44,6 +44,7 @@ export function useStore() {
     profile: state.profile,
     school: state.school,
     preferences: state.preferences,
+    adminConfig: state.adminConfig,
     firstRun: isFirstRun(state),
   };
 }

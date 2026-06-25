@@ -1306,6 +1306,11 @@ export function specToInline(spec: RenderSpec): InlineCard | null {
           `Owner: ${spec.owner} · Due: ${spec.due}`,
         ],
         confidence: spec.confidence,
+        // A recommendation in the thread promotes to the LIVE approval queue
+        // (Path-4, spec 16.2), where the real recommend/approve/execute loop runs
+        // — the decision and its audit happen there, never auto-fired in chat.
+        openHref: '/proactive',
+        openLabel: 'Open the approval queue',
       };
     case 'explain':
       return {

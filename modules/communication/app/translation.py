@@ -208,6 +208,37 @@ class TranslationInterface:
             "NAME). Until then leave them unset to use the passthrough path."
         )
 
+    def render_for_reader(
+        self,
+        text: str,
+        *,
+        preferred_lang: str | None,
+        source_lang: str = "und",
+    ) -> TranslationResult:
+        """Render ``text`` into a READER's preferred language (B9: translate-to-
+        preferred-language).
+
+        ``preferred_lang`` is the reader's chosen interface language (resolved
+        from their account/settings by the caller — this module holds no profile).
+        An absent/undetermined preference is honoured as "no translation wanted":
+        the text is returned intact (passthrough), never guessed at and never sent
+        off-box. Otherwise this delegates to :meth:`render`, which preserves
+        subject terminology and code-switch spans.
+        """
+        target = (preferred_lang or "").strip() or "und"
+        if target == "und":
+            return TranslationResult(
+                source_text=text,
+                rendered_text=text,  # no preference -> intact, never guessed.
+                source_lang=source_lang,
+                target_lang="und",
+                status="passthrough",
+                preserved_terms=self.find_protected_terms(text),
+                spans=self.detect_spans(text),
+                provider="none_passthrough",
+            )
+        return self.render(text, target_lang=target, source_lang=source_lang)
+
     def mask_protected_terms(self, text: str) -> tuple[str, dict[str, str]]:
         """Replace protected terms with opaque placeholders (for the wired path).
 

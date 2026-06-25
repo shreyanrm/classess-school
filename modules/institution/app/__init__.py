@@ -20,8 +20,12 @@ Package surface:
   - ``blueprint``  — the institution blueprint wizard (structure + roster +
                      policy) producing a validated, tenant-scoped config.
   - ``policy``     — policy inheritance down the hierarchy (a child inherits and
-                     may override a parent) plus hyperlocalization (language,
-                     region, calendar).
+                     may override a parent), VERSIONED with effective dates, plus
+                     hyperlocalization (language, region, calendar, board terms,
+                     local exam format).
+  - ``calendar``   — academic year, configurable working-day pattern, and
+                     holidays, with working-day arithmetic; governed as policy
+                     (inherits down the hierarchy under a well-known key).
   - ``tenancy``    — logical multi-tenancy: every record carries a tenant scope;
                      cross-tenant reads are denied by default.
   - ``events``     — emit structure/roster/policy events on the contract shapes
@@ -45,6 +49,7 @@ __all__ = [
     "hierarchy",
     "blueprint",
     "policy",
+    "calendar",
     "tenancy",
     "events",
 ]

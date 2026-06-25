@@ -41,7 +41,7 @@ from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from . import dispatch, intelligence_views, loader
+from . import dispatch, intelligence_read_app, intelligence_views, loader, workflow_app
 from .wall_auth import WallTokenVerifier
 
 logging.basicConfig(level=logging.INFO)
@@ -178,19 +178,33 @@ _ACTION_ALIASES = {
     "update": "write",
     "export": "export",
     "approve": "approve",
+    # The proactive-loop rungs (spine A5 workflow runtime). RECOMMEND surfaces a
+    # suggestion (lowest rung); APPROVE records the human decision (the gate);
+    # EXECUTE is the consequential execute-with-permission rung. ACTIONED is the
+    # web's human-decision write of the loop — it maps to APPROVE (recording the
+    # decision; declines never reach the wall, and the consequential commit rides
+    # the EXECUTE rung the surface raises via the ApprovalControl).
+    "recommend": "recommend",
+    "execute": "execute",
+    "actioned": "approve",
     # Consequential write verbs the surfaces use map onto the canonical "write"
     # action the wall enforces (RBAC/ABAC/consent/approval/child-safety/audit).
     # The semantic name stays legible at the door; the wall still gates it as a
     # write, so a surface can never reach a module without passing the wall.
     "confirm": "write",   # attendance confirm
-    "send": "write",      # messages / communication send (permission ladder)
     "submit": "write",    # coursement submission (permission ladder)
     "emit": "write",      # event append
-    "publish": "write",   # school structure publish
     "converse": "write",  # Vidya turn (the orchestrator's tool-use ladder)
-    "grade": "write",     # evaluation grade (permission ladder)
-    "delete": "write",    # erasure
     "erase": "write",     # identity erasure
+    # The CONSEQUENTIAL verbs (INVARIANT 8 / spec): grade/send/publish/delete/
+    # charge route onto the EXECUTE rung, which is registered consequential=true.
+    # The wall therefore FORCES an X-Approval-Token (step 8, APPROVAL_REQUIRED)
+    # before any of them can reach a module — they can never auto-fire.
+    "send": "execute",      # messages / communication send (permission ladder)
+    "publish": "execute",   # school structure / paper publish (permission ladder)
+    "grade": "execute",     # evaluation grade — a high-stakes mark (ladder)
+    "delete": "execute",    # destructive delete (permission ladder)
+    "charge": "execute",    # a payment charge (permission ladder)
     # Named LOOP operations — the door keeps the semantic name to pick the
     # engine handler (see backend/dispatch.py), but the wall still gates each as
     # its canonical action. Reads gate as reads; consequential writes (grade /
@@ -333,6 +347,27 @@ for _name, _svc_app in _spine_apps:
     _MOUNTED_SPINE.add(_name)
     _CHILD_APPS.append(_svc_app)
     logger.info("mounted spine service in-process: /internal/%s", _name)
+
+# Mount the intelligence READ faucet under /internal/intelligence so the gateway
+# can forward learning.read / intelligence-views.read -> POST /v1/intelligence/read
+# in-process (config.capability_targets() points the intelligence upstream here
+# when self_base_url is set). This stands up the route that routing.py already
+# maps to (previously glue-pending). It reuses the ONE engine via intelligence_views.
+app.mount("/internal/intelligence", intelligence_read_app.app)
+_MOUNTED_SPINE.add("intelligence")
+_CHILD_APPS.append(intelligence_read_app.app)
+logger.info("mounted intelligence read faucet in-process: /internal/intelligence")
+
+# Mount the WORKFLOW runtime (spine A5) under /internal/workflow so the gateway
+# can forward workflow/intelligence-views recommend/approve/execute -> the
+# proactive loop in-process (config.capability_targets() points the workflow
+# upstream here when self_base_url is set). The loop persists its four events to
+# the event store via backend.event_sink (the seam). This MOUNTS the pure-python
+# workflow library (loaded under a unique alias) into the deployable.
+app.mount("/internal/workflow", workflow_app.app)
+_MOUNTED_SPINE.add("workflow")
+_CHILD_APPS.append(workflow_app.app)
+logger.info("mounted workflow runtime in-process: /internal/workflow")
 
 # Mount the gateway (the wall) LAST, at the root, so it is the front door for the
 # governed /v1/* surface. Done after /health and /capabilities so those explicit

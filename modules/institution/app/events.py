@@ -53,7 +53,26 @@ STRUCTURE_CHANGED = "institution.structure.changed"
 ROSTER_CHANGED = "institution.roster.changed"
 POLICY_CHANGED = "institution.policy.changed"
 
-INSTITUTION_EVENT_TYPES = (STRUCTURE_CHANGED, ROSTER_CHANGED, POLICY_CHANGED)
+# Canonical catalog names (12 · event catalog: institution.configured,
+# membership.granted, policy.changed). These are the names the spine contract
+# uses; emitted additively alongside the institution-namespaced operational
+# events above. ``institution.configured`` is the one-shot "the digital twin
+# exists" event the blueprint wizard emits on provisioning; ``policy.changed``
+# carries the effective date + version (the versioned/effective-dated audit
+# record the policy surface needs); ``membership.granted`` is the catalog name
+# for a roster grant.
+INSTITUTION_CONFIGURED = "institution.configured"
+POLICY_CHANGED_CANONICAL = "policy.changed"
+MEMBERSHIP_GRANTED = "membership.granted"
+
+INSTITUTION_EVENT_TYPES = (
+    STRUCTURE_CHANGED,
+    ROSTER_CHANGED,
+    POLICY_CHANGED,
+    INSTITUTION_CONFIGURED,
+    POLICY_CHANGED_CANONICAL,
+    MEMBERSHIP_GRANTED,
+)
 
 
 def _now_iso() -> str:
@@ -126,16 +145,47 @@ def build_policy_payload(
     value: Any,
     locked: bool,
     action: Literal["set", "overridden", "cleared"],
+    effective_from: str | None = None,
+    version: int | None = None,
 ) -> dict[str, Any]:
     """A policy-change payload. ``value`` is a setting (e.g. a language code),
-    never PII; ``locked`` records whether it seals descendants."""
-    return {
+    never PII; ``locked`` records whether it seals descendants. ``effective_from``
+    (ISO date) and ``version`` carry the versioned/effective-dated audit fields so
+    a consumer can reconstruct the policy timeline (spec /admin/policies:
+    "versioned with effective dates + audit")."""
+    payload: dict[str, Any] = {
         "institution_id": institution_id,
         "node_id": node_id,
         "key": key,
         "value": value,
         "locked": locked,
         "action": action,
+    }
+    if effective_from is not None:
+        payload["effective_from"] = effective_from
+    if version is not None:
+        payload["version"] = version
+    return payload
+
+
+def build_configured_payload(
+    *,
+    institution_id: str,
+    name: str,
+    node_count: int,
+    member_count: int,
+    policy_count: int,
+) -> dict[str, Any]:
+    """An ``institution.configured`` payload — the one-shot "the digital twin
+    exists" provisioning summary. ``name`` is the institution's OWN display name
+    (data, never a person). Counts let a consumer size the twin without reading
+    the structure. Carries the opaque ``institution_id`` tenant scope."""
+    return {
+        "institution_id": institution_id,
+        "name": name,
+        "node_count": node_count,
+        "member_count": member_count,
+        "policy_count": policy_count,
     }
 
 
@@ -316,8 +366,15 @@ class EventEmitter:
         value: Any,
         locked: bool,
         action: Literal["set", "overridden", "cleared"],
+        effective_from: str | None = None,
+        version: int | None = None,
+        event_type: str = POLICY_CHANGED,
         occurred_at: str | None = None,
     ) -> EmittedEvent:
+        """Emit a policy-change event. Defaults to the institution-namespaced
+        ``institution.policy.changed``; pass ``event_type=POLICY_CHANGED_CANONICAL``
+        for the catalog name. ``effective_from``/``version`` carry the
+        versioned/effective-dated audit fields."""
         payload = build_policy_payload(
             institution_id=institution_id,
             node_id=node_id,
@@ -325,12 +382,43 @@ class EventEmitter:
             value=value,
             locked=locked,
             action=action,
+            effective_from=effective_from,
+            version=version,
         )
         envelope = build_envelope(
             canonical_uuid=canonical_uuid,
             consent_ref=consent_ref,
             payload=payload,
-            event_type=POLICY_CHANGED,
+            event_type=event_type,
+            occurred_at=occurred_at,
+        )
+        return self.emit(envelope)
+
+    def emit_configured(
+        self,
+        *,
+        canonical_uuid: str,
+        consent_ref: str,
+        institution_id: str,
+        name: str,
+        node_count: int,
+        member_count: int,
+        policy_count: int,
+        occurred_at: str | None = None,
+    ) -> EmittedEvent:
+        """Emit the one-shot ``institution.configured`` provisioning event."""
+        payload = build_configured_payload(
+            institution_id=institution_id,
+            name=name,
+            node_count=node_count,
+            member_count=member_count,
+            policy_count=policy_count,
+        )
+        envelope = build_envelope(
+            canonical_uuid=canonical_uuid,
+            consent_ref=consent_ref,
+            payload=payload,
+            event_type=INSTITUTION_CONFIGURED,
             occurred_at=occurred_at,
         )
         return self.emit(envelope)

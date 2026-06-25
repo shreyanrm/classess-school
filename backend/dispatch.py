@@ -423,10 +423,54 @@ def _gap_read(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any
 
 
 # --------------------------------------------------------------------------- #
+# The proactive loop: recommend -> approve -> execute (spine A5 workflow runtime).
+# The wall ADMITTED the rung (EXECUTE is consequential -> the wall already forced
+# the X-Approval-Token); here we drive the in-process workflow runtime and PERSIST
+# the loop events (recommendation.created/actioned + approval.given +
+# action.executed) to the event store via the seam. Reuses the workflow library's
+# builders + the deployable's workflow binding; no judgment re-implemented here.
+# ``actioned`` is the web's human-decision write (it maps to the APPROVE rung).
+# --------------------------------------------------------------------------- #
+def _loop_recommend(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    from . import workflow_app
+
+    status, body = workflow_app.do_recommend(payload)
+    return {"dispatched": status == 200, "operation": "recommend", **body}
+
+
+def _loop_approve(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    from . import workflow_app
+
+    status, body = workflow_app.do_approve(payload)
+    return {
+        "dispatched": status == 200,
+        "operation": "approve",
+        "approval_honored": approval is not None,
+        **body,
+    }
+
+
+def _loop_execute(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    from . import workflow_app
+
+    status, body = workflow_app.do_execute(payload)
+    return {
+        "dispatched": status == 200,
+        "operation": "execute",
+        "approval_honored": approval is not None,
+        **body,
+    }
+
+
+# --------------------------------------------------------------------------- #
 # Registry: (capability, operation) -> handler. Operation is the ORIGINAL,
 # semantic name from the URL (before the door collapses it to a wall action),
 # so the named loop ops dispatch to the right engine surface.
 # --------------------------------------------------------------------------- #
+# The loop is registered on the capabilities whose proactive behaviour the web
+# drives: the intelligence-views feed (the web posts intelligence-views/actioned)
+# and the generic workflow capability. ``actioned`` records the human decision.
+_LOOP_CAPABILITIES = ("intelligence-views", "workflow", "learning")
 _DISPATCH: dict[tuple[str, str], Handler] = {
     ("coursework", "evaluate_submission"): _evaluate_submission,
     ("learning", "record_practice"): _record_practice,  # grade a topic-quiz batch
@@ -435,6 +479,11 @@ _DISPATCH: dict[tuple[str, str], Handler] = {
     ("learning", "mastery"): _mastery_read,
     ("learning", "gap"): _gap_read,
 }
+for _cap in _LOOP_CAPABILITIES:
+    _DISPATCH[(_cap, "recommend")] = _loop_recommend
+    _DISPATCH[(_cap, "approve")] = _loop_approve
+    _DISPATCH[(_cap, "actioned")] = _loop_approve  # the web's human-decision write
+    _DISPATCH[(_cap, "execute")] = _loop_execute
 
 
 def has_handler(capability: str, operation: str) -> bool:

@@ -16,6 +16,15 @@ This module EMITS the operational events B9 owns:
   - ``safeguarding.escalated``  — a child-safety escalation was routed to a
                                   qualified human (the auditable record that a
                                   person was brought in; opaque refs only).
+  - ``ptm.scheduled``           — a parent–teacher meeting was BOOKED (the
+                                  permission-gated, human-approved booking; opaque
+                                  participant refs + a partnership purpose).
+  - ``ptm.completed``           — a PTM finished and produced a shared action
+                                  plan (opaque refs + how many actions were
+                                  agreed; never the conversation text).
+  - ``action.assigned``         — a tracked task / agreed action was given a human
+                                  owner (the auditable record that the system
+                                  prepared and a person OWNED it; opaque refs).
 
 INVARIANTS honoured here:
   - INVARIANT 1 + 2: every event carries ONLY opaque ids (canonical_uuid, opaque
@@ -58,6 +67,9 @@ CommunicationEventType = Literal[
     "meeting.scheduled",
     "sentiment.observed",
     "safeguarding.escalated",
+    "ptm.scheduled",
+    "ptm.completed",
+    "action.assigned",
 ]
 
 
@@ -217,6 +229,95 @@ def build_safeguarding_escalated_payload(
         "owner_role": owner_role,
         "is_crisis": bool(is_crisis),
         "routed_to_human": True,
+    }
+    _assert_payload_safe(payload)
+    return payload
+
+
+def build_ptm_scheduled_payload(
+    *,
+    meeting_id: str,
+    context_ref: str,
+    participant_refs: list[str],
+    scheduled_for: str,
+    approved: bool,
+) -> dict[str, Any]:
+    """Payload for ``ptm.scheduled`` — a parent–teacher meeting was BOOKED.
+
+    Booking is a consequential action on the permission ladder; ``approved`` is
+    asserted True (a booking that was never approved is a defect — the system
+    prepares, a human confirms). Opaque refs only; partnership-shaped purpose.
+    """
+    if not approved:
+        raise ValueError(
+            "Refusing to emit ptm.scheduled for an UNAPPROVED booking. Booking a "
+            "meeting is consequential and is confirmed by a human before it is "
+            "real (permission ladder)."
+        )
+    payload = {
+        "meeting_id": meeting_id,
+        "context_ref": context_ref,
+        "participant_refs": list(participant_refs),
+        "purpose_label": "parent_teacher_partnership",
+        "scheduled_for": scheduled_for,
+        "approved": True,
+    }
+    _assert_payload_safe(payload)
+    return payload
+
+
+def build_ptm_completed_payload(
+    *,
+    meeting_id: str,
+    context_ref: str,
+    action_count: int,
+    had_consented_capture: bool,
+) -> dict[str, Any]:
+    """Payload for ``ptm.completed`` — a PTM finished + produced a shared plan.
+
+    Carries how many actions were agreed and whether capture was consented —
+    NEVER the conversation text (that stays in the meeting record)."""
+    payload = {
+        "meeting_id": meeting_id,
+        "context_ref": context_ref,
+        "action_count": int(action_count),
+        "had_consented_capture": bool(had_consented_capture),
+    }
+    _assert_payload_safe(payload)
+    return payload
+
+
+def build_action_assigned_payload(
+    *,
+    task_id: str,
+    context_ref: str,
+    owner_ref: str,
+    owner_role: str,
+    source: str,
+    assigned_by_ref: str,
+) -> dict[str, Any]:
+    """Payload for ``action.assigned`` — a tracked task got a human OWNER.
+
+    The auditable proof that the system prepared a task and a PERSON owned it
+    (``assigned_by_ref``) — nothing auto-assigns. Opaque refs only; ``source``
+    is a label such as ``message`` or ``ptm`` (never any text)."""
+    if not owner_ref:
+        raise ValueError(
+            "Refusing to emit action.assigned with no owner. An action is always "
+            "owned by a human (owner_ref); the system never owns a task itself."
+        )
+    if not assigned_by_ref:
+        raise ValueError(
+            "Refusing to emit action.assigned with no human assigner. Assigning an "
+            "owner is a human act on the permission ladder; it never auto-fires."
+        )
+    payload = {
+        "task_id": task_id,
+        "context_ref": context_ref,
+        "owner_ref": owner_ref,
+        "owner_role": owner_role,
+        "source": source,
+        "assigned_by_ref": assigned_by_ref,
     }
     _assert_payload_safe(payload)
     return payload
@@ -398,6 +499,90 @@ class EventEmitter:
             payload=payload,
             event_type="safeguarding.escalated",
             purpose="intervention",  # a safeguarding escalation is an intervention.
+            occurred_at=occurred_at,
+        )
+        return self.emit(envelope)
+
+    def emit_ptm_scheduled(
+        self,
+        *,
+        canonical_uuid: str,
+        consent_ref: str,
+        meeting_id: str,
+        context_ref: str,
+        participant_refs: list[str],
+        scheduled_for: str,
+        approved: bool,
+        occurred_at: str | None = None,
+    ) -> EmittedEvent:
+        payload = build_ptm_scheduled_payload(
+            meeting_id=meeting_id,
+            context_ref=context_ref,
+            participant_refs=participant_refs,
+            scheduled_for=scheduled_for,
+            approved=approved,
+        )
+        envelope = build_envelope(
+            canonical_uuid=canonical_uuid,
+            consent_ref=consent_ref,
+            payload=payload,
+            event_type="ptm.scheduled",
+            occurred_at=occurred_at,
+        )
+        return self.emit(envelope)
+
+    def emit_ptm_completed(
+        self,
+        *,
+        canonical_uuid: str,
+        consent_ref: str,
+        meeting_id: str,
+        context_ref: str,
+        action_count: int,
+        had_consented_capture: bool,
+        occurred_at: str | None = None,
+    ) -> EmittedEvent:
+        payload = build_ptm_completed_payload(
+            meeting_id=meeting_id,
+            context_ref=context_ref,
+            action_count=action_count,
+            had_consented_capture=had_consented_capture,
+        )
+        envelope = build_envelope(
+            canonical_uuid=canonical_uuid,
+            consent_ref=consent_ref,
+            payload=payload,
+            event_type="ptm.completed",
+            occurred_at=occurred_at,
+        )
+        return self.emit(envelope)
+
+    def emit_action_assigned(
+        self,
+        *,
+        canonical_uuid: str,
+        consent_ref: str,
+        task_id: str,
+        context_ref: str,
+        owner_ref: str,
+        owner_role: str,
+        source: str,
+        assigned_by_ref: str,
+        occurred_at: str | None = None,
+    ) -> EmittedEvent:
+        payload = build_action_assigned_payload(
+            task_id=task_id,
+            context_ref=context_ref,
+            owner_ref=owner_ref,
+            owner_role=owner_role,
+            source=source,
+            assigned_by_ref=assigned_by_ref,
+        )
+        envelope = build_envelope(
+            canonical_uuid=canonical_uuid,
+            consent_ref=consent_ref,
+            payload=payload,
+            event_type="action.assigned",
             occurred_at=occurred_at,
         )
         return self.emit(envelope)

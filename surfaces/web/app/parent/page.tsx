@@ -1,16 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button, ConfidenceBand, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { ChildSwitcher } from '../_components/ChildSwitcher';
 import { ConsentGated } from '../_components/ConsentGated';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
+import { ReadStates } from '../_components/ReadStates';
+import { useParentRead } from '@/lib/useParentRead';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 import {
   DEFAULT_CHILD_ID,
   findChild,
-  selectChildData,
   TONE_TAG,
   type ParentBriefing,
 } from '@/lib/parentData';
@@ -24,7 +27,23 @@ import {
 export default function ParentTodayPage() {
   const [childId, setChildId] = useState(DEFAULT_CHILD_ID);
   const child = findChild(childId);
-  const data = useMemo(() => selectChildData(childId), [childId]);
+  // Gateway-first governed read for the selected child; the mock bundle answers
+  // on degrade. Switching child re-reads the whole surface. The hook exposes the
+  // five designed states (loading / error / offline / permission-denied / ready).
+  const { phase, data, source } = useParentRead(childId);
+  const { emit } = useEmit();
+
+  // The surface viewed event — attributed, consent-stamped, with the read source.
+  useEffect(() => {
+    if (phase === 'ready') {
+      emit({
+        type: 'surface.viewed',
+        purpose: EVENT_PURPOSE.learning,
+        payload: { surface: 'parent.this-week', child: childId, source },
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, childId]);
 
   return (
     <SurfaceShell
@@ -38,7 +57,11 @@ export default function ParentTodayPage() {
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
       </section>
 
-      {!child || !data ? (
+      {phase === 'permission-denied' ? (
+        <ConsentGated label={child?.label} />
+      ) : phase !== 'ready' ? (
+        <ReadStates phase={phase} />
+      ) : !child || !data ? (
         <ConsentGated label={child?.label} />
       ) : (
         <>

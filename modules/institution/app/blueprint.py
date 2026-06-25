@@ -71,12 +71,18 @@ class RosterEntry:
 
 @dataclass(frozen=True)
 class PolicyDirective:
-    """A policy to set during provisioning, scoped to a node by its stable key."""
+    """A policy to set during provisioning, scoped to a node by its stable key.
+
+    ``effective_from`` (optional) stages the version's start date — omit it to
+    take effect immediately. ``note`` is an optional human reason for the audit
+    trail."""
 
     node_key: str
     key: str
     value: Any
     locked: bool = False
+    effective_from: Optional[date] = None
+    note: Optional[str] = None
 
 
 @dataclass(frozen=True)
@@ -183,7 +189,12 @@ def provision(blueprint: Blueprint) -> InstitutionConfig:
                 continue
             try:
                 policies.set_policy(
-                    node_id, directive.key, directive.value, locked=directive.locked
+                    node_id,
+                    directive.key,
+                    directive.value,
+                    locked=directive.locked,
+                    effective_from=directive.effective_from,
+                    note=directive.note,
                 )
             except PolicyError as exc:
                 problems.append(f"Policy directive #{i} rejected: {exc}")
@@ -236,6 +247,26 @@ def provisioning_events(
     from . import events as ev  # lazy: keep blueprint import-light
 
     out: list[dict] = []
+
+    # Configured event — the one-shot "the digital twin exists" summary, first.
+    policy_count = sum(
+        len(config.policies.set_versions(node.id))
+        for node in config.hierarchy.all_nodes()
+    )
+    out.append(
+        ev.build_envelope(
+            canonical_uuid=actor_uuid,
+            consent_ref=consent_ref,
+            payload=ev.build_configured_payload(
+                institution_id=config.tenant_id,
+                name=config.name,
+                node_count=len(config.hierarchy.all_nodes()),
+                member_count=len(config.roster),
+                policy_count=policy_count,
+            ),
+            event_type=ev.INSTITUTION_CONFIGURED,
+        )
+    )
 
     # Structure events — one per node, parents before children (node order).
     for node in config.hierarchy.all_nodes():
@@ -290,6 +321,8 @@ def provisioning_events(
                         value=resolved.value,
                         locked=resolved.locked,
                         action="set",
+                        effective_from=resolved.effective_from.isoformat(),
+                        version=resolved.version,
                     ),
                     event_type=ev.POLICY_CHANGED,
                 )

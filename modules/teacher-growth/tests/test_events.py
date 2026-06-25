@@ -9,6 +9,7 @@ from app.events import (
     EventEmitter,
     build_coaching_signal_payload,
     build_handover_recorded_payload,
+    build_plan_updated_payload,
     build_review_signed_off_payload,
 )
 
@@ -63,6 +64,36 @@ def test_coaching_event_forces_private_even_if_caller_tries_public():
     assert env["visibility"] == "teacher_first"
 
 
+def test_plan_updated_event_is_always_private_teacher_first():
+    emitter = EventEmitter(TeacherGrowthSettings())
+    result = emitter.emit_plan_updated(
+        canonical_uuid=CANON,
+        consent_ref=CONSENT,
+        teacher_ref=TEACHER,
+        lessons_observed=5,
+        focus_dimensions=["wait_time", "talk_ratio"],
+    )
+    env = result.envelope
+    assert env["type"] == "growth.plan_updated"
+    # A development-plan update is forced private, like a coaching signal.
+    assert env["private"] is True
+    assert env["visibility"] == "teacher_first"
+    assert env["payload"]["focus_dimensions"] == ["wait_time", "talk_ratio"]
+    assert env["payload"]["lessons_observed"] == 5
+    assert result.delivered is False
+
+
+def test_plan_payload_carries_shape_only_no_score_or_rank():
+    payload = build_plan_updated_payload(
+        teacher_ref=TEACHER, lessons_observed=3, focus_dimensions=["wait_time"],
+    )
+    assert "score" not in payload
+    assert "rank" not in payload
+    assert "rating" not in payload
+    assert "trajectory" not in payload  # the verdict stays in the private plan.
+    assert payload["private"] is True
+
+
 def test_review_signed_off_requires_a_human():
     with pytest.raises(PermissionError):
         build_review_signed_off_payload(
@@ -94,6 +125,9 @@ def test_no_pii_fields_in_any_payload():
         ),
         build_review_signed_off_payload(
             review_id="r", teacher_ref=TEACHER, cycle="2026-T1", signed_off_by=REVIEWER,
+        ),
+        build_plan_updated_payload(
+            teacher_ref=TEACHER, lessons_observed=4, focus_dimensions=["talk_ratio"],
         ),
         build_handover_recorded_payload(
             section_id="S10B", subject_id="math", from_teacher_ref=TEACHER,

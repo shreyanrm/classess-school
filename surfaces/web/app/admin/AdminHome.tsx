@@ -7,6 +7,7 @@ import { AdminBriefingCard } from '../_components/AdminBriefingCard';
 import { RecommendationItem } from '../_components/RecommendationItem';
 import { ADMIN_BRIEFINGS, ADMIN_CONCERNS, ADMIN_INTERVENTIONS, RECOMMENDATIONS } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
+import { useProactive } from '@/lib/useProactive';
 import { countStructure } from '@/lib/setupDraft';
 
 /**
@@ -18,6 +19,9 @@ import { countStructure } from '@/lib/setupDraft';
  */
 export function AdminHome() {
   const { school } = useStore();
+  // The blocking approvals run through the same proactive loop write (the wall
+  // authorizes; consequential ones still raise the ApprovalControl on the card).
+  const { actioned } = useProactive();
 
   if (!school?.confirmed) {
     return (
@@ -167,7 +171,7 @@ export function AdminHome() {
           Prepared and waiting on your decision. Nothing runs until you approve it.
         </p>
         {RECOMMENDATIONS.map((r) => (
-          <RecommendationItem key={r.id} rec={r} />
+          <RecommendationItem key={r.id} rec={r} onActioned={actioned} />
         ))}
       </section>
     </SurfaceShell>

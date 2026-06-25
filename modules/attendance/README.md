@@ -35,8 +35,21 @@ This is a Python package. It is pure, offline-capable, and carries no PII.
 
   Findings are advisory and carry `needs_human_review`.
 
+- **Analytics (`app/analytics.py`)** - the rollup/VIEW layer the briefing and
+  school-wide-intelligence surfaces read. It aggregates *confirmed* rolls only
+  (never a draft): `session_summary` / `cohort_summary` count present-like vs
+  absent with a derived attendance rate (`None`, never `0%`, over an empty
+  record); `subject_summary` gives the per-subject rate (lowest first) so a
+  repeatedly-skipped subject is visible alongside the exam-shortage eligibility
+  signal; `intervention_list` collapses each learner's risk findings to their
+  highest severity and orders the queue urgent -> concern -> watch ("which
+  students need intervention"). Analytics ranks; it never decides - every entry
+  stays `needs_human_review`.
+
 - **Staff (`app/staff.py`)** - daily staff attendance. A confirmed staff
-  absence with assigned sessions produces a substitution request event.
+  absence with assigned sessions produces a substitution request event - the
+  trigger that asks scheduling to start its (human-gated) continuity/
+  substitution ladder.
 
 - **Events (`app/events.py`)** - immutable, append-only event payloads for
   roll confirmation, individual marks, risk flags, reconciliation conflicts

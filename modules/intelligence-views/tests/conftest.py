@@ -190,6 +190,32 @@ def gap_cohort():
 
 
 @pytest.fixture
+def resolved_cohort(gap_cohort):
+    """The SAME cohort after an intervention: the support-dependency gap that was
+    confirmed in ``gap_cohort`` has resolved because fresh INDEPENDENT successes
+    arrived. Returns (previous_profiles, current_profiles, topic_id) so a diff
+    surfaces a resolved gap — what improved after the last intervention.
+    """
+    previous_profiles, topic_id = gap_cohort
+
+    # Fresh evidence: each learner now succeeds independently and repeatedly, so
+    # the support-dependency gap is no longer confirmed on the recompute.
+    events: list[EventEnvelope] = []
+    for learner in (LEARNER_A, LEARNER_B):
+        for _ in range(3):
+            events.append(
+                supported(learner, T_TRIG_RATIOS, correct=True, score=0.9,
+                          assistance_level="Coach", difficulty=0.5)
+            )
+        events.append(indep(learner, T_TRIG_RATIOS, correct=False, score=0.2, difficulty=0.5))
+        # the intervention: independent successes now demonstrate transfer.
+        for _ in range(4):
+            events.append(indep(learner, T_TRIG_RATIOS, correct=True, score=1.0, difficulty=0.6))
+    current_profiles = [make_profile(LEARNER_A, events), make_profile(LEARNER_B, events)]
+    return previous_profiles, current_profiles, topic_id
+
+
+@pytest.fixture
 def single_score_cohort():
     """One learner, ONE bad independent attempt on the topic. Must NOT produce a
     confirmed gap (never-from-one-score) and so must NOT raise a dashboard alert.

@@ -15,11 +15,12 @@ opaque `canonical_uuid` only.
 
 | File | Responsibility |
 | --- | --- |
-| `app/hierarchy.py` | The configurable org hierarchy and the scoped, time-bound relationship graph. Containment ladder `group -> region -> campus -> school -> department -> grade -> section` is configurable (use a subset, skip rungs, rename labels). A parent must out-rank its child. The relationship graph is many-to-many, each edge carrying a `valid_from`/`valid_to` window and a tenant scope, so the graph is correct as of a date and never spans tenants. |
-| `app/blueprint.py` | The blueprint wizard. Takes a board-agnostic blueprint (structure, roster, policy), validates it as one gate (collecting all problems), and produces a tenant-scoped `InstitutionConfig` plus the append-only provisioning events. Building events is a PREPARE-class step: it returns the events and never sends them. |
-| `app/policy.py` | Policy inheritance down the tree. A child inherits its parent's effective value and may override it; a locked policy set high is a floor descendants cannot override, and the highest lock wins. Every resolved value carries provenance (which node set it, inherited or not, locked or not) so the effective setting is explainable. Hyperlocalization (language, region, calendar) is policy with three well-known keys, resolved the same way. |
+| `app/hierarchy.py` | The configurable org hierarchy and the scoped, time-bound relationship graph. Containment ladder `group -> region -> campus -> school -> department -> grade -> section` is configurable (use a subset, skip rungs, rename labels). A parent must out-rank its child. The relationship graph is many-to-many, each edge carrying a `valid_from`/`valid_to` window and a tenant scope, so the graph is correct as of a date and never spans tenants. **Governance overlays** — `ownership` / `management` / `affiliation` / `funding` — are first-class relationship kinds; `overlays_of(node, as_of=…)` reads who owns/runs/is-affiliated/funds a node as of a date, so a school can sit in a group, be run by a trust, and draw from a funded programme at once. |
+| `app/blueprint.py` | The blueprint wizard. Takes a board-agnostic blueprint (structure, roster, policy — policy directives may carry `effective_from`/`note`), validates it as one gate (collecting all problems), and produces a tenant-scoped `InstitutionConfig` plus the append-only provisioning events. The events lead with `institution.configured` and carry the policy version + effective date. Building events is a PREPARE-class step: it returns the events and never sends them. |
+| `app/policy.py` | Policy inheritance down the tree, **versioned with effective dates**. Setting a policy never overwrites — it APPENDS a `PolicyVersion` (monotonic version, `effective_from`, `recorded_at`, optional note); resolution is "as of" a date (the latest version effective on/before it wins), so a change can be staged ahead of a year boundary and the history stays queryable for audit. A child inherits its parent's effective value and may override it; a locked policy set high is a floor descendants cannot override, and the highest lock wins. Every resolved value carries provenance (source node, inherited-or-set, locked-or-not, which version + effective date) so the setting is explainable. Hyperlocalization is policy with well-known keys — language, region, calendar, **board terminology** (map the platform's structural words onto the institution's own), and **local exam format** — resolved the same inheriting + effective-dated way. |
+| `app/calendar.py` | Academic year (named span), a configurable weekly working-day pattern, and holidays (single-day or ranged), with working-day arithmetic (`is_working_day`, `working_days_between`, `instructional_day_count`) — the basis pacing/timetable build on. Governed as policy: serialises under the well-known key `calendar.academic_year` so it inherits down the hierarchy and versions like any policy. Board-agnostic; no region's week or holidays hard-coded. |
 | `app/tenancy.py` | Logical multi-tenancy. Every record carries an opaque tenant scope; cross-tenant reads are denied by default. A widening grant is explicit and immutable; there is no wildcard and no silent global read. An unscoped record is never served. |
-| `app/events.py` | Emits structure/roster/policy events on the contract envelope shape (`app . canonical_uuid . type . purpose . consent_ref`). Append-only; PII-free; every write passes the gateway. With no gateway configured, emission degrades to returning the event object. |
+| `app/events.py` | Emits structure/roster/policy events on the contract envelope shape (`app . canonical_uuid . type . purpose . consent_ref`), plus the canonical catalog names `institution.configured`, `policy.changed`, `membership.granted` (12 · event catalog). Policy payloads carry `effective_from` + `version` so a consumer can reconstruct the policy timeline. Append-only; PII-free; every write passes the gateway. With no gateway configured, emission degrades to returning the event object. |
 | `app/config.py` | Env-var names only. Reads configuration from the environment by name; no secret value is hardcoded, defaulted to a literal, or invented. |
 
 ## Invariants honoured
@@ -71,7 +72,12 @@ python -m pytest
 ```
 
 Tests cover hierarchy build + traversal, the time-bound relationship graph,
-policy inheritance + override + locking, hyperlocalization resolution, tenant
-isolation (cross-tenant reads denied by default), blueprint validation +
-provisioning, and graceful event-emission degradation. Import-safe: no network,
-no DB, no secret value required.
+governance overlays (ownership/management/affiliation/funding), policy
+inheritance + override + locking, **policy versioning + effective dates** (staged
+changes, as-of resolution, effective-dated locks), hyperlocalization resolution
+(language/region/calendar/board-terms/exam-format), the **academic-year /
+working-days / holidays** calendar + its working-day arithmetic + policy
+interop, tenant isolation (cross-tenant reads denied by default), blueprint
+validation + provisioning, the `institution.configured` event, and graceful
+event-emission degradation. Import-safe: no network, no DB, no secret value
+required.

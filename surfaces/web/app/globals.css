@@ -432,6 +432,23 @@ a {
   align-items: center;
 }
 
+/* The CrystallizeNode mastery moment on a resolved recommendation — the inline
+   facet, the gap.resolved line, and an undo. Calm tonal step, hairline, no shadow. */
+.rec-resolved {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  flex-wrap: wrap;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--signature);
+  border-radius: var(--radius-sm);
+  background: var(--signature-tint);
+}
+.rec-resolved > div {
+  flex: 1;
+  min-width: 0;
+}
+
 /* The evidence drawer. */
 .evidence-drawer {
   border-top: var(--border-width) solid var(--border);
@@ -959,6 +976,136 @@ a {
 /* A selected scored-alternative card — the signature line marks the choice. */
 .card.is-selected {
   border-color: var(--accent);
+}
+
+/* ============================================================================
+   Study quadrant — star / emerging / potential / at-risk. A 2x2 of tappable
+   bands sharing hairlines (no gaps, no shadow), learners plotted as points by
+   independence (x) and consistency (y). Depth is hairline + tonal step only.
+   ============================================================================ */
+.quadrant {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: var(--border-width);
+  background: var(--border);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  overflow: hidden;
+  aspect-ratio: 16 / 9;
+  min-height: 220px;
+}
+
+.quadrant-band {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  border: 0;
+  text-align: left;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background var(--motion-base, 180ms) var(--ease, cubic-bezier(0.2, 0, 0, 1));
+}
+.quadrant-band:hover { background: var(--bg-canvas); }
+.quadrant-band.active { background: var(--bg-canvas); }
+.quadrant-band.active::after {
+  /* the signature top-line wipe marks the chosen band — no shadow */
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 2px;
+  background: var(--accent);
+}
+.quadrant-left { grid-column: 1; }
+.quadrant-right { grid-column: 2; }
+.quadrant-top { grid-row: 1; }
+.quadrant-bottom { grid-row: 2; }
+
+.quadrant-count {
+  font-family: var(--font-mono, monospace);
+  font-size: var(--text-stat-value, 28px);
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-primary);
+}
+
+.quadrant-axis {
+  position: absolute;
+  z-index: 2;
+  font-family: var(--font-mono, monospace);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  pointer-events: none;
+}
+.quadrant-axis-x { bottom: 6px; right: 10px; }
+.quadrant-axis-y { top: 10px; left: 8px; transform: rotate(-90deg); transform-origin: left top; }
+
+.quadrant-point {
+  position: absolute;
+  z-index: 1;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  transform: translate(-50%, 50%);
+  background: var(--text-tertiary);
+  border: var(--border-width) solid var(--bg-surface);
+}
+.quadrant-point[data-tone='success'] { background: var(--success); }
+.quadrant-point[data-tone='info'] { background: var(--info); }
+.quadrant-point[data-tone='warning'] { background: var(--warning); }
+.quadrant-point[data-tone='danger'] { background: var(--danger); }
+
+/* ============================================================================
+   Trajectory — actual (solid) / predicted (dotted) independence trend. A chart
+   that survives because a human reads its shape. One accent; hairline grid.
+   ============================================================================ */
+.trajectory {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md, 6px);
+  background: var(--bg-surface);
+  padding: var(--space-3);
+}
+.trajectory-svg {
+  display: block;
+  width: 100%;
+  height: 200px;
+}
+.trajectory-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+.trajectory-actual {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.trajectory-predicted {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-dasharray: 4 5;
+  stroke-linecap: round;
+  opacity: 0.6;
+}
+.trajectory-key {
+  display: inline-block;
+  width: 18px;
+  height: 0;
+  border-top: 2.5px solid var(--accent);
+}
+.trajectory-key-predicted {
+  border-top-style: dotted;
+  opacity: 0.7;
 }
 
 /* ============================================================================

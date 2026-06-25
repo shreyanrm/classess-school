@@ -41,6 +41,13 @@ SPINE_APPS: dict[str, str] = {
 GATEWAY_PKG_DIR = "spine/gateway/app"
 GATEWAY_ALIAS = "clss_gateway_app"
 
+# The workflow runtime (spine A5) — the proactive loop + permission-ladder
+# engine. A pure-python library (no FastAPI app of its own); the deployable
+# mounts a thin HTTP binding over it. Loaded under a unique alias so its ``app``
+# package never collides with the other ``app`` packages in this one process.
+WORKFLOW_PKG_DIR = "spine/workflow/app"
+WORKFLOW_ALIAS = "clss_workflow_app"
+
 # Capability modules wired behind the wall. Each is a pure-python library; the
 # wall enforces access, the module stays thin (per the capability registry).
 CAPABILITY_MODULES: tuple[str, ...] = (
@@ -97,6 +104,13 @@ def load_gateway() -> ModuleType:
     if mod is None:  # pragma: no cover - the gateway must always be present
         raise RuntimeError("gateway package could not be loaded; cannot start the wall")
     return mod
+
+
+def load_workflow() -> Optional[ModuleType]:
+    """Load the workflow runtime (spine A5) under its unique alias. Returns the
+    package module, or None when absent/broken (degrade cleanly — the loop routes
+    then report unavailable; the deployable never crashes)."""
+    return load_package(WORKFLOW_ALIAS, WORKFLOW_PKG_DIR)
 
 
 def load_spine_app(name: str) -> Optional[ModuleType]:

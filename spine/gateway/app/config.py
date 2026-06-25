@@ -96,6 +96,11 @@ class GatewaySettings(BaseSettings):
     # only through the wall. Unset -> route returns 503 and the web surface falls
     # back to its in-browser engine port. clss.gateway.dev.intelligence_base_url
     intelligence_base_url: str | None = Field(default=None)
+    # The workflow runtime (spine A5) — the proactive loop + permission ladder.
+    # Runs in-process in the single deployable; unset -> the gateway forwards to
+    # the in-process /internal/workflow mount when self_base_url is set.
+    # clss.gateway.dev.workflow_base_url
+    workflow_base_url: str | None = Field(default=None)
     # In the SINGLE DEPLOYABLE the identity + event-store services run in-process
     # and are mounted under {self_base_url}/internal/{name}. When the explicit
     # per-capability base urls are unset, the gateway forwards to these in-process
@@ -162,6 +167,14 @@ class GatewaySettings(BaseSettings):
                 name="intelligence-views",
                 base_url=self.intelligence_base_url or self._internal_mount("intelligence"),
                 base_url_env="clss.gateway.dev.intelligence_base_url",
+            ),
+            # The workflow runtime (spine A5) — the proactive loop + permission
+            # ladder. In the single deployable it runs in-process under
+            # /internal/workflow; an explicit base url overrides for a split-out.
+            "workflow": CapabilityTarget(
+                name="workflow",
+                base_url=self.workflow_base_url or self._internal_mount("workflow"),
+                base_url_env="clss.gateway.dev.workflow_base_url",
             ),
         }
 

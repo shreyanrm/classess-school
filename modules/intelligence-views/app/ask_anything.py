@@ -271,3 +271,217 @@ def ask(
         ),
         degraded_reasons=degraded,
     )
+
+
+# ---------------------------------------------------------------------------
+# Aggregation — one question composed across MANY scopes (the §08 /admin/ask
+# dashboard: "Which Grade 8 sections are declining and why?"). The aggregation
+# reuses ``ask`` per scope, so EVERY governance gate (safety, consent, one
+# definition, learner-safe number gating) holds unchanged for every scope.
+# ---------------------------------------------------------------------------
+@dataclass(frozen=True)
+class AskScope:
+    """One scope an aggregated question is answered over (e.g. a section, a
+    topic). PII-free: ``label`` is a generic cohort label, never a real name."""
+
+    label: str
+    profiles: list[Any]
+    topic_id: Any | None = None
+    subject: Any | None = None
+
+
+@dataclass(frozen=True)
+class ScopeRow:
+    """One row of an aggregated answer: a scope and the measure resolved over it
+    through the SAME single definition every other row (and screen) uses."""
+
+    label: str
+    answered: bool
+    plain_language: str
+    value: float | None
+    refusal_reason: AskRefusalReason | None = None
+
+
+@dataclass(frozen=True)
+class AskAggregateAnswer:
+    """A composed, governed answer across scopes — the ask-anything dashboard.
+
+    Every row resolves the SAME metric key through the one true definition, so the
+    rows are comparable and match every other screen. ``rows`` is ranked
+    worst-first by default (the dashboard leads with what needs attention).
+    ``answered`` is False only when the governance gate that applies to the whole
+    request (safety/consent) refused; a per-scope refusal lives on its row."""
+
+    question: str
+    answered: bool
+    metric_key: str | None
+    label: str | None
+    definition: str | None
+    rows: list[ScopeRow]
+    summary: str
+    lineage_note: str
+    why_am_i_seeing_this: str
+    refusal_reason: AskRefusalReason | None = None
+    escalated_to_human: bool = False
+    degraded_reasons: list[str] = field(default_factory=list)
+
+
+def ask_aggregate(
+    question: str,
+    scopes: list[AskScope],
+    *,
+    consent_ok: bool = False,
+    safety_screen: str | None = None,
+    audience_is_learner: bool = False,
+    purpose: str = "operations",
+    asker_role: str = "coordinator",
+    coverage: dict[Any, tuple[float, float]] | None = None,
+    effort: dict[Any, float] | None = None,
+    ascending: bool = True,
+    layer: SemanticLayer | None = None,
+    resolver: Resolver | None = None,
+    settings: IntelligenceViewsSettings | None = None,
+) -> AskAggregateAnswer:
+    """Answer ONE governed question across many scopes, comparably.
+
+    Composes the §08 ask-anything dashboard: the question is resolved to a single
+    metric KEY, then computed for every scope through the one true definition, so
+    the rows are directly comparable and agree with every other surface. The
+    whole-request governance gates (child-safety, consent) are checked once and
+    fail closed for the entire request; a scope that itself fails (e.g. an unknown
+    metric) is marked refused on its row rather than fabricated.
+
+    Ranked worst-first by default (``ascending``), so the dashboard leads with the
+    scopes that need attention — "which sections are declining" surfaces the
+    declining ones at the top. Deterministic: same scopes + data -> same answer.
+    """
+    layer = layer or build_default_semantic_layer()
+    resolver = resolver or keyword_resolver
+    settings = settings or get_settings()
+    degraded = settings.degraded_reasons()
+
+    # Resolve each scope through the SAME ``ask`` so every governance gate holds
+    # identically per scope. The whole-request gates short-circuit on the first
+    # scope: child-safety and consent apply to the request, not a single row.
+    rows: list[ScopeRow] = []
+    metric_key: str | None = None
+    label: str | None = None
+    definition: str | None = None
+
+    for scope in scopes:
+        ctx = AskContext(
+            profiles=scope.profiles,
+            topic_id=scope.topic_id,
+            subject=scope.subject,
+            consent_ok=consent_ok,
+            audience_is_learner=audience_is_learner,
+            purpose=purpose,
+            safety_screen=safety_screen,
+            coverage=coverage,
+            effort=effort,
+            asker_role=asker_role,
+        )
+        ans = ask(question, ctx, layer=layer, resolver=resolver, settings=settings)
+
+        # A whole-request gate (safety / consent) refusing on ANY scope refuses the
+        # whole request — these never differ by scope, so fail the request closed.
+        if ans.refusal_reason in (
+            AskRefusalReason.SAFETY_NOT_SCREENED,
+            AskRefusalReason.SAFETY_FLAGGED,
+            AskRefusalReason.NO_CONSENT,
+        ):
+            return AskAggregateAnswer(
+                question=question,
+                answered=False,
+                metric_key=None,
+                label=None,
+                definition=None,
+                rows=[],
+                summary=ans.plain_language,
+                lineage_note=ans.lineage_note,
+                why_am_i_seeing_this=ans.why_am_i_seeing_this,
+                refusal_reason=ans.refusal_reason,
+                escalated_to_human=ans.escalated_to_human,
+                degraded_reasons=degraded,
+            )
+
+        if ans.answered:
+            metric_key = ans.metric_key
+            label = ans.label
+            definition = ans.definition
+        rows.append(
+            ScopeRow(
+                label=scope.label,
+                answered=ans.answered,
+                plain_language=ans.plain_language,
+                value=ans.value,
+                refusal_reason=ans.refusal_reason,
+            )
+        )
+
+    # An unknown metric is the same for every scope, so it is a request-level
+    # refusal too (nothing was comparable to compose).
+    if metric_key is None:
+        return AskAggregateAnswer(
+            question=question,
+            answered=False,
+            metric_key=None,
+            label=None,
+            definition=None,
+            rows=[],
+            summary=(
+                "There is no defined measure for that question yet, so it cannot be "
+                "composed across scopes."
+            ),
+            lineage_note="No metric matched the question.",
+            why_am_i_seeing_this=(
+                "The question did not match a measure defined in the shared "
+                "semantic layer, so no comparable view could be composed."
+            ),
+            refusal_reason=AskRefusalReason.UNKNOWN_METRIC,
+            degraded_reasons=degraded,
+        )
+
+    # Rank: rows with a comparable value first, ordered worst-first by default so
+    # the dashboard leads with what needs attention. Rows missing a raw value
+    # (learner-safe gating) keep their input order at the end — stable + PII-free.
+    def _sort_key(r: ScopeRow) -> tuple[int, float, str]:
+        if r.value is None:
+            return (1, 0.0, r.label)
+        v = r.value if ascending else -r.value
+        return (0, v, r.label)
+
+    ranked = sorted(rows, key=_sort_key)
+
+    answered_rows = [r for r in ranked if r.answered and r.value is not None]
+    if answered_rows:
+        lead = answered_rows[0]
+        summary = (
+            f"Across {len(rows)} scopes for {label}: {lead.label} stands out "
+            f"({lead.plain_language})."
+        )
+    else:
+        summary = (
+            f"{label} was composed across {len(rows)} scopes; raw values are "
+            "withheld for this audience, so each scope is shown in plain language."
+        )
+
+    return AskAggregateAnswer(
+        question=question,
+        answered=True,
+        metric_key=metric_key,
+        label=label,
+        definition=definition,
+        rows=ranked,
+        summary=summary,
+        lineage_note=(
+            "Every scope is computed through the shared semantic layer — one "
+            "definition, so the scopes are comparable and match the other screens."
+        ),
+        why_am_i_seeing_this=(
+            "You asked one question across several scopes; it matched a defined "
+            "measure, the consent and safety checks passed, and the same single "
+            "definition was computed for each scope so they can be compared."
+        ),
+        degraded_reasons=degraded,
+    )

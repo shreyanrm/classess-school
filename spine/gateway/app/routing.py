@@ -46,6 +46,21 @@ ROUTE_MAP: dict[str, dict[str, UpstreamRoute]] = {
     },
     "intelligence-views": {
         "read": UpstreamRoute("POST", "/v1/intelligence/read", purpose_required=True),
+        # The proactive loop's recommend -> approve -> execute, served by the
+        # workflow runtime (spine A5) behind the wall. RECOMMEND is a governed
+        # cross-context read of the recommendation feed (purpose asserted).
+        # APPROVE records the human decision; EXECUTE clears a consequential
+        # action AFTER approval (the wall forces the X-Approval-Token on it).
+        "recommend": UpstreamRoute("POST", "/v1/workflow/recommend", purpose_required=True),
+        "approve": UpstreamRoute("POST", "/v1/workflow/approve"),
+        "execute": UpstreamRoute("POST", "/v1/workflow/execute"),
+    },
+    # The workflow runtime (spine A5) — the proactive loop + permission ladder.
+    # Its three rungs are routable through the gateway to the in-process mount.
+    "workflow": {
+        "recommend": UpstreamRoute("POST", "/v1/workflow/recommend", purpose_required=True),
+        "approve": UpstreamRoute("POST", "/v1/workflow/approve"),
+        "execute": UpstreamRoute("POST", "/v1/workflow/execute"),
     },
 }
 
