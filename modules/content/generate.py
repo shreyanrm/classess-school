@@ -56,6 +56,10 @@ class MaterialKind(str, Enum):
     EXPLANATION = "explanation"
     WORKED_EXAMPLE = "worked_example"
     PRACTICE_ITEM = "practice_item"
+    # An interactive teaching visual (a plotted curve y = f(x), JSXGraph/Mafs-
+    # shaped). Verified deterministically: the curve is re-evaluated at its
+    # sample points before it is served (INVARIANT 7).
+    LESSON_VISUAL = "lesson_visual"
 
 
 # Map a material kind to the ai-fabric capability that produces it. Only the
@@ -66,6 +70,7 @@ _KIND_TO_CAPABILITY: dict[MaterialKind, str] = {
     MaterialKind.PRACTICE_ITEM: "content.generate-practice-item",
     MaterialKind.WORKED_EXAMPLE: "content.generate-practice-item",
     MaterialKind.EXPLANATION: "explain.step",
+    MaterialKind.LESSON_VISUAL: "content.generate-lesson-visual",
 }
 
 # The purpose code each capability runs under (must match the registry's
@@ -73,6 +78,7 @@ _KIND_TO_CAPABILITY: dict[MaterialKind, str] = {
 _CAPABILITY_PURPOSE: dict[str, str] = {
     "content.generate-practice-item": "practice_item_generation",
     "explain.step": "step_explanation",
+    "content.generate-lesson-visual": "lesson_visual_generation",
 }
 
 
@@ -319,6 +325,7 @@ class ContentGenerator:
             MaterialKind.EXPLANATION: ContentKind.EXPLANATION,
             MaterialKind.WORKED_EXAMPLE: ContentKind.WORKED_EXAMPLE,
             MaterialKind.PRACTICE_ITEM: ContentKind.PRACTICE_ITEM,
+            MaterialKind.LESSON_VISUAL: ContentKind.DIAGRAM,
         }
         record = repository.create(
             topic_id=request.topic_id,

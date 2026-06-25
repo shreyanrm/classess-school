@@ -121,6 +121,25 @@ def default_registry() -> CapabilityRegistry:
     ))
 
     reg.register(Capability(
+        name="content.generate-lesson-visual",
+        description=(
+            "Generate a lesson visual (a plotted curve y = f(x), JSXGraph/Mafs-shaped) "
+            "verified deterministically by re-evaluating the curve at its sample points."
+        ),
+        input_schema_ref="contract:ai.GenerateLessonVisualInput",
+        output_schema_ref="contract:ai.LessonVisual",
+        track=1,
+        least_privilege=CapabilityScope(
+            purpose="lesson_visual_generation",
+            data_scopes=("ontology.skill", "curriculum.map"),
+            emits_events=True,
+        ),
+        requires_verification=True,  # plotted points pass the confidence gate (INVARIANT 7)
+        task_class="content.generate-lesson-visual",
+        consequence=Consequence.PREPARE,  # a draft visual; not served until verified
+    ))
+
+    reg.register(Capability(
         name="evaluate.response",
         description="Evaluate a learner response and produce evidence (independent vs supported).",
         input_schema_ref="contract:ai.EvaluateResponseInput",

@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { Button, ConfidenceBand, SpotlightCard, Tag, type Confidence } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ApprovalControl } from '../../_components/ApprovalControl';
 import { CLASS_LABEL, CURRENT_STUDENT, topicInfo, LOOP_TOPIC_ID } from '@/lib/loopData';
 
 /**
@@ -191,34 +192,48 @@ export default function EvaluatePage() {
       </section>
 
       <section>
-        <SpotlightCard hero>
-          <div className="row-between">
-            <div>
-              <p className="overline" style={{ margin: 0 }}>
-                Return feedback
-              </p>
-              <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
-                {returned
-                  ? `Feedback returned to ${CURRENT_STUDENT.label}. They will see it on their next visit.`
-                  : allReviewed
-                    ? 'All flagged responses are confirmed. Feedback is ready to return to the student.'
-                    : 'Review the flagged responses before feedback can be returned.'}
-              </p>
-            </div>
-            {returned ? (
+        {returned ? (
+          <SpotlightCard hero>
+            <div className="row-between">
+              <div>
+                <p className="overline" style={{ margin: 0 }}>
+                  Marks published
+                </p>
+                <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
+                  Feedback returned to {CURRENT_STUDENT.label}. They will see it on their next visit,
+                  and these marks now feed mastery + gaps.
+                </p>
+              </div>
               <Tag tone="success">Returned</Tag>
-            ) : (
-              <Button
-                variant="accent"
-                size="sm"
-                disabled={!allReviewed}
-                onClick={() => setReturned(true)}
-              >
-                Return feedback
-              </Button>
-            )}
+            </div>
+          </SpotlightCard>
+        ) : !allReviewed ? (
+          <div className="empty">
+            <h4 className="body">Review the flagged responses first</h4>
+            <p>
+              Publishing a mark is consequential, so it waits behind a confirmed review. Confirm the
+              flagged responses above and the approval gate opens.
+            </p>
           </div>
-        </SpotlightCard>
+        ) : (
+          // Publishing a grade is CONSEQUENTIAL — the permission ladder. Nothing
+          // is final or returned to the learner until the teacher approves here;
+          // approval emits an attributed, consent-stamped `score` audit event.
+          <ApprovalControl
+            kind="Publish marks · the permission ladder"
+            summary={`Return ${ROWS.length} reviewed responses to ${CURRENT_STUDENT.label}`}
+            consequence={`The marks become final, are returned to ${CURRENT_STUDENT.label}, and feed the mastery + gap engine. Grading is human-final — this approval is what makes it so.`}
+            eventType="score"
+            approveLabel="Approve and publish marks"
+            payload={{ surface: 'teacher.evaluate', topicId: TOPIC.id, responses: ROWS.length }}
+            evidence={[
+              'Every response carries a separated state (correct / incomplete / misunderstood) and a confidence band; middle/low were confirmed by you above.',
+              'Handwriting or scan quality never lowered a mark — illegible work is flagged for review, not penalised.',
+            ]}
+            whySeeing="A mark sent to a learner is consequential. The engine recommends; you confirm; only your approval publishes it."
+            onApprove={() => setReturned(true)}
+          />
+        )}
       </section>
     </SurfaceShell>
   );

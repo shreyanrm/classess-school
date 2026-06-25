@@ -25,6 +25,13 @@ export interface CrystallizeNodeProps {
   label?: string;
   /** Relative offsets for variants a/c. */
   neighbors?: CrystallizeNeighbor[];
+  /**
+   * Inline mode (variant 'b' default): a single compact crystallizing facet
+   * sized like a text mark, with no lattice/wires. The drop-in replacement for
+   * the retired inline IgniteDot — a crisp ultramarine facet with one specular
+   * glint, no expanding ring, no shadow. `label` becomes the aria-label.
+   */
+  inline?: boolean;
 }
 
 /**
@@ -40,6 +47,7 @@ export function CrystallizeNode({
   resolved = false,
   label,
   neighbors = [],
+  inline = false,
 }: CrystallizeNodeProps) {
   const [play, setPlay] = useState(false);
   const [lit, setLit] = useState(resolved);
@@ -63,6 +71,31 @@ export function CrystallizeNode({
     }
     prev.current = resolved;
   }, [resolved, variant]);
+
+  // Inline mode (variant 'b'): a single compact crystal facet — the inline
+  // mastery mark that replaces the retired IgniteDot. Crisp ultramarine, one
+  // glint sweep, no wires, no expanding ring, no shadow. Honours reduced-motion
+  // (the glint is suppressed in CSS). Sized to sit on a text baseline.
+  if (inline) {
+    return (
+      <span className="xtal-inline" role="img" aria-label={label}>
+        <svg className="xtal-inline__facet" viewBox="0 0 34 34" aria-hidden="true">
+          <polygon points="17,2 32,11 32,23 17,32 2,23 2,11" />
+        </svg>
+        <span className="xtal-inline__glint" aria-hidden="true" />
+        <style>{`
+          .xtal-inline{position:relative;display:inline-block;width:14px;height:14px;flex:none;vertical-align:middle;overflow:hidden}
+          .xtal-inline__facet{width:100%;height:100%;display:block}
+          .xtal-inline__facet polygon{fill:var(--signature);stroke:var(--ultra-ink);stroke-width:1.5}
+          .xtal-inline__glint{position:absolute;top:-4px;bottom:-4px;left:-40%;width:8px;transform:skewX(-18deg);
+            background:linear-gradient(90deg,transparent,rgba(255,255,255,.95),transparent);
+            animation:xtalInlineGlint 1.1s var(--ease) .1s both}
+          @keyframes xtalInlineGlint{0%{left:-40%;opacity:0}30%{opacity:.95}100%{left:140%;opacity:0}}
+          @media (prefers-reduced-motion:reduce){.xtal-inline__glint{animation:none;opacity:0}}
+        `}</style>
+      </span>
+    );
+  }
 
   const cx = 130;
   const cy = 90;

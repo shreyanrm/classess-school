@@ -83,6 +83,59 @@ def test_narrative_generation_refused_without_provider():
     assert outcome.material is None
 
 
+def test_lesson_visual_deterministic_path_is_real():
+    """A lesson visual (plotted curve y = x**2) with correct sample points runs
+    the spine's REAL deterministic plotted-point verifier. The default abstaining
+    second model holds the gate, proving it is honoured — never served blind."""
+    gen = ContentGenerator()
+    req = MaterialRequest(
+        topic_id="topic-1",
+        kind=MaterialKind.LESSON_VISUAL,
+        payload={"expression": "x ** 2", "samples": [[-2, 4], [0, 0], [3, 9]]},
+    )
+    outcome = gen.generate(req)
+    assert outcome.served is False  # abstaining second model holds the gate
+    v = outcome.verification
+    assert v is not None
+    assert v.deterministic_checks_passed is True
+    assert v.second_model_agrees is False
+
+
+def test_lesson_visual_served_and_filed_as_draft():
+    from app.orchestrator import Orchestrator
+
+    orch = Orchestrator(second_model=_AgreeingSecondModel())
+    gen = ContentGenerator(orchestrator=orch)
+    repo = InMemoryContentRepository()
+    req = MaterialRequest(
+        topic_id="topic-1",
+        kind=MaterialKind.LESSON_VISUAL,
+        payload={"expression": "x ** 2", "samples": [[2, 4], [3, 9]]},
+        title="Parabola visual",
+    )
+    outcome, record = gen.generate_into_repository(req, repo)
+    assert outcome.served is True
+    assert outcome.material.body.get("kind") == "lesson_visual"
+    # Verified, but filed as DRAFT — never auto-published (permission ladder).
+    assert record is not None
+    assert record.approval_state is ApprovalState.DRAFT
+
+
+def test_lesson_visual_wrong_point_is_refused():
+    from app.orchestrator import Orchestrator
+
+    orch = Orchestrator(second_model=_AgreeingSecondModel())
+    gen = ContentGenerator(orchestrator=orch)
+    req = MaterialRequest(
+        topic_id="topic-1",
+        kind=MaterialKind.LESSON_VISUAL,
+        payload={"expression": "x ** 2", "samples": [[2, 5]]},  # 4, not 5
+    )
+    outcome = gen.generate(req)
+    assert outcome.served is False
+    assert outcome.material is None
+
+
 def test_generate_into_repository_files_draft_only():
     from app.orchestrator import Orchestrator
 

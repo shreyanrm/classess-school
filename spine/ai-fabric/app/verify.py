@@ -65,22 +65,43 @@ def safe_eval(expression: str) -> float:
     return _eval_node(tree.body)
 
 
-def _eval_node(node: ast.AST) -> float:
+def _eval_node(node: ast.AST, variables: dict[str, float] | None = None) -> float:
     if isinstance(node, ast.Constant):
         if isinstance(node.value, bool) or not isinstance(node.value, (int, float)):
             raise ExpressionError(f"non-numeric constant: {node.value!r}")
         return float(node.value)
+    if isinstance(node, ast.Name):
+        # A bare name is allowed ONLY when it is an explicitly-bound variable
+        # (used by the lesson-visual plotter to sample y = f(x)). With no
+        # binding it stays rejected, so ``safe_eval`` is unchanged.
+        if variables is not None and node.id in variables:
+            return float(variables[node.id])
+        raise ExpressionError(f"unbound name: {node.id!r}")
     if isinstance(node, ast.BinOp):
         op = _BIN_OPS.get(type(node.op))
         if op is None:
             raise ExpressionError(f"unsupported operator: {type(node.op).__name__}")
-        return op(_eval_node(node.left), _eval_node(node.right))
+        return op(_eval_node(node.left, variables), _eval_node(node.right, variables))
     if isinstance(node, ast.UnaryOp):
         op = _UNARY_OPS.get(type(node.op))
         if op is None:
             raise ExpressionError(f"unsupported unary operator: {type(node.op).__name__}")
-        return op(_eval_node(node.operand))
+        return op(_eval_node(node.operand, variables))
     raise ExpressionError(f"disallowed expression node: {type(node).__name__}")
+
+
+def eval_at(expression: str, variables: dict[str, float]) -> float:
+    """Evaluate an arithmetic expression with a set of bound variables.
+
+    Like :func:`safe_eval` but a name listed in ``variables`` resolves to its
+    value (used to sample a plotted curve y = f(x) at given x). Names not bound
+    are still rejected — no ``eval``, no calls, no attribute access.
+    """
+    try:
+        tree = ast.parse(expression, mode="eval")
+    except SyntaxError as exc:
+        raise ExpressionError(f"unparseable expression: {expression!r}") from exc
+    return _eval_node(tree.body, variables)
 
 
 # ---------------------------------------------------------------------------
@@ -270,3 +291,81 @@ def deterministic_checks_for_math(item: MathItem) -> list[DeterministicCheck]:
     if item.expected_unit is not None:
         checks.append(verify_units(item.claimed_unit or "", item.expected_unit))
     return checks
+
+
+# ---------------------------------------------------------------------------
+# A deterministic verifier for a LESSON VISUAL (a plotted curve y = f(x))
+# ---------------------------------------------------------------------------
+
+@dataclass(frozen=True)
+class LessonVisualItem:
+    """A generated lesson visual to verify deterministically.
+
+    A plotted curve ``y = f(x)`` with ``expression`` (the function of ``var``,
+    default ``x``) and the curve's claimed sample points ``samples`` — a list of
+    ``(x, claimed_y)`` pairs the generator says lie on the curve. The
+    deterministic oracle re-evaluates ``f`` at each ``x`` and confirms the
+    plotted ``y`` matches (this is the "re-run the simulation / numeric check"
+    path for a visual — no LLM, INVARIANT 7). Optional axis bounds confirm every
+    sample sits inside the declared viewport.
+    """
+
+    expression: str
+    samples: tuple[tuple[float, float], ...]
+    var: str = "x"
+    x_min: float | None = None
+    x_max: float | None = None
+    y_min: float | None = None
+    y_max: float | None = None
+    tolerance: float = 1e-6
+
+
+def verify_plotted_points(item: LessonVisualItem) -> list[DeterministicCheck]:
+    """Re-evaluate the plotted curve at each sample and confirm the claimed y.
+
+    Fails CLOSED: an unparseable / non-numeric expression, or any sample whose
+    re-computed y does not match the claimed y within tolerance, yields a failing
+    check (never an exception to the caller), so the gate withholds.
+    """
+    checks: list[DeterministicCheck] = []
+    if not item.samples:
+        checks.append(DeterministicCheck(
+            "plotted-points", False, "no sample points supplied; cannot verify the curve.",
+        ))
+        return checks
+
+    for i, (x, claimed_y) in enumerate(item.samples):
+        try:
+            truth_y = eval_at(item.expression, {item.var: float(x)})
+        except ExpressionError as exc:
+            checks.append(DeterministicCheck(
+                "plotted-points", False, f"sample {i} ({item.var}={x}): {exc}",
+            ))
+            return checks  # an unevaluable curve fails closed immediately
+        matches = math.isclose(truth_y, float(claimed_y), rel_tol=item.tolerance, abs_tol=item.tolerance)
+        checks.append(DeterministicCheck(
+            f"plotted-point[{i}]",
+            matches,
+            f"{item.var}={x}: recomputed {truth_y}; plotted {claimed_y}"
+            + ("" if matches else " — MISMATCH"),
+        ))
+
+    # Viewport bounds: every sample x (and y) must sit inside the declared axes.
+    if item.x_min is not None or item.x_max is not None:
+        for i, (x, _y) in enumerate(item.samples):
+            checks.append(_renamed(
+                verify_numeric_bounds(float(x), item.x_min, item.x_max), f"x-in-view[{i}]"))
+    if item.y_min is not None or item.y_max is not None:
+        for i, (_x, y) in enumerate(item.samples):
+            checks.append(_renamed(
+                verify_numeric_bounds(float(y), item.y_min, item.y_max), f"y-in-view[{i}]"))
+    return checks
+
+
+def _renamed(check: DeterministicCheck, name: str) -> DeterministicCheck:
+    return DeterministicCheck(name, check.passed, check.detail)
+
+
+def deterministic_checks_for_visual(item: LessonVisualItem) -> list[DeterministicCheck]:
+    """Run the full deterministic battery for a lesson visual, in order."""
+    return verify_plotted_points(item)

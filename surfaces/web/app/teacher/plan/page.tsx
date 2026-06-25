@@ -1,10 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
 import { SEED_ONTOLOGY } from '@classess/contracts';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { useClassInsights } from '@/lib/useClassInsights';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 import { CLASS_LABEL, MATH_SUBJECT_ID, PHYS_SUBJECT_ID, topicsForSubject } from '@/lib/loopData';
 
 /**
@@ -50,6 +55,27 @@ export default function PlanPage() {
   const [subjectId, setSubjectId] = useState<string>(MATH_SUBJECT_ID);
   const [horizon, setHorizon] = useState<Horizon>('unit');
   const [deliveredDays, setDeliveredDays] = useState<Set<string>>(() => new Set());
+
+  // The plan is differentiated against the SPINE's live class read (gateway-first,
+  // engine fallback). The band counts below are drawn from that read, never a
+  // single score — the same source the rest of the loop trusts.
+  const { phase, insights, source, refresh } = useClassInsights();
+  const { emit } = useEmit();
+  useEffect(() => {
+    if (phase === 'ready') {
+      emit({ type: 'surface.viewed', purpose: EVENT_PURPOSE.teaching, payload: { surface: 'teacher.plan', source } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  const bandCounts = useMemo(() => {
+    const s = insights?.summary;
+    return {
+      support: s?.need_support ?? 0,
+      core: s?.working_independently ?? 0,
+      stretch: insights?.reads.filter((r) => r.mastery.reading.independent && !r.mastery.revisionDue).length ?? 0,
+    };
+  }, [insights]);
 
   const topics = topicsForSubject(subjectId);
   const subjectName = SUBJECTS.find((s) => s.id === subjectId)!.name;
@@ -188,19 +214,31 @@ export default function PlanPage() {
             <div className="divider" />
 
             <p className="overline">Differentiation by mastery band</p>
-            <div className="stack" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
-              {BANDS.map((b) => (
-                <div key={b.key} className="cell" style={{ textAlign: 'left' }}>
-                  <div className="row-between">
-                    <span className="body-sm">{b.label}</span>
-                    <Tag tone={b.tone}>{b.key}</Tag>
-                  </div>
-                  <p className="caption muted" style={{ marginTop: 4 }}>
-                    {b.move}
-                  </p>
+            {phase !== 'ready' ? (
+              <ReadStates phase={phase} onRetry={refresh} />
+            ) : (
+              <>
+                <div className="stack" style={{ gap: 'var(--space-2)', marginTop: 'var(--space-2)' }}>
+                  {BANDS.map((b) => {
+                    const n = bandCounts[b.key as keyof typeof bandCounts];
+                    return (
+                      <div key={b.key} className="cell" style={{ textAlign: 'left' }}>
+                        <div className="row-between">
+                          <span className="body-sm">{b.label}</span>
+                          <Tag tone={b.tone}>
+                            {n} {n === 1 ? 'read' : 'reads'}
+                          </Tag>
+                        </div>
+                        <p className="caption muted" style={{ marginTop: 4 }}>
+                          {b.move}
+                        </p>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
+                <SourceNote source={source} />
+              </>
+            )}
 
             <EvidenceDrawer
               evidence={[

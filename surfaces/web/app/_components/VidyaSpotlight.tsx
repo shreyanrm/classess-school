@@ -157,12 +157,38 @@ export function VidyaSpotlight({
         />
       </svg>
       {label ? (
-        <div
-          className="vidya-spotlight-label body-sm"
-          style={{ top: rect.top - pad - 28, left: rect.left - pad }}
-        >
-          {label}
-        </div>
+        <>
+          {/* Path-5 guide: a hairline arrow drawn (border-draw style) from the
+              caption down to the spotlit control, so the eye is led to the exact
+              target the user must act on. Vector only, non-blocking, reduced-
+              motion drops the draw-in (handled in globals.css). */}
+          <svg
+            className="vidya-spotlight-arrow"
+            width={28}
+            height={pad + 30}
+            viewBox={`0 0 28 ${pad + 30}`}
+            style={{ position: 'fixed', top: rect.top - pad - 30, left: rect.left - pad + 8 }}
+            fill="none"
+            aria-hidden="true"
+          >
+            <path
+              className="vidya-spotlight-arrow-line"
+              d={`M6 2 Q2 ${(pad + 30) / 2} 10 ${pad + 26}`}
+              pathLength={100}
+            />
+            <path
+              className="vidya-spotlight-arrow-head"
+              d={`M5 ${pad + 21} L10 ${pad + 27} L15 ${pad + 20}`}
+              pathLength={100}
+            />
+          </svg>
+          <div
+            className="vidya-spotlight-label body-sm"
+            style={{ top: rect.top - pad - 28, left: rect.left - pad }}
+          >
+            {label}
+          </div>
+        </>
       ) : null}
       {note ? (
         <div

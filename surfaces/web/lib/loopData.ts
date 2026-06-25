@@ -25,6 +25,13 @@ const IDS = SEED_ONTOLOGY_IDS;
 // ---------------------------------------------------------------------------
 export const CLASS_LABEL = 'Class 10-B';
 
+/**
+ * The class/cohort scope ref — the opaque subject_uuid the teacher's governed
+ * class-intelligence read carries to the wall (lib/deepReads.readClassInsights).
+ * Opaque canonical ref; never PII, never board-specific.
+ */
+export const CLASS_REF = 'c1a55000-0000-4000-8000-00000000000b';
+
 export interface Student {
   /** Opaque canonical_uuid — the ONLY identity in behavioural data. */
   ref: string;

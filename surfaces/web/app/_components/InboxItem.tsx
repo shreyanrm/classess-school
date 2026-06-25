@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 import {
   applyTransition,
   canSubmit,
@@ -29,14 +31,23 @@ export interface InboxItemProps {
 export function InboxItem({ item }: InboxItemProps) {
   const [status, setStatus] = useState<WorkStatus>(item.status);
   const [confirming, setConfirming] = useState(false);
+  const { emit } = useEmit();
 
   function start() {
     setStatus((s) => applyTransition(s, 'in-progress'));
   }
 
+  // Submit is the consequential action — it fires ONLY after the explicit
+  // confirm (the human-approval rung), and emits an attributed, consent-stamped
+  // event the record can audit. Never auto-fired.
   function confirmSubmit() {
     setStatus((s) => applyTransition(s, 'submitted'));
     setConfirming(false);
+    emit({
+      type: 'submission.created',
+      purpose: EVENT_PURPOSE.learning,
+      payload: { assignment_id: item.id, kind: item.kindLabel, approved: true },
+    });
   }
 
   return (

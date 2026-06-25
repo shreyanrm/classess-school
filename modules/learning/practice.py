@@ -37,7 +37,7 @@ from enum import Enum
 from typing import Any, Iterable, Sequence
 
 from . import _engine
-from .ladder import next_state, LadderState
+from .ladder import next_state, LadderState, ASSISTANCE_LADDER, is_unaided_demonstration
 
 # Item-difficulty bands matched to mastery bands. The next item sits JUST beyond
 # what the learner can already do alone — desirable difficulty, not despair.
@@ -563,4 +563,121 @@ def track_aptitude(observations: Sequence[AptitudeObservation]) -> AptitudeReadi
         trend=trend,
         band=band,
         plain_language=plain_by_trend[trend],
+    )
+
+
+# ===========================================================================
+# LoopModules — record ONE practice attempt as an evidence event (B7, d13).
+# ===========================================================================
+# This is the loop the document asks for: a practice attempt RECORDS an event
+# (correct/incorrect + the assistance level used), feeding the engine. It closes
+# the circuit between the assistance ladder above and the evidence emitter in
+# :mod:`learning.events` — selection offers a faded rung; the attempt at that rung
+# is recorded as ``attempt.recorded`` carrying the keystone independent-vs-
+# supported flag and the rung actually used; the engine reads it as evidence.
+#
+# THE PRODUCTIVE-STRUGGLE / NO-ANSWER-HANDOVER GUARD lives here, where the attempt
+# is recorded, so an incoherent or answer-handed attempt is refused at the source:
+#
+#   - the rung used MUST be a real ladder rung (deny-by-default: an unknown rung
+#     is not silently treated as "Independent" — independence is never assumed);
+#   - the keystone mode is DERIVED from the rung in :mod:`learning.events`, so a
+#     correct result on a help rung can NEVER masquerade as an unaided
+#     demonstration. The ladder hands support, never the answer: only the
+#     ``Independent`` rung yields independent evidence.
+
+
+@dataclass(frozen=True)
+class AttemptRecord:
+    """The outcome of recording one practice attempt as an evidence event.
+
+    ``independent`` is the keystone flag the engine reads; ``assistance_level`` is
+    the ladder rung actually used; ``delivered`` says whether a real gateway sink
+    accepted it (False in the degraded in-memory path). ``plain_language`` is the
+    only learner-facing line (never the raw mode/flag — CONFIDENTIALITY SCRUB)."""
+
+    topic_id: str
+    assistance_level: str
+    independent: bool
+    correct: bool
+    delivered: bool
+    sink: str
+    plain_language: str
+    event_id: str
+
+
+def record_practice_attempt(
+    *,
+    canonical_uuid: str,
+    consent_ref: str,
+    topic_id: str,
+    assistance_level: str,
+    correct: bool,
+    difficulty: float,
+    time_taken_ms: int,
+    score: float | None = None,
+    question_id: str | None = None,
+    attempt_number: int = 1,
+    emitter: Any | None = None,
+) -> AttemptRecord:
+    """Record ONE practice attempt as an ``attempt.recorded`` evidence event.
+
+    The loop, end to end: the learner attempts an item at the ladder rung the
+    selection offered; this records the attempt (correct/incorrect + the
+    assistance level used) and EMITS it through the gateway-first event emitter so
+    it feeds the engine as evidence — never a "completed" tick.
+
+    Productive-struggle / no-answer-handover guard: the rung must be a known
+    ladder rung (an unknown rung is refused, never assumed to be Independent), and
+    the keystone independent-vs-supported flag is DERIVED from the rung by the
+    event builder — a help rung can never be recorded as an unaided demonstration,
+    so the system hands support up the ladder, not the answer.
+
+    Reuses :class:`learning.events.EventEmitter` (degrades to the in-memory
+    append-only sink when no gateway is wired). Pass ``emitter`` to share one
+    buffer across attempts; omit it for a fresh emitter.
+    """
+    if assistance_level not in ASSISTANCE_LADDER:
+        raise ValueError(
+            f"unknown assistance rung {assistance_level!r}: independence is never "
+            f"assumed — the rung used must be one of {ASSISTANCE_LADDER}."
+        )
+
+    from . import events as _events  # lazy: keep this module import-safe
+
+    em = emitter if emitter is not None else _events.EventEmitter()
+    emitted = em.emit_attempt(
+        canonical_uuid=canonical_uuid,
+        consent_ref=consent_ref,
+        topic_id=topic_id,
+        assistance_level=assistance_level,
+        correct=correct,
+        difficulty=difficulty,
+        time_taken_ms=time_taken_ms,
+        score=score,
+        question_id=question_id,
+        attempt_number=attempt_number,
+    )
+    independent = is_unaided_demonstration(assistance_level)
+    if independent:
+        plain = (
+            "recorded as an unaided attempt — this one shows what you can do on your own"
+            if correct
+            else "recorded as an unaided attempt — a miss here is real signal, not a setback"
+        )
+    else:
+        plain = (
+            "recorded with support — next time we will step the help back a little"
+            if correct
+            else "recorded with support — we will stay alongside you on the next one"
+        )
+    return AttemptRecord(
+        topic_id=topic_id,
+        assistance_level=assistance_level,
+        independent=independent,
+        correct=correct,
+        delivered=emitted.delivered,
+        sink=emitted.sink,
+        plain_language=plain,
+        event_id=emitted.envelope.get("event_id", ""),
     )

@@ -38,9 +38,10 @@ import logging
 from typing import Any, Optional
 
 from fastapi import Body, FastAPI, Header, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
-from . import loader
+from . import dispatch, intelligence_views, loader
 from .wall_auth import WallTokenVerifier
 
 logging.basicConfig(level=logging.INFO)
@@ -190,6 +191,16 @@ _ACTION_ALIASES = {
     "grade": "write",     # evaluation grade (permission ladder)
     "delete": "write",    # erasure
     "erase": "write",     # identity erasure
+    # Named LOOP operations — the door keeps the semantic name to pick the
+    # engine handler (see backend/dispatch.py), but the wall still gates each as
+    # its canonical action. Reads gate as reads; consequential writes (grade /
+    # submit / publish) ride the permission ladder via X-Approval-Token.
+    "evaluate_submission": "write",           # coursework marking gate (ladder)
+    "record_attempt": "write",                # learning practice attempt
+    "record_practice": "write",               # learning practice attempt
+    "generate_and_verify_content": "write",   # content generate-and-verify
+    "mastery": "read",                        # CORE engine mastery read
+    "gap": "read",                            # CORE engine gap read
 }
 
 
@@ -221,11 +232,25 @@ async def capability_door(
     cross_context = x_consent_purpose is not None
     payload = body or {}
 
+    # The wall validates the ENVELOPE it governs (strict per-route schema, so it
+    # never forwards unknown fields). A named loop op carries a richer DOMAIN
+    # payload (responses / items / events) that is the MODULE's concern, not the
+    # wall's. Project the body down to the wall-declared fields for admission;
+    # the full body still travels to the engine handler. Child-safety screening
+    # is unaffected — it runs on the declared free-text fields, which survive the
+    # projection. Non-loop ops keep their existing (already-conformant) body.
+    wall_payload = payload
+    if dispatch.has_handler(capability, operation):
+        cap = _registry.get(route)
+        if cap is not None:
+            declared = set(cap.schema.fields.keys())
+            wall_payload = {k: v for k, v in payload.items() if k in declared}
+
     try:
         _wall.admit(
             route=route,
             token=token,
-            payload=payload,
+            payload=wall_payload,
             cross_context=cross_context,
             approval_token=x_approval_token,
         )
@@ -241,12 +266,60 @@ async def capability_door(
             content={"error": "denied", "reason": reason.value, "detail": denied.detail or None},
         )
 
-    # Admitted: the capability module performs its work. Modules are pure-python
-    # libraries (no HTTP router of their own), so the door acknowledges the
-    # governed admission. Concrete module dispatch is wired per-operation later.
+    # Admitted: the governed INTELLIGENCE READ is the spine's one-engine, one-
+    # truth faucet. The web's gateway-first reads hit POST /capabilities/{learning|
+    # intelligence-views}/read with a `view` selector; we compute the governed
+    # view (mastery / gaps / recommendations / class-insights) by replaying the
+    # event store through the ONE engine and return it as the TOP-LEVEL body so
+    # the surface's shape guard trusts it. If the engine is unavailable, or the
+    # view is unknown/malformed, we fall through to the generic admitted ack and
+    # the surface degrades to its in-browser engine port (fallback on 503/deny).
+    if action == "read" and capability in ("learning", "intelligence-views"):
+        if intelligence_views.available():
+            try:
+                view_body = intelligence_views.read(
+                    view=payload.get("view"),
+                    subject_uuid=payload.get("subject_uuid"),
+                )
+                return JSONResponse(status_code=200, content=jsonable_encoder(view_body))
+            except intelligence_views.IntelligenceUnavailable:
+                pass  # engine degraded -> fall through to ack -> surface falls back
+            except ValueError:
+                pass  # unknown/malformed view -> ack -> surface falls back
+        else:
+            # The ONE engine could not load (e.g. a dependency absent on this
+            # deploy). Signal a degrade with 503 so the surface falls back to its
+            # in-browser engine port rather than trusting a non-contract body.
+            return JSONResponse(
+                status_code=503,
+                content={"status": "degraded", "capability": capability, "reason": "intelligence_engine_unavailable"},
+            )
+
+    # NOW dispatch to the capability module's operation (the wall did the
+    # enforcing; the module does the work). For the loop capabilities this
+    # invokes the real engine surface (evaluate_submission, record practice/
+    # attempt, generate_and_verify_content, mastery / gap reads), forwarding the
+    # wall-validated approval token for ladder ops. An operation with no handler
+    # falls back to the governed admission acknowledgment, unchanged.
+    result = dispatch.dispatch(
+        capability=capability,
+        operation=operation,
+        payload=payload,
+        approval_token=x_approval_token,
+    )
+    if result is None:
+        return JSONResponse(
+            status_code=200,
+            content={"status": "admitted", "capability": capability, "operation": action},
+        )
     return JSONResponse(
         status_code=200,
-        content={"status": "admitted", "capability": capability, "operation": action},
+        content={
+            "status": "admitted",
+            "capability": capability,
+            "operation": action,
+            "result": result,
+        },
     )
 
 

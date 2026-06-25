@@ -170,6 +170,11 @@ app/
   gaps.py       the ten gap rules; never-confirm-from-one-score
   profile.py    per-learner projection; idempotent rebuild; fresh-evidence guard
   graph.py      cohort learner-graph projection + governed roll-ups
+  read.py       the governed READ VIEW (what POST /v1/intelligence/read returns:
+                independent-vs-supported + named plain-language gaps, evidence-
+                linked, never the scalar) + the engine's event EMISSION
+                (mastery.updated / gap.detected / gap.resolved, consent-stamped,
+                gateway-or-degraded)
   source.py     EventSource interface + in-memory degraded source
 tests/          synthetic-event suite (import-safe, offline, deterministic)
 ```

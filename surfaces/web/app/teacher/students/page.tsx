@@ -1,23 +1,28 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { IgniteDot, SpotlightCard, Tag } from '@classess/design-system';
+import { CrystallizeNode, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { DimensionBars } from '../../_components/DimensionBars';
 import { GapChips } from '../../_components/GapChips';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
-import { computeClassReads, type StudentTopicRead } from '@/lib/classRead';
+import { type StudentTopicRead } from '@/lib/classRead';
+import { useClassInsights } from '@/lib/useClassInsights';
 import { BAND_SHORT } from '@/lib/engine';
 import { CLASS_LABEL, ROSTER } from '@/lib/loopData';
 
 /**
  * Student insights — mastery per topic in PLAIN LANGUAGE (independent vs
  * with-guidance), gap chips, and the Evidence drawer that opens the six-
- * dimension reasoning and the lineage. All computed live from the seed evidence
- * through the engine. The teacher sees the reasoning; learners never do.
+ * dimension reasoning and the lineage. Read GATEWAY-FIRST from the SPINE
+ * (class-insights view), falling back to the TS engine only on degrade. The
+ * teacher sees the reasoning; learners never do.
  */
 export default function StudentInsightsPage() {
-  const reads = computeClassReads();
+  const { phase, insights, source, refresh } = useClassInsights();
+  const reads = useMemo(() => insights?.reads ?? [], [insights]);
   const byStudent = useMemo(() => groupByStudent(reads), [reads]);
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -28,13 +33,16 @@ export default function StudentInsightsPage() {
       dockIntro="Mastery per topic, in plain language — independent versus with guidance. Open any read for its six-dimension reasoning and the evidence behind it. Ask what unlocks a topic, or who is support-dependent."
       dockChips={['Who is support-dependent', 'What unlocks trig identities', 'Show only confirmed gaps']}
     >
-      {byStudent.length === 0 ? (
+      {phase !== 'ready' ? (
+        <ReadStates phase={phase} onRetry={refresh} />
+      ) : byStudent.length === 0 ? (
         <div className="empty">
           <h4 className="body">No evidence yet</h4>
           <p>Once students attempt a check, their reads appear here with full lineage.</p>
         </div>
       ) : (
-        byStudent.map(({ studentRef, studentLabel: label, reads: rows }) => (
+        <>
+        {byStudent.map(({ studentRef, studentLabel: label, reads: rows }) => (
           <section className="stack" key={studentRef}>
             <p className="overline">{label}</p>
             {rows.map((r) => {
@@ -45,7 +53,7 @@ export default function StudentInsightsPage() {
                   <div className="row-between" style={{ alignItems: 'flex-start' }}>
                     <div>
                       <div className="ignite-row" style={{ marginBottom: 2 }}>
-                        {r.mastery.reading.independent ? <IgniteDot label="Independent" /> : null}
+                        {r.mastery.reading.independent ? <CrystallizeNode variant="b" inline resolved label="Independent" /> : null}
                         <span className="body">{r.topic.name}</span>
                       </div>
                       <div className="caption muted">
@@ -94,7 +102,9 @@ export default function StudentInsightsPage() {
               );
             })}
           </section>
-        ))
+        ))}
+        <SourceNote source={source} />
+        </>
       )}
     </SurfaceShell>
   );

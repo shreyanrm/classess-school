@@ -6,6 +6,9 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { InboxItem } from '../../_components/InboxItem';
 import { openVidya } from '../../_components/VidyaOrb';
 import { useStore } from '@/lib/useStore';
+import { useOnline } from '@/lib/useOnline';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 import {
   MILESTONE_LABEL,
   loadInbox,
@@ -33,6 +36,8 @@ const MILESTONE_TONE = {
  */
 export function StudentWork() {
   const { state } = useStore();
+  const online = useOnline();
+  const { emit } = useEmit();
   const [tab, setTab] = useState<Tab>('inbox');
   const [load, setLoad] = useState<LoadState>('loading');
   const [inbox, setInbox] = useState<AssignmentView[]>([]);
@@ -52,6 +57,12 @@ export function StudentWork() {
     // Re-read when a teacher-assigned check is pushed to the shared list.
     return subscribeWork(refresh);
   }, [state]);
+
+  // The surface viewed event — attributed, consent-stamped.
+  useEffect(() => {
+    if (load === 'ready') emit({ type: 'surface.viewed', purpose: EVENT_PURPOSE.learning, payload: { surface: 'student.work' } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [load]);
 
   return (
     <SurfaceShell

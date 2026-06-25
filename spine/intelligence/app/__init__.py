@@ -49,6 +49,18 @@ from .mind import (
     open_faucet,
 )
 from .profile import LearnerProfile, TopicProjection, build_profile, build_topic_projection
+from .read import (
+    EmittedEvent,
+    GapView,
+    IndependenceState,
+    IntelligenceEmitter,
+    LearnerReadView,
+    ReadPurpose,
+    TopicReadView,
+    assert_no_scalar,
+    read_view,
+    view_from_profile,
+)
 from .source import EventSource, InMemoryEventSource, make_event_source
 
 __all__ = [
@@ -86,6 +98,16 @@ __all__ = [
     "EventSource",
     "InMemoryEventSource",
     "make_event_source",
+    "ReadPurpose",
+    "IndependenceState",
+    "assert_no_scalar",
+    "GapView",
+    "TopicReadView",
+    "LearnerReadView",
+    "view_from_profile",
+    "read_view",
+    "EmittedEvent",
+    "IntelligenceEmitter",
     "ALLOWED_CONDITIONING_PURPOSES",
     "MIND_SCHEMA_VERSION",
     "CognitiveFingerprint",

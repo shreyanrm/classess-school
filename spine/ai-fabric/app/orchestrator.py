@@ -42,9 +42,11 @@ from .verify import (
     ConfidenceGate,
     DeterministicCheck,
     GenerateVerification,
+    LessonVisualItem,
     MathItem,
     SecondModelChecker,
     deterministic_checks_for_math,
+    deterministic_checks_for_visual,
 )
 
 
@@ -103,6 +105,8 @@ class Candidate:
     confidence: float
     # For math/physics items: the deterministic ground-truth handle.
     math_item: MathItem | None = None
+    # For a lesson visual (plotted curve): the deterministic ground-truth handle.
+    visual_item: LessonVisualItem | None = None
     # Token usage if the provider reports it (None when unavailable). Recorded on
     # the trace span; never required for the deterministic paths.
     prompt_tokens: int | None = None
@@ -142,6 +146,41 @@ class DeterministicMathProvider:
             content={"expression": expression, "answer": claimed, "unit": payload.get("claimed_unit")},
             confidence=self.confidence,
             math_item=item,
+        )
+
+
+@dataclass
+class DeterministicVisualProvider:
+    """A no-LLM provider for a LESSON VISUAL (a plotted curve y = f(x)) whose
+    payload carries an ``expression`` + plotted ``samples``. Lets the
+    deterministic plotted-point path produce a real, verifiable teaching visual
+    with no external provider — the visual analogue of the math stand-in."""
+
+    confidence: float = 0.99
+
+    def generate(self, *, capability: Capability, route: RouteResolution, payload: dict) -> Candidate:
+        expression = str(payload["expression"])
+        var = str(payload.get("var", "x"))
+        samples = tuple(
+            (float(x), float(y)) for x, y in payload["samples"]
+        )
+        item = LessonVisualItem(
+            expression=expression,
+            samples=samples,
+            var=var,
+            x_min=payload.get("x_min"),
+            x_max=payload.get("x_max"),
+            y_min=payload.get("y_min"),
+            y_max=payload.get("y_max"),
+        )
+        return Candidate(
+            content={
+                "kind": "lesson_visual",
+                "plot": {"expression": expression, "var": var},
+                "points": [{"x": x, "y": y} for x, y in samples],
+            },
+            confidence=self.confidence,
+            visual_item=item,
         )
 
 
@@ -354,12 +393,18 @@ class Orchestrator:
         # payload carries an expression + claimed answer.
         if "expression" in intent.payload and "claimed_answer" in intent.payload:
             return DeterministicMathProvider()
+        # Deterministic lesson-visual stand-in: a plotted curve y = f(x) with the
+        # sample points the generator claims lie on it — verified by recompute.
+        if "expression" in intent.payload and "samples" in intent.payload:
+            return DeterministicVisualProvider()
         return None
 
     @staticmethod
     def _deterministic_checks(candidate: Candidate) -> list[DeterministicCheck]:
         if candidate.math_item is not None:
             return deterministic_checks_for_math(candidate.math_item)
+        if candidate.visual_item is not None:
+            return deterministic_checks_for_visual(candidate.visual_item)
         # No deterministic handle => a single failing check, so the gate stays
         # closed unless a checkable claim was provided (fail closed).
         return [DeterministicCheck(

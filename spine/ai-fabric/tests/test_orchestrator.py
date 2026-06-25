@@ -95,6 +95,48 @@ def test_deterministic_math_provider_from_payload():
     assert res.verification.served is False
 
 
+# -- lesson visual: deterministic plotted-curve path -----------------------
+
+def test_lesson_visual_deterministic_from_payload():
+    """A plotted curve y = x**2 with correct sample points passes the REAL
+    deterministic verifier with no LLM. Second model abstains by default => the
+    gate withholds, proving the gate is honoured (never served blind)."""
+    orch = Orchestrator()
+    res = orch.handle(Intent(
+        request_id=_rid(), capability="content.generate-lesson-visual",
+        purpose="lesson_visual_generation",
+        payload={"expression": "x ** 2", "samples": [[-2, 4], [0, 0], [3, 9]]},
+    ))
+    assert res.verification is not None
+    assert res.verification.deterministic_checks_passed is True
+    assert res.verification.served is False  # abstaining second model holds the gate
+
+
+def test_lesson_visual_served_when_gate_passes():
+    orch = Orchestrator(second_model=_AgreeingSecondModel())
+    res = orch.handle(Intent(
+        request_id=_rid(), capability="content.generate-lesson-visual",
+        purpose="lesson_visual_generation",
+        payload={"expression": "x ** 2", "samples": [[2, 4], [3, 9]]},
+    ))
+    assert res.verification.served is True
+    assert res.refused is False
+    assert res.content["kind"] == "lesson_visual"
+    assert res.track == 1
+
+
+def test_lesson_visual_wrong_point_is_refused():
+    orch = Orchestrator(second_model=_AgreeingSecondModel())
+    res = orch.handle(Intent(
+        request_id=_rid(), capability="content.generate-lesson-visual",
+        purpose="lesson_visual_generation",
+        payload={"expression": "x ** 2", "samples": [[2, 5]]},  # 2**2 = 4, not 5
+    ))
+    assert res.verification.served is False
+    assert res.refused is True
+    assert res.content is None
+
+
 # -- permission ladder -----------------------------------------------------
 
 def test_consequential_capability_requires_approval():

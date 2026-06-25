@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Button, Icon, IgniteDot, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, CrystallizeNode, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ProofArtifact } from '../../_components/ProofArtifact';
 import { CredentialItem } from '../../_components/CredentialItem';
@@ -147,7 +147,7 @@ export function StudentPortfolio() {
                   <div className="parent-timeline-row" key={m.id}>
                     <div className="parent-timeline-marker">
                       {m.independent ? (
-                        <IgniteDot label="On your own" />
+                        <CrystallizeNode variant="b" inline resolved label="On your own" />
                       ) : (
                         <span className="dot" aria-hidden="true" />
                       )}

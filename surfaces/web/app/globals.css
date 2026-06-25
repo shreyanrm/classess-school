@@ -2118,9 +2118,31 @@ a {
   0%, 100% { stroke-opacity: 1; }
   50% { stroke-opacity: 0.55; }
 }
+/* The Path-5 guide arrow — a hairline that DRAWS itself from the caption to the
+   spotlit control (border-draw style), then holds. Non-blocking, no shadow. */
+.vidya-spotlight-arrow {
+  overflow: visible;
+  pointer-events: none;
+}
+.vidya-spotlight-arrow-line,
+.vidya-spotlight-arrow-head {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.25;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+  animation: vidya-spotlight-draw 0.5s var(--ease) 0.2s forwards;
+}
+.vidya-spotlight-arrow-head {
+  animation-delay: 0.6s;
+}
 @media (prefers-reduced-motion: reduce) {
-  /* No draw-in, no pulse — the ring simply appears, fully drawn. */
-  .vidya-spotlight-ring {
+  /* No draw-in, no pulse — the ring + arrow simply appear, fully drawn. */
+  .vidya-spotlight-ring,
+  .vidya-spotlight-arrow-line,
+  .vidya-spotlight-arrow-head {
     animation: none;
     stroke-dashoffset: 0;
   }

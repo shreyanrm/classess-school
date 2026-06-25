@@ -4,7 +4,7 @@ import { useMemo, useRef, useState } from 'react';
 import {
   Button,
   ConfidenceBand,
-  IgniteDot,
+  CrystallizeNode,
   SpotlightCard,
   Tag,
   type Confidence,
@@ -351,7 +351,7 @@ export default function LoopPage() {
               </p>
               {mastery.reading.independent ? (
                 <div className="ignite-row">
-                  <IgniteDot label="Independent mastery reached" />
+                  <CrystallizeNode variant="b" inline resolved label="Independent mastery reached" />
                   <span className="body-sm">A genuine mastery moment — earned independently.</span>
                 </div>
               ) : null}
@@ -381,7 +381,7 @@ export default function LoopPage() {
           ) : (
             <div className="stack">
               <div className="ignite-row" style={{ marginTop: 'var(--space-3)' }}>
-                {mastery.reading.independent ? <IgniteDot label="Independent" /> : null}
+                {mastery.reading.independent ? <CrystallizeNode variant="b" inline resolved label="Independent" /> : null}
                 <span className="body-lg">{BAND_SHORT[mastery.reading.band]}</span>
               </div>
               <p className="caption quiet">

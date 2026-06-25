@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { SourceNote } from '../../_components/SourceNote';
 import {
   CLASS_LABEL,
   MATH_SUBJECT_ID,
@@ -12,6 +13,9 @@ import {
   type TopicInfo,
 } from '@/lib/loopData';
 import { pushAssignedCheck } from '@/lib/workData';
+import { useClassInsights } from '@/lib/useClassInsights';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
 
 /**
  * Assign a quick check — blueprint-lite. The teacher picks ontology topics
@@ -33,6 +37,20 @@ export default function AssignPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [count, setCount] = useState(5);
   const [phase, setPhase] = useState<Phase>('compose');
+
+  // Gateway-first read of the class gaps (engine fallback on degrade) — so the
+  // topics that carry confirmed gaps can be badged and mapped against.
+  const { insights, source } = useClassInsights();
+  const { emit } = useEmit();
+  const gapTopicIds = useMemo(
+    () =>
+      new Set(
+        (insights?.reads ?? [])
+          .filter((r) => r.confirmedGaps.length > 0)
+          .map((r) => r.topic.id),
+      ),
+    [insights],
+  );
 
   const topics: TopicInfo[] = topicsForSubject(subjectId);
 
@@ -101,13 +119,15 @@ export default function AssignPage() {
                   <span className="body-sm">{t.name}</span>
                   {on ? <Icon name="check" size="sm" /> : <Icon name="plus" size="sm" />}
                 </div>
-                <div className="caption muted" style={{ marginTop: 2 }}>
-                  {t.chapterName}
+                <div className="row-between" style={{ marginTop: 2 }}>
+                  <span className="caption muted">{t.chapterName}</span>
+                  {gapTopicIds.has(t.id) ? <Tag tone="warning">confirmed gap</Tag> : null}
                 </div>
               </button>
             );
           })}
         </div>
+        <SourceNote source={source} />
       </section>
 
       <section className="stack">
@@ -181,10 +201,21 @@ export default function AssignPage() {
                 onClick={() => {
                   // The explicit human approval is what publishes work to learners.
                   // It appends to the shared work list so the check appears in the
-                  // student inbox (the visible Student <-> Teacher loop).
+                  // student inbox (the visible Student <-> Teacher loop), and emits
+                  // an attributed, consent-stamped `assignment.created` audit event.
                   pushAssignedCheck({
                     topicIds: selectedTopics.map((t) => t.id),
                     itemCount: count,
+                  });
+                  void emit({
+                    type: 'assignment.created',
+                    purpose: EVENT_PURPOSE.teaching,
+                    payload: {
+                      surface: 'teacher.assign',
+                      topicIds: selectedTopics.map((t) => t.id),
+                      itemCount: count,
+                      approved: true,
+                    },
                   });
                   setPhase('sent');
                 }}

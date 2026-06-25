@@ -11,11 +11,15 @@ from app.verify import (
     ConfidenceGate,
     DeterministicCheck,
     ExpressionError,
+    LessonVisualItem,
     MathItem,
     deterministic_checks_for_math,
+    deterministic_checks_for_visual,
+    eval_at,
     safe_eval,
     verify_arithmetic,
     verify_numeric_bounds,
+    verify_plotted_points,
     verify_units,
 )
 
@@ -133,3 +137,54 @@ def test_gate_withholds_with_no_checks():
     v = gate.evaluate([], second_model_agrees=True, confidence=0.99)
     assert v.served is False
     assert v.deterministic_checks_passed is False
+
+
+# -- lesson-visual deterministic verifier (plotted curve y = f(x)) ---------
+
+def test_eval_at_binds_variable_but_safe_eval_still_rejects_names():
+    assert eval_at("x ** 2", {"x": 3}) == 9.0
+    assert eval_at("2 * t + 1", {"t": 4}) == 9.0
+    # safe_eval (no binding) is UNCHANGED: a bare name is still rejected.
+    with pytest.raises(ExpressionError):
+        safe_eval("x + 1")
+    # An unbound name under eval_at is also rejected (no silent zero).
+    with pytest.raises(ExpressionError):
+        eval_at("y + 1", {"x": 2})
+
+
+def test_visual_correct_plotted_points_pass():
+    item = LessonVisualItem(
+        expression="x ** 2",
+        samples=((-2, 4), (0, 0), (3, 9)),
+        x_min=-5, x_max=5, y_min=0, y_max=25,
+    )
+    checks = deterministic_checks_for_visual(item)
+    assert all(c.passed for c in checks)
+    assert any(c.name.startswith("plotted-point") for c in checks)
+    assert any(c.name.startswith("x-in-view") for c in checks)
+
+
+def test_visual_wrong_plotted_point_fails_closed():
+    item = LessonVisualItem(expression="x ** 2", samples=((2, 5),))  # 2**2 = 4, not 5
+    checks = verify_plotted_points(item)
+    assert any(c.name.startswith("plotted-point") and not c.passed for c in checks)
+
+
+def test_visual_unevaluable_curve_fails_closed():
+    item = LessonVisualItem(expression="sin(x)", samples=((0, 0),))  # no calls allowed
+    checks = verify_plotted_points(item)
+    assert checks[0].name == "plotted-points"
+    assert checks[0].passed is False
+
+
+def test_visual_no_samples_fails_closed():
+    checks = verify_plotted_points(LessonVisualItem(expression="x", samples=()))
+    assert checks[0].passed is False
+
+
+def test_visual_sample_outside_viewport_fails():
+    item = LessonVisualItem(expression="x ** 2", samples=((10, 100),), y_min=0, y_max=25)
+    checks = deterministic_checks_for_visual(item)
+    # The point is on the curve (10**2 == 100) but outside the declared y view.
+    assert any(c.name.startswith("plotted-point") and c.passed for c in checks)
+    assert any(c.name.startswith("y-in-view") and not c.passed for c in checks)

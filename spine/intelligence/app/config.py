@@ -43,6 +43,17 @@ class IntelligenceSettings(BaseSettings):
     # never directly. clss.intelligence.dev.gateway_url
     gateway_url: str | None = Field(default=None)
 
+    # Bearer issued by identity (A1), presented at the gateway wall. NEVER a
+    # literal; read from the environment by name only (INVARIANT 4, 8).
+    # clss.intelligence.dev.gateway_token
+    gateway_token: str | None = Field(default=None)
+
+    # Where derived-state events (mastery.updated / gap.detected / gap.resolved)
+    # are POSTed THROUGH the gateway. Unset -> emission degrades to an in-memory
+    # append-only sink. Events are the ONLY thing this engine writes, and only as
+    # a projection of what it derived. clss.intelligence.dev.event_sink_url
+    event_sink_url: str | None = Field(default=None)
+
     # --- Second-model cross-check (generate-and-verify, INVARIANT 7) ------
     # Reserved for a future model-assisted gap cross-check. The engine's gap
     # rules are deterministic and work with no provider; this names the var a
@@ -53,6 +64,12 @@ class IntelligenceSettings(BaseSettings):
     @property
     def has_event_source(self) -> bool:
         return bool(self.database_url)
+
+    @property
+    def has_event_sink(self) -> bool:
+        """True only when the gateway AND a sink are configured — every write
+        passes the gateway, so a sink URL without a gateway is still degraded."""
+        return bool(self.gateway_url and self.gateway_token and self.event_sink_url)
 
     def degraded_reasons(self) -> list[str]:
         """Names (never values) of env vars that, if set, would lift degradation."""

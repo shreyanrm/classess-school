@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from learning import practice
 from learning.practice import TopicState, select_for_topic, select_next
 
@@ -83,3 +85,48 @@ def test_selection_carries_helping_or_evaluating_declaration():
 
 def test_empty_states_returns_none():
     assert select_next([]) is None
+
+
+# --- LoopModules: a practice attempt records + emits an evidence event -------
+from learning.events import EventEmitter
+from .conftest import CONSENT, LEARNER_A, T_EUCLID
+
+
+def test_record_attempt_emits_evidence_event_feeding_the_engine():
+    em = EventEmitter()
+    rec = practice.record_practice_attempt(
+        canonical_uuid=LEARNER_A, consent_ref=CONSENT, topic_id=T_EUCLID,
+        assistance_level="Hint", correct=True, difficulty=0.6, time_taken_ms=30_000, score=0.8,
+        emitter=em,
+    )
+    # It RECORDED an attempt.recorded event (evidence, never a completion tick).
+    assert len(em.buffered()) == 1
+    env = em.buffered()[0]
+    assert env["type"] == "attempt.recorded"
+    assert env["payload"]["assistance_level"] == "Hint"
+    assert "completed" not in env["payload"] and "done" not in env["payload"]
+    assert rec.delivered is False  # degraded in-memory sink in tests
+    assert rec.event_id == env["event_id"]
+
+
+def test_help_rung_attempt_is_never_recorded_as_unaided():
+    # No-answer-handover: a correct result on a help rung is SUPPORTED, never an
+    # unaided demonstration — the keystone flag is derived from the rung.
+    rec = practice.record_practice_attempt(
+        canonical_uuid=LEARNER_A, consent_ref=CONSENT, topic_id=T_EUCLID,
+        assistance_level="Check-my-work", correct=True, difficulty=0.5, time_taken_ms=10_000,
+    )
+    assert rec.independent is False
+    indep = practice.record_practice_attempt(
+        canonical_uuid=LEARNER_A, consent_ref=CONSENT, topic_id=T_EUCLID,
+        assistance_level="Independent", correct=True, difficulty=0.5, time_taken_ms=10_000,
+    )
+    assert indep.independent is True
+
+
+def test_unknown_rung_is_refused_independence_never_assumed():
+    with pytest.raises(ValueError):
+        practice.record_practice_attempt(
+            canonical_uuid=LEARNER_A, consent_ref=CONSENT, topic_id=T_EUCLID,
+            assistance_level="Solo", correct=True, difficulty=0.5, time_taken_ms=10_000,
+        )

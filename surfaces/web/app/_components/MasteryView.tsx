@@ -1,6 +1,6 @@
 'use client';
 
-import { IgniteDot } from '@classess/design-system';
+import { CrystallizeNode } from '@classess/design-system';
 import type { MasteryRow } from '@/lib/mock';
 import { BAND_PHRASE } from '@/lib/mock';
 
@@ -27,7 +27,7 @@ export function MasteryView({ rows }: MasteryViewProps) {
           <div className="mastery-band">
             {row.independent ? (
               <>
-                <IgniteDot label="Now independent" />
+                <CrystallizeNode variant="b" inline resolved label="Now independent" />
                 <span>{BAND_PHRASE[row.band]}</span>
               </>
             ) : (

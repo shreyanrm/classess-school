@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Icon, IgniteDot, SpotlightCard, Tag } from '@classess/design-system';
+import { CrystallizeNode, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ChildSwitcher } from '../../_components/ChildSwitcher';
 import { ProofArtifact } from '../../_components/ProofArtifact';
@@ -128,7 +128,7 @@ function PlainPointRow({ point, kind }: { point: PlainPoint; kind: 'strength' | 
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
         <div>
           <div className="row" style={{ gap: 'var(--space-2)' }}>
-            {point.independent ? <IgniteDot label="Now independent" /> : null}
+            {point.independent ? <CrystallizeNode variant="b" inline resolved label="Now independent" /> : null}
             <span className="body">{point.topic}</span>
           </div>
           <p className="body-sm muted" style={{ marginTop: 'var(--space-2)' }}>

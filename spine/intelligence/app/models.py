@@ -40,6 +40,8 @@ EventTypeName = Literal[
     "submission.created",
     "score.recorded",
     "mastery.updated",
+    "gap.detected",
+    "gap.resolved",
     "intervention.fired",
     "consent.granted",
     "consent.revoked",

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Icon, IgniteDot, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, CrystallizeNode, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import type { ProofArtifact as ProofArtifactData } from '@/lib/parentData';
 
 export interface ProofArtifactProps {
@@ -54,7 +54,7 @@ export function ProofArtifact({ proof, shareable = true, voice = 'parent' }: Pro
         <span className="overline">A proud moment</span>
         {proof.independent ? (
           <span className="ignite-row" aria-label="Now independent">
-            <IgniteDot label="Now independent" />
+            <CrystallizeNode variant="b" inline resolved label="Now independent" />
           </span>
         ) : null}
       </div>

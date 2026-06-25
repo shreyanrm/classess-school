@@ -1,20 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { IgniteDot, SpotlightCard, SuggestionChip, Tag } from '@classess/design-system';
+import { useEffect, useMemo, useState } from 'react';
+import { SpotlightCard, SuggestionChip, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { ReadStates } from '../../_components/ReadStates';
+import { MasteryConclusion } from '../../_components/MasteryConclusion';
+import { useDeepReads, type TopicRead } from '@/lib/useDeepReads';
+import { useEmit } from '@/lib/useEmit';
+import { EVENT_PURPOSE } from '@/lib/events';
+import { BAND_SHORT, gapLabel } from '@/lib/engine';
 import {
-  computeMastery,
-  detectGaps,
-  gapLabel,
-  BAND_SHORT,
-  type MasteryResult,
-} from '@/lib/engine';
-import {
-  CURRENT_STUDENT,
-  EDGES,
-  SCENARIO_NOW,
-  SEED_EVENTS,
   topicInfo,
   topicsForSubject,
   MATH_SUBJECT_ID,
@@ -23,54 +18,42 @@ import {
 
 /**
  * Progress — the knowledge profile in plain language: what you can do on your
- * own versus with support. Never a number, never the formula. Queryable: a few
- * plain questions ("what am I weakest at", "what unlocks this") answer from the
- * learner's own live reads. The ignite marks a genuine, independent mastery
- * moment.
+ * own versus with support. Read gateway-first from the SPINE (mastery/gaps),
+ * falling back to the TS engine only on degrade; never a number, never the
+ * formula. Every conclusion opens an EvidenceDrawer. Queryable in plain
+ * language; the ignite marks a genuine, independent mastery moment.
  */
 
-const SUBJECT = CURRENT_STUDENT.ref;
-
-interface ProfileRow {
-  topicId: string;
-  topicName: string;
-  subjectName: string;
-  mastery: MasteryResult;
-  topGapLabel: string | null;
-}
-
-function buildProfile(): ProfileRow[] {
-  const topicIds = [
-    ...topicsForSubject(MATH_SUBJECT_ID).map((t) => t.id),
-    ...topicsForSubject(PHYS_SUBJECT_ID).map((t) => t.id),
-  ];
-  const rows: ProfileRow[] = [];
-  for (const topicId of topicIds) {
-    const mastery = computeMastery(SEED_EVENTS, SUBJECT, topicId, SCENARIO_NOW);
-    if (mastery.observationCount === 0) continue; // only show what we have evidence on
-    const gaps = detectGaps(SEED_EVENTS, SUBJECT, topicId, EDGES, SCENARIO_NOW, undefined, mastery);
-    const topGap = gaps.find((g) => g.evidence.confirmed) ?? gaps[0];
-    const info = topicInfo(topicId);
-    rows.push({
-      topicId,
-      topicName: info.name,
-      subjectName: info.subjectName,
-      mastery,
-      topGapLabel: topGap ? gapLabel(topGap.evidence.gapType) : null,
-    });
-  }
-  return rows;
-}
+const PROFILE_TOPICS = [
+  ...topicsForSubject(MATH_SUBJECT_ID).map((t) => t.id),
+  ...topicsForSubject(PHYS_SUBJECT_ID).map((t) => t.id),
+];
 
 type Query = 'weakest' | 'unlocks' | 'independent' | null;
 
 export default function ProgressPage() {
-  const rows = useMemo(buildProfile, []);
+  const { phase, reads, source } = useDeepReads(PROFILE_TOPICS);
+  const { emit } = useEmit();
   const [query, setQuery] = useState<Query>(null);
 
+  // Only show topics we have evidence on (the spine omits the rest too).
+  const rows = useMemo(() => reads.filter((r) => r.mastery.observationCount > 0), [reads]);
   const independent = rows.filter((r) => r.mastery.reading.independent);
   const withSupport = rows.filter((r) => !r.mastery.reading.independent);
-  const weakest = [...rows].sort((a, b) => a.mastery.reading.composite - b.mastery.reading.composite)[0];
+  const weakest = [...rows].sort(
+    (a, b) => a.mastery.reading.composite - b.mastery.reading.composite,
+  )[0];
+
+  // The surface viewed event — attributed, consent-stamped (learning purpose).
+  useEffect(() => {
+    if (phase === 'ready') emit({ type: 'surface.viewed', purpose: EVENT_PURPOSE.learning, payload: { surface: 'student.progress', source } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
+  function ask(q: Exclude<Query, null>) {
+    setQuery(q);
+    emit({ type: 'knowledge.queried', purpose: EVENT_PURPOSE.learning, payload: { query: q } });
+  }
 
   return (
     <SurfaceShell
@@ -79,92 +62,107 @@ export default function ProgressPage() {
       dockIntro="This is your profile in plain language — what you can do on your own, and what still leans on support. Ask me anything about it."
       dockChips={['What am I weakest at', 'What unlocks identities', 'What can I do on my own']}
     >
-      <section className="stack">
-        <p className="overline">Ask about your progress</p>
-        <div className="home-chips" style={{ justifyContent: 'flex-start' }}>
-          <SuggestionChip spark onClick={() => setQuery('weakest')}>
-            What am I weakest at
-          </SuggestionChip>
-          <SuggestionChip spark onClick={() => setQuery('unlocks')}>
-            What unlocks the next topic
-          </SuggestionChip>
-          <SuggestionChip spark onClick={() => setQuery('independent')}>
-            What can I do on my own
-          </SuggestionChip>
-        </div>
-        {query ? (
-          <SpotlightCard>
-            <p className="overline" style={{ margin: 0 }}>
-              Answer
-            </p>
-            <p className="body" style={{ marginTop: 'var(--space-3)' }}>
-              {answerFor(query, { weakest, independent: independent.length })}
-            </p>
-          </SpotlightCard>
-        ) : null}
-      </section>
-
-      <section className="stack">
-        <p className="overline">You can do these on your own</p>
-        {independent.length === 0 ? (
-          <p className="body-sm quiet">
-            Not yet — but you are close on at least one. The green spark appears the moment you do one
-            unaided.
+      {phase !== 'ready' ? (
+        <ReadStates phase={phase} />
+      ) : rows.length === 0 ? (
+        <div className="empty">
+          <h4 className="body">Let us find where to start</h4>
+          <p>
+            There is no evidence on your map yet. A short diagnostic seeds it, and from then on this
+            view grows from your real attempts.
           </p>
-        ) : (
-          independent.map((r) => (
-            <SpotlightCard key={r.topicId}>
-              <div className="row-between">
-                <div className="ignite-row">
-                  <IgniteDot label="On your own" />
-                  <span className="body">{r.topicName}</span>
-                </div>
-                <Tag tone="success">On your own</Tag>
-              </div>
-              <p className="caption quiet" style={{ marginTop: 'var(--space-2)' }}>
-                {r.subjectName} · {capitalise(r.mastery.plainLanguage)}.
-              </p>
-            </SpotlightCard>
-          ))
-        )}
-      </section>
-
-      <section className="stack">
-        <p className="overline">These still lean on support</p>
-        {withSupport.length === 0 ? (
-          <p className="body-sm quiet">Nothing here right now.</p>
-        ) : (
-          withSupport.map((r) => (
-            <div className="mastery-row" key={r.topicId}>
-              <div>
-                <div className="body" style={{ marginBottom: 2 }}>
-                  {r.topicName}
-                </div>
-                <div className="caption muted">
-                  {r.subjectName} · {BAND_SHORT[r.mastery.reading.band]}
-                  {r.mastery.revisionDue ? ' · revision is due' : ''}
-                </div>
-              </div>
-              <span className="muted body-sm">{capitalise(r.mastery.plainLanguage)}</span>
+        </div>
+      ) : (
+        <>
+          <section className="stack">
+            <p className="overline">Ask about your progress</p>
+            <div className="home-chips" style={{ justifyContent: 'flex-start' }}>
+              <SuggestionChip spark onClick={() => ask('weakest')}>
+                What am I weakest at
+              </SuggestionChip>
+              <SuggestionChip spark onClick={() => ask('unlocks')}>
+                What unlocks the next topic
+              </SuggestionChip>
+              <SuggestionChip spark onClick={() => ask('independent')}>
+                What can I do on my own
+              </SuggestionChip>
             </div>
-          ))
-        )}
-      </section>
+            {query ? (
+              <SpotlightCard>
+                <p className="overline" style={{ margin: 0 }}>
+                  Answer
+                </p>
+                <p className="body" style={{ marginTop: 'var(--space-3)' }}>
+                  {answerFor(query, { weakest, independent: independent.length })}
+                </p>
+              </SpotlightCard>
+            ) : null}
+          </section>
+
+          <section className="stack">
+            <p className="overline">You can do these on your own</p>
+            {independent.length === 0 ? (
+              <p className="body-sm quiet">
+                Not yet — but you are close on at least one. The green spark appears the moment you
+                do one unaided.
+              </p>
+            ) : (
+              independent.map((r) => (
+                <SpotlightCard key={r.topicId}>
+                  <MasteryConclusion
+                    topicName={topicInfo(r.topicId).name}
+                    mastery={r.mastery}
+                    gaps={r.gaps}
+                    source={r.source}
+                  />
+                  <div className="row" style={{ marginTop: 'var(--space-2)' }}>
+                    <Tag tone="success">On your own</Tag>
+                  </div>
+                </SpotlightCard>
+              ))
+            )}
+          </section>
+
+          <section className="stack">
+            <p className="overline">These still lean on support</p>
+            {withSupport.length === 0 ? (
+              <p className="body-sm quiet">Nothing here right now.</p>
+            ) : (
+              withSupport.map((r) => (
+                <SpotlightCard key={r.topicId}>
+                  <MasteryConclusion
+                    topicName={topicInfo(r.topicId).name}
+                    mastery={r.mastery}
+                    gaps={r.gaps}
+                    source={r.source}
+                  />
+                  <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
+                    {topicInfo(r.topicId).subjectName} · {BAND_SHORT[r.mastery.reading.band]}
+                    {r.mastery.revisionDue ? ' · revision is due' : ''}
+                  </p>
+                </SpotlightCard>
+              ))
+            )}
+          </section>
+        </>
+      )}
     </SurfaceShell>
   );
 }
 
 function answerFor(
   q: Exclude<Query, null>,
-  ctx: { weakest?: ProfileRow; independent: number },
+  ctx: { weakest?: TopicRead; independent: number },
 ): string {
   switch (q) {
-    case 'weakest':
-      return ctx.weakest
-        ? `Right now, ${ctx.weakest.topicName} needs the most attention${
-            ctx.weakest.topGapLabel ? ` — the focus is ${ctx.weakest.topGapLabel.toLowerCase()}` : ''
-          }. That is where a little practice goes furthest.`
-        : 'You do not have a clear weak spot yet — keep practising and this will sharpen.';
+    case 'weakest': {
+      if (!ctx.weakest) return 'You do not have a clear weak spot yet — keep practising and this will sharpen.';
+      const gap = ctx.weakest.gaps.find((g) => g.evidence.confirmed) ?? ctx.weakest.gaps[0];
+      const name = topicInfo(ctx.weakest.topicId).name;
+      return `Right now, ${name} needs the most attention${
+        gap ? ` — the focus is ${gapLabel(gap.evidence.gapType).toLowerCase()}` : ''
+      }. That is where a little practice goes furthest.`;
+    }
     case 'unlocks':
       return 'Doing Trigonometric Ratios on your own unlocks Trigonometric Identities — the identities are built on the ratios, so the ratios come first.';
     case 'independent':
@@ -172,8 +170,4 @@ function answerFor(
         ? `You can do ${ctx.independent} ${ctx.independent === 1 ? 'topic' : 'topics'} on your own so far. Each one is a real, unaided demonstration — not a lucky score.`
         : 'You are close on at least one topic. The moment you do one unaided, it moves into "on your own".';
   }
-}
-
-function capitalise(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }

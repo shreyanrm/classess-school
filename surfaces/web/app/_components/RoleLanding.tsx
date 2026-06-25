@@ -68,6 +68,12 @@ export function RoleLanding() {
   const { t } = useT();
   const [value, setValue] = useState('');
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  // The "Auto" model selector — a small anchored frosted popover (spec 16.3 /
+  // 16.4). Config only: it picks how the turn is routed, never price or scope;
+  // the spine still decides the concrete model. Auto = let Vidya choose best-fit.
+  const [modelOpen, setModelOpen] = useState(false);
+  const [model, setModel] = useState('Auto');
+  const MODELS = ['Auto', 'Fast', 'Deep reasoning'];
 
   // Ambient bloom — atmosphere only. Honours prefers-reduced-motion: one static
   // paint, no animation frame. Otherwise the blobs drift on a slow ~7s loop.
@@ -186,11 +192,40 @@ export function RoleLanding() {
                 data-testid="home-composer-input"
               />
               {/* Auto model selector — config-only affordance; routing is decided
-                  in the spine. A click opens the palette where the route is set. */}
-              <button className="ch-model" onClick={openCommandPalette} title="Model: Auto">
-                Auto
-                <Icon name="chevron-down" size="sm" />
-              </button>
+                  in the spine. A click opens a small anchored frosted popover. */}
+              <div className="ch-model-wrap">
+                <button
+                  className="ch-model"
+                  onClick={() => setModelOpen((o) => !o)}
+                  title={`Model: ${model}`}
+                  aria-haspopup="menu"
+                  aria-expanded={modelOpen}
+                >
+                  {model}
+                  <Icon name="chevron-down" size="sm" />
+                </button>
+                {modelOpen ? (
+                  <>
+                    <div className="ch-model-scrim" onClick={() => setModelOpen(false)} aria-hidden="true" />
+                    <div className="ch-model-pop" role="menu" aria-label="Model">
+                      {MODELS.map((m) => (
+                        <button
+                          key={m}
+                          role="menuitemradio"
+                          aria-checked={m === model}
+                          className={`ch-model-opt${m === model ? ' is-sel' : ''}`}
+                          onClick={() => {
+                            setModel(m);
+                            setModelOpen(false);
+                          }}
+                        >
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                ) : null}
+              </div>
               <button className="ch-icon-btn ch-mic" title="Voice (or hold Space)" aria-label="Voice" onClick={() => openVidya()}>
                 {MIC_SVG}
               </button>
@@ -250,6 +285,17 @@ export function RoleLanding() {
           border:0;background:transparent;border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-sans);
           transition:background var(--dur) var(--ease);}
         .ch-model:hover{background:var(--bg-sunken);}
+        .ch-model-wrap{position:relative;}
+        .ch-model-scrim{position:fixed;inset:0;z-index:40;}
+        .ch-model-pop{position:absolute;bottom:calc(100% + var(--space-2));right:0;z-index:41;min-width:160px;
+          background:var(--frost-bg);backdrop-filter:var(--frost-blur);-webkit-backdrop-filter:var(--frost-blur);
+          border:var(--border-width) solid var(--border);border-radius:var(--radius-sm);padding:var(--space-1);
+          display:flex;flex-direction:column;gap:2px;}
+        .ch-model-opt{text-align:left;font-size:13px;color:var(--text-secondary);background:transparent;border:0;
+          padding:var(--space-2) var(--space-3);border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-sans);
+          transition:background var(--dur) var(--ease),color var(--dur) var(--ease);}
+        .ch-model-opt:hover{background:var(--bg-sunken);color:var(--text-primary);}
+        .ch-model-opt.is-sel{color:var(--signature);}
 
         .ch-chips{display:flex;flex-wrap:wrap;gap:var(--space-2);justify-content:center;margin-top:var(--space-5);}
         .ch-chip{font-size:13px;color:var(--text-secondary);background:var(--bg-surface);border:var(--border-width) solid var(--border);
