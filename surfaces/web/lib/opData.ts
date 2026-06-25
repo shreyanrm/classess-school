@@ -18,6 +18,8 @@
      - reads are scoped by opaque ids; the routes validate every input.
    ============================================================================ */
 
+import { readStore } from './store';
+
 /** Route the school setup persists / reloads from. */
 export const SCHOOL_ROUTE = '/api/school';
 /** Route attendance records persist / reload from. */
@@ -98,9 +100,29 @@ async function call<Row = Record<string, unknown>>(
   }
 }
 
+/**
+ * The opaque caller-identity headers the operational write routes pass to the
+ * wall (lib/opGate). Read from the locally-held account — canonical_uuid + role
+ * only, NEVER PII, NEVER a secret. When there is no account yet (pre-sign-in /
+ * server render) the headers are simply omitted and the route degrades.
+ */
+function callerHeaders(): Record<string, string> {
+  try {
+    const account = readStore().account;
+    if (!account?.id) return {};
+    return {
+      'x-caller-uuid': account.id,
+      'x-caller-role': account.role,
+      'x-caller-app': 'school',
+    };
+  } catch {
+    return {};
+  }
+}
+
 const JSON_POST = (body: unknown): RequestInit => ({
   method: 'POST',
-  headers: { 'content-type': 'application/json' },
+  headers: { 'content-type': 'application/json', ...callerHeaders() },
   body: JSON.stringify(body),
 });
 

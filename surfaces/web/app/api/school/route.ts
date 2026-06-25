@@ -22,6 +22,7 @@
 
 import { getPool, type PoolLike } from '@/lib/db';
 import { ok, degraded, isUuid, str, label } from '@/lib/opRoute';
+import { authorizeWrite, denied } from '@/lib/opGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -130,6 +131,13 @@ export async function POST(req: Request): Promise<Response> {
     return ok({ persisted: false, reason: 'bad-request' }, 400);
   }
   if (!str(body.name)) return ok({ persisted: false, reason: 'invalid-input' }, 400);
+
+  // The wall authorizes the institution write FIRST (only an admin may publish a
+  // school structure). A denied caller is refused; an unreachable wall degrades.
+  const gate = await authorizeWrite(req, 'school', 'publish', {
+    payload: { institution_id: body.institutionId },
+  });
+  if (!gate.proceed) return denied(gate.detail);
 
   const pool = getPool();
   if (!pool) return degraded();

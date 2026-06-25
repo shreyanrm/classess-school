@@ -113,7 +113,36 @@ def load_spine_app(name: str) -> Optional[ModuleType]:
         return None
 
 
+def _capability_pkg_dir(name: str) -> Optional[str]:
+    """Resolve where a capability module's importable package lives.
+
+    Two on-disk shapes exist in this repo and BOTH must load:
+
+      * nested:  ``modules/<name>/app/__init__.py``   (institution, scheduling, ...)
+      * flat:    ``modules/<name>/__init__.py``        (content, learning)
+
+    Prefer the nested ``app`` package when present (it is the canonical capability
+    surface); otherwise fall back to the flat module package. Returns the repo-
+    relative package dir, or ``None`` when neither exists.
+    """
+    nested = os.path.join(REPO_ROOT, "modules", name, "app", "__init__.py")
+    if os.path.isfile(nested):
+        return f"modules/{name}/app"
+    flat = os.path.join(REPO_ROOT, "modules", name, "__init__.py")
+    if os.path.isfile(flat):
+        return f"modules/{name}"
+    return None
+
+
 def load_capability_module(name: str) -> Optional[ModuleType]:
-    """Load a capability module's ``app`` package under a unique alias."""
+    """Load a capability module under a unique alias, whether its package is the
+    nested ``modules/<name>/app`` or the flat ``modules/<name>`` (detect which
+    exists and import the right one). Degrades to ``None`` if neither is present
+    or the package fails to import — the wall still denies its routes by default.
+    """
     alias = _alias_for("mod", name)
-    return load_package(alias, f"modules/{name}/app")
+    pkg_dir_rel = _capability_pkg_dir(name)
+    if pkg_dir_rel is None:
+        logger.warning("capability module absent (no app/ or flat package): modules/%s", name)
+        return None
+    return load_package(alias, pkg_dir_rel)

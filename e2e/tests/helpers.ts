@@ -97,7 +97,7 @@ export async function signInDemo(page: Page, role: Role = 'teacher'): Promise<vo
  * wait settles and `fill` lands like a human typing.
  */
 export async function setComposerText(page: Page, text: string): Promise<void> {
-  await page.getByTestId('vidya-composer-input').evaluate((el, v) => { const s = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); }, text);
+  await page.getByTestId('vidya-composer-input').evaluate((el, v) => { const s = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value')!.set!; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); }, text);
 }
 
 /** Open the Vidya orb panel with a real click and wait for it to appear. */

@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Classess · Vidya Experience Prototype</title>
+<!-- Preview loads Poppins (the kit's designated alternate) via CDN so the type reads
+     right without Google Sans Flex installed. Production self-hosts per FONTS.md and
+     strips CDN links. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&family=Caveat:wght@500&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================================
+   v4.1 TOKENS (trimmed from the kit — single source is tokens.css)
+   ============================================================================ */
+:root{
+  --white-50:#FCFBF9; --white-100:#F6F4F0; --white-200:#ECE8E1; --white-300:#DCD7CE; --white-400:#CFC9BE;
+  --black-900:#0F0E0C; --black-800:#171510; --black-700:#252119; --black-600:#332E25;
+  --black-500:#56514A; --black-400:#78726A; --black-300:#8B857A;
+  --molten:#FF4D1A; --molten-ink:#5C1A06; --molten-tint:#FCE4DA;
+  --violet:#7A2FF2; --violet-tint:#EBE0FD; --violet-ink:#2E0A75;
+  --ultramarine:#1F35E0; --ultra-ink:#0A1574; --ultra-tint:#E0E4FB;
+  --emerald:#10A37A; --emerald-tint:#DBF3EC; --emerald-ink:#053D2C;
+  --amber:#FFB020; --tangerine:#FF8A00;
+  --success:#10936A; --success-tint:#DBF2E9;
+  --bg-canvas:var(--white-100); --bg-surface:var(--white-50); --bg-raised:#FFFFFF; --bg-sunken:var(--white-200);
+  --border:var(--white-300); --border-strong:var(--white-400);
+  --text-primary:var(--black-800); --text-secondary:var(--black-500); --text-tertiary:var(--black-300);
+  --signature:var(--ultramarine); --signature-ink:var(--ultra-ink); --signature-tint:var(--ultra-tint);
+  --font-sans:'Google Sans Flex','Poppins',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --font-mono:'Google Sans Code',ui-monospace,'SF Mono',monospace;
+  --font-script:'Caveat',cursive;
+  --frost-bg:rgba(246,244,240,0.72); --frost-blur:blur(14px); --scrim:rgba(15,14,12,0.42);
+  --ease:cubic-bezier(0.2,0,0,1); --ease-spring:cubic-bezier(.34,1.4,.5,1);
+  --dur-fast:120ms; --dur:180ms; --dur-slow:260ms;
+  --radius-sm:3px; --radius-md:6px;
+  --rail-collapsed:64px; --rail-expanded:248px;
+}
+[data-theme="dark"]{
+  --bg-canvas:var(--black-900); --bg-surface:var(--black-700); --bg-raised:#2A251D; --bg-sunken:#1B1813;
+  --border:var(--black-600); --border-strong:#403A30;
+  --text-primary:var(--white-100); --text-secondary:#B5AFA4; --text-tertiary:#7B7569;
+  --frost-bg:rgba(15,14,12,0.66); --scrim:rgba(0,0,0,0.6);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;}
+body{
+  font-family:var(--font-sans); font-variation-settings:"ROND" 12,"opsz" 18;
+  background:var(--bg-canvas); color:var(--text-primary);
+  -webkit-font-smoothing:antialiased; overflow:hidden; font-weight:400;
+}
+.mono{font-family:var(--font-mono)}
+.kbd{font-family:var(--font-mono); font-size:11px; padding:2px 6px; border:.5px solid var(--border-strong);
+  border-radius:4px; background:var(--bg-surface); color:var(--text-secondary)}
+
+/* ============================================================================
+   APP SHELL + THE THIN EXPANDING RAIL (buttery slide, no lag, GPU transform)
+   ============================================================================ */
+.app{display:flex; height:100vh; width:100vw; position:relative}
+.rail{
+  width:var(--rail-collapsed); flex:0 0 var(--rail-collapsed);
+  background:var(--bg-surface); border-right:.5px solid var(--border);
+  display:flex; flex-direction:column; align-items:stretch;
+  padding:14px 0; z-index:40; position:relative;
+  transition:width var(--dur-slow) var(--ease); will-change:width;
+}
+.rail.expanded{width:var(--rail-expanded); flex-basis:var(--rail-expanded)}
+.rail .mark{width:36px; height:36px; margin:0 14px 22px; border-radius:8px; position:relative; flex:0 0 auto;
+  background:radial-gradient(120% 120% at 30% 25%, var(--molten) 0%, var(--ultramarine) 70%); }
+.rail .mark::after{content:""; position:absolute; inset:0; border-radius:8px; border:.5px solid rgba(255,255,255,.25)}
+.nav{display:flex; flex-direction:column; gap:2px; padding:0 12px; flex:1}
+.nav .ni{
+  display:flex; align-items:center; gap:14px; height:42px; padding:0 10px; border-radius:var(--radius-sm);
+  color:var(--text-secondary); cursor:pointer; position:relative; overflow:hidden; white-space:nowrap;
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.nav .ni .ic{flex:0 0 20px; width:20px; height:20px; display:grid; place-items:center}
+.nav .ni svg{width:20px; height:20px; stroke:currentColor; stroke-width:1.5; fill:none; stroke-linecap:round; stroke-linejoin:round}
+.nav .ni .lbl{opacity:0; transform:translateX(-6px); transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  font-size:14px; font-weight:450}
+.rail.expanded .nav .ni .lbl{opacity:1; transform:none}
+.nav .ni:hover{background:var(--bg-sunken); color:var(--text-primary)}
+.nav .ni.active{color:var(--signature)}
+.nav .ni.active::before{content:""; position:absolute; left:0; top:9px; bottom:9px; width:2px; background:var(--signature); border-radius:2px}
+.nav .sep{height:.5px; background:var(--border); margin:10px 4px}
+.rail .foot{padding:0 12px; display:flex; flex-direction:column; gap:2px}
+.rail .pin{display:flex; align-items:center; gap:14px; height:38px; padding:0 10px; color:var(--text-tertiary);
+  font-size:12px; cursor:pointer; border-radius:var(--radius-sm)}
+.rail .pin:hover{color:var(--text-secondary); background:var(--bg-sunken)}
+.rail .pin .lbl{opacity:0; transition:opacity var(--dur) var(--ease)}
+.rail.expanded .pin .lbl{opacity:1}
+.avatar{width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,var(--violet),var(--ultramarine));
+  flex:0 0 auto; border:.5px solid var(--border)}
+
+/* ============================================================================
+   MAIN / CONVERSATION-FIRST HOME (Gemini-shape, on v4.1, calm + ambient bloom)
+   ============================================================================ */
+.main{flex:1; position:relative; overflow:hidden; display:flex; flex-direction:column}
+.topbar{height:56px; display:flex; align-items:center; justify-content:space-between; padding:0 26px; position:relative; z-index:5}
+.topbar .role{font-family:var(--font-mono); font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--text-tertiary)}
+.topbar .actions{display:flex; gap:10px; align-items:center}
+.icnbtn{width:34px;height:34px;border:.5px solid var(--border); background:var(--bg-surface); border-radius:var(--radius-sm);
+  display:grid; place-items:center; cursor:pointer; color:var(--text-secondary); transition:border-color var(--dur) var(--ease), color var(--dur) var(--ease)}
+.icnbtn:hover{border-color:var(--signature); color:var(--signature)}
+.icnbtn svg{width:17px;height:17px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+.home{flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; position:relative; padding:0 24px}
+/* the ambient bloom — extremely subtle molten→ultramarine field behind the composer */
+.ambient{position:absolute; inset:0; pointer-events:none; z-index:0; opacity:.9}
+.ambient canvas{width:100%; height:100%; display:block}
+.home .center{position:relative; z-index:2; width:100%; max-width:720px; text-align:center}
+.greet{font-size:46px; font-weight:300; letter-spacing:-.025em; line-height:1.05; color:var(--text-primary)}
+.greet .nm{color:var(--text-primary)}
+.subtle{margin-top:14px; color:var(--text-secondary); font-size:16px; font-weight:400}
+
+/* the composer */
+.composer{margin-top:38px; background:var(--bg-raised); border:.5px solid var(--border-strong); border-radius:16px;
+  padding:8px 8px 8px 8px; display:flex; align-items:center; gap:8px; position:relative;
+  transition:border-color var(--dur) var(--ease)}
+.composer:focus-within{border-color:var(--signature)}
+.composer .plus{width:40px;height:40px;border-radius:12px; display:grid; place-items:center; color:var(--text-secondary);
+  cursor:pointer; transition:background var(--dur) var(--ease), color var(--dur) var(--ease)}
+.composer .plus:hover{background:var(--bg-sunken); color:var(--text-primary)}
+.composer input{flex:1; border:0; background:transparent; outline:none; font-family:var(--font-sans); font-size:16px;
+  color:var(--text-primary); padding:0 4px}
+.composer input::placeholder{color:var(--text-tertiary)}
+.composer .model{display:flex; align-items:center; gap:6px; font-size:13px; color:var(--text-secondary); padding:8px 10px;
+  border-radius:10px; cursor:pointer; transition:background var(--dur) var(--ease)}
+.composer .model:hover{background:var(--bg-sunken)}
+.composer .mic{width:40px;height:40px;border-radius:12px; display:grid; place-items:center; cursor:pointer; color:var(--text-secondary);
+  transition:background var(--dur) var(--ease), color var(--dur) var(--ease)}
+.composer .mic:hover{background:var(--molten-tint); color:var(--molten-ink)}
+.composer svg{width:20px;height:20px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* suggestion chips */
+.chips{display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:20px}
+.chip{font-size:13px; color:var(--text-secondary); background:var(--bg-surface); border:.5px solid var(--border);
+  padding:7px 13px; border-radius:var(--radius-sm); cursor:pointer; position:relative; overflow:hidden;
+  transition:color var(--dur) var(--ease), border-color var(--dur) var(--ease)}
+.chip .dot{display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:7px; vertical-align:middle}
+.chip::before{content:""; position:absolute; inset:0; background:var(--signature); transform:translateY(100%);
+  transition:transform .3s var(--ease); z-index:-1}
+.chip{z-index:0}
+.chip:hover{color:#fff; border-color:var(--signature)}
+.chip:hover::before{transform:translateY(0)}
+.chip:hover .dot{background:#fff !important}
+
+/* ============================================================================
+   THREAD + GENERATIVE SURFACE (a request takes shape as a live component)
+   ============================================================================ */
+.thread{position:absolute; inset:0; z-index:3; display:none; flex-direction:column; padding:0; background:var(--bg-canvas)}
+.thread.show{display:flex}
+.thread .scroll{flex:1; overflow:auto; padding:40px 24px 140px}
+.thread .inner{max-width:760px; margin:0 auto; display:flex; flex-direction:column; gap:22px}
+.msg{display:flex; gap:14px}
+.msg .who{width:30px;height:30px;border-radius:50%;flex:0 0 auto; border:.5px solid var(--border)}
+.msg.user .who{background:linear-gradient(135deg,var(--violet),var(--ultramarine))}
+.msg.vidya .who{background:radial-gradient(120% 120% at 30% 25%, var(--molten), var(--ultramarine))}
+.msg .body{flex:1; padding-top:3px}
+.msg .body p{margin:0 0 6px; font-size:15px; line-height:1.6; color:var(--text-primary)}
+.msg .body .meta{font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-bottom:8px; letter-spacing:.04em}
+
+/* the composed component card with border-draw + rise reveal */
+.gencard{position:relative; background:var(--bg-surface); border:.5px solid var(--border); border-radius:var(--radius-md);
+  padding:22px; margin-top:4px; overflow:hidden}
+.gencard .frame{position:absolute; inset:0; pointer-events:none}
+.gencard .frame rect{fill:none; stroke:var(--signature); stroke-width:1.5; vector-effect:non-scaling-stroke;
+  stroke-dasharray:1; stroke-dashoffset:1; transition:stroke-dashoffset .7s var(--ease)}
+.gencard.drawn .frame rect{stroke-dashoffset:0}
+.gencard .gk{font-family:var(--font-mono); font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--mc, var(--signature))}
+.gencard .gt{font-size:20px; font-weight:500; letter-spacing:-.015em; margin-top:8px}
+.gencard .gp{font-size:14px; color:var(--text-secondary); margin-top:6px; line-height:1.55}
+.genrow{display:flex; gap:10px; margin-top:18px; flex-wrap:wrap}
+
+/* mastery (independence-aware, plain language — never a number) */
+.mastery{display:flex; align-items:center; gap:14px; margin-top:18px; padding:14px; border:.5px solid var(--border);
+  border-radius:var(--radius-sm); background:var(--bg-canvas)}
+.mastery .state{font-size:14px; font-weight:500}
+.mastery .dim{font-size:12.5px; color:var(--text-secondary); margin-top:2px}
+
+/* a tiny generated bar viz (border-draw + grow) */
+.viz{margin-top:18px; display:flex; flex-direction:column; gap:9px}
+.viz .b{display:flex; align-items:center; gap:12px}
+.viz .b .nm{width:120px; font-size:12.5px; color:var(--text-secondary)}
+.viz .b .trk{flex:1; height:7px; background:var(--bg-sunken); border-radius:999px; overflow:hidden}
+.viz .b .trk > i{display:block; height:100%; width:0; border-radius:999px; transition:width 1s var(--ease)}
+
+.btn{font-family:var(--font-sans); font-size:13.5px; font-weight:500; border-radius:var(--radius-sm); padding:9px 16px;
+  cursor:pointer; border:.5px solid var(--border-strong); background:var(--bg-surface); color:var(--text-primary);
+  display:inline-flex; align-items:center; gap:8px; position:relative; overflow:hidden; z-index:0;
+  transition:color var(--dur) var(--ease), border-color var(--dur) var(--ease)}
+.btn svg{width:16px;height:16px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+/* his fav: rise fill */
+.btn.v-rise::before{content:""; position:absolute; inset:0; background:var(--signature); transform:translateY(100%);
+  transition:transform .32s var(--ease); z-index:-1}
+.btn.v-rise:hover{color:#fff; border-color:var(--signature)}
+.btn.v-rise:hover::before{transform:translateY(0)}
+/* his fav: fill wipe */
+.btn.v-wipe::before{content:""; position:absolute; inset:0; background:var(--signature); transform:scaleX(0);
+  transform-origin:left; transition:transform .4s var(--ease); z-index:-1}
+.btn.v-wipe:hover{color:#fff; border-color:var(--signature)}
+.btn.v-wipe:hover::before{transform:scaleX(1)}
+.btn.primary{background:var(--signature); color:#fff; border-color:var(--signature)}
+.btn.icon-slide svg{transition:transform .3s var(--ease)}
+.btn.icon-slide:hover svg{transform:translateX(4px)}
+
+/* ============================================================================
+   THE FLOATING ORB (idle Vidya presence — living, breathing)
+   ============================================================================ */
+.orb{position:fixed; right:26px; bottom:26px; width:52px; height:52px; border-radius:50%; cursor:pointer; z-index:60;
+  display:grid; place-items:center; transition:transform var(--dur) var(--ease)}
+.orb:hover{transform:scale(1.06)}
+.orb:active{transform:scale(.96)}
+.orb .ring{position:absolute; inset:0; border-radius:50%; border:.5px solid var(--border-strong)}
+.orb .core{position:absolute; inset:6px; border-radius:50%; overflow:hidden;
+  background:
+    radial-gradient(120% 120% at 30% 22%, var(--molten) 0%, transparent 55%),
+    radial-gradient(120% 120% at 72% 78%, var(--ultramarine) 0%, transparent 60%),
+    radial-gradient(140% 140% at 50% 50%, var(--violet) 0%, var(--ultramarine) 80%);
+  background-size:200% 200%, 200% 200%, 160% 160%;
+  animation:orbDrift 7s var(--ease) infinite, orbBreath 3.6s ease-in-out infinite;
+  filter:saturate(1.05)}
+.orb .glass{position:absolute; inset:6px; border-radius:50%;
+  background:radial-gradient(100% 70% at 32% 22%, rgba(255,255,255,.5), transparent 50%)}
+.orb .spark{position:absolute; inset:0; display:grid; place-items:center; color:#fff; opacity:.95}
+.orb .spark svg{width:18px;height:18px}
+@keyframes orbDrift{
+  0%{background-position:0% 30%, 100% 70%, 50% 50%}
+  50%{background-position:100% 60%, 0% 40%, 60% 55%}
+  100%{background-position:0% 30%, 100% 70%, 50% 50%}
+}
+@keyframes orbBreath{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.orb .hint{position:absolute; right:60px; top:50%; transform:translateY(-50%) translateX(6px); opacity:0;
+  background:var(--bg-inverse,#171510); color:#fff; font-size:11.5px; padding:6px 10px; border-radius:6px; white-space:nowrap;
+  pointer-events:none; transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease)}
+.orb:hover .hint{opacity:1; transform:translateY(-50%) translateX(0)}
+.orb .hint .kbd{background:rgba(255,255,255,.14); border-color:rgba(255,255,255,.2); color:#fff}
+
+/* ============================================================================
+   VOICE MODE BLOOM (Siri-like, alive molten→ultramarine flow, frosted)
+   ============================================================================ */
+.voice{position:fixed; inset:0; z-index:80; display:none; pointer-events:none}
+.voice.show{display:block}
+.voice .bloom{position:absolute; left:0; right:0; bottom:0; height:62vh;
+  -webkit-mask-image:linear-gradient(to top, #000 28%, transparent 100%);
+  mask-image:linear-gradient(to top, #000 28%, transparent 100%);
+  opacity:0; transition:opacity .5s var(--ease)}
+.voice.show .bloom{opacity:1}
+.voice .bloom canvas{width:100%; height:100%; display:block; filter:blur(26px) saturate(1.12)}
+.voice .panel{position:absolute; left:0; right:0; bottom:48px; display:flex; flex-direction:column; align-items:center;
+  gap:18px; pointer-events:auto; transform:translateY(14px); opacity:0; transition:transform .5s var(--ease), opacity .5s var(--ease)}
+.voice.show .panel{transform:none; opacity:1}
+.voice .vspark{width:40px; height:40px; color:var(--molten-ink); display:grid; place-items:center}
+.voice .vspark svg{width:40px; height:40px; animation:vsparkPulse 2.2s ease-in-out infinite}
+@keyframes vsparkPulse{0%,100%{transform:scale(1) rotate(0); opacity:.85}50%{transform:scale(1.12) rotate(8deg); opacity:1}}
+.voice .vlabel{font-size:17px; color:var(--molten-ink); font-weight:500; display:flex; align-items:center; gap:10px}
+.voice .vlabel .kbd{background:rgba(92,26,6,.1); border-color:rgba(92,26,6,.25); color:var(--molten-ink)}
+.voice .transcript{font-size:15px; color:var(--text-secondary); min-height:22px; max-width:560px; text-align:center}
+[data-theme="dark"] .voice .vlabel,[data-theme="dark"] .voice .vspark{color:#FFD9C9}
+
+/* ============================================================================
+   COMMAND PALETTE (Cmd/Ctrl-K, universal)
+   ============================================================================ */
+.scrim{position:fixed; inset:0; background:var(--scrim); z-index:90; display:none; opacity:0; transition:opacity var(--dur) var(--ease)}
+.scrim.show{display:block; opacity:1}
+.palette{position:fixed; left:50%; top:18%; transform:translateX(-50%) translateY(-8px); width:min(620px,92vw); z-index:91;
+  background:var(--frost-bg); backdrop-filter:var(--frost-blur); -webkit-backdrop-filter:var(--frost-blur);
+  border:.5px solid var(--border-strong); border-radius:var(--radius-md); overflow:hidden; display:none; opacity:0;
+  transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease)}
+.palette.show{display:block; opacity:1; transform:translateX(-50%) translateY(0)}
+.palette .pin{display:flex; align-items:center; gap:12px; padding:16px 18px; border-bottom:.5px solid var(--border)}
+.palette .pin svg{width:18px;height:18px;stroke:var(--text-tertiary);stroke-width:1.5;fill:none}
+.palette .pin input{flex:1; border:0; background:transparent; outline:none; font-family:var(--font-sans); font-size:16px; color:var(--text-primary)}
+.palette .pin input::placeholder{color:var(--text-tertiary)}
+.palette .sect{padding:8px 10px}
+.palette .lbl{font-family:var(--font-mono); font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--text-tertiary); padding:6px 10px}
+.palette .opt{display:flex; align-items:center; gap:12px; padding:10px 10px; border-radius:var(--radius-sm); cursor:pointer; color:var(--text-primary)}
+.palette .opt:hover,.palette .opt.sel{background:var(--bg-sunken)}
+.palette .opt .oic{width:20px;height:20px;display:grid;place-items:center;color:var(--text-secondary)}
+.palette .opt svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.palette .opt .ot{flex:1; font-size:14px}
+.palette .opt .osub{font-size:12px; color:var(--text-tertiary)}
+.palette .opt.voice .oic{color:var(--molten)}
+
+/* ============================================================================
+   THE NEW SIGNATURE MOMENT — "CRYSTALLIZE / RESOLVE" (replaces the ignite ring)
+   A node resolves from soft+grainy to crisp, a refraction glint sweeps, and
+   hairline edges draw out to the prerequisites it now connects (lattice lock-in).
+   ============================================================================ */
+.lattice{position:relative; width:340px; height:200px; margin:14px auto 0}
+.lattice svg{position:absolute; inset:0; width:100%; height:100%; overflow:visible}
+.lattice .edge{stroke:var(--signature); stroke-width:1.25; fill:none; stroke-dasharray:1; stroke-dashoffset:1;
+  opacity:.0; transition:stroke-dashoffset .6s var(--ease), opacity .3s var(--ease)}
+.lattice.lit .edge{opacity:.55; stroke-dashoffset:0}
+.node{position:absolute; width:34px; height:34px; transform:translate(-50%,-50%)}
+.node .facet{width:100%; height:100%; filter:saturate(1.1)}
+.node .facet polygon{transition:fill .5s var(--ease), stroke .5s var(--ease), opacity .5s var(--ease)}
+/* unresolved: soft, grainy, low opacity */
+.node .facet polygon{fill:var(--bg-sunken); stroke:var(--border-strong); stroke-width:1; opacity:.5}
+.node.neighbor .facet polygon{fill:var(--signature-tint); stroke:var(--signature); opacity:.85}
+/* resolved (crystallized) */
+.node.resolved .facet polygon{fill:var(--signature); stroke:var(--ultra-ink); opacity:1}
+.node .grain{position:absolute; inset:0; border-radius:4px; opacity:.5;
+  background:radial-gradient(circle at 30% 30%, rgba(0,0,0,.08) 1px, transparent 1.5px) 0 0/6px 6px;
+  transition:opacity .5s var(--ease)}
+.node.resolved .grain{opacity:0}
+/* the refraction glint — one thin caustic sweep across the facet, no glow */
+.node .glint{position:absolute; top:-4px; bottom:-4px; left:-30%; width:14px;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.9),transparent); transform:skewX(-18deg); opacity:0}
+.node.crystallize .glint{animation:glint .7s var(--ease) .15s both}
+@keyframes glint{0%{left:-30%;opacity:0}25%{opacity:.95}100%{left:130%;opacity:0}}
+/* the resolve scale snap (rise-fill cousin) */
+.node.crystallize .facet{animation:resolve .5s var(--ease-spring) both}
+@keyframes resolve{0%{transform:scale(.86)}60%{transform:scale(1.08)}100%{transform:scale(1)}}
+.node .cap{position:absolute; top:38px; left:50%; transform:translateX(-50%); white-space:nowrap; font-size:11px;
+  color:var(--text-secondary); font-weight:500}
+
+.demoblock{padding:34px; border:.5px solid var(--border); border-radius:var(--radius-md); background:var(--bg-surface); text-align:center}
+
+/* toast */
+.toast{position:fixed; bottom:96px; left:50%; transform:translateX(-50%) translateY(10px); z-index:70;
+  background:var(--bg-inverse,#171510); color:#fff; font-size:13px; padding:11px 16px; border-radius:var(--radius-sm);
+  opacity:0; pointer-events:none; transition:opacity var(--dur) var(--ease), transform var(--dur) var(--ease); display:flex; gap:10px; align-items:center}
+.toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+.hintbar{position:absolute; bottom:18px; left:50%; transform:translateX(-50%); z-index:6; display:flex; gap:18px;
+  font-size:12px; color:var(--text-tertiary); align-items:center}
+.hintbar .kbd{margin:0 2px}
+
+@media (prefers-reduced-motion:reduce){*{animation:none !important; transition-duration:.01ms !important}}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <!-- ===== THIN EXPANDING RAIL ===== -->
+  <aside class="rail" id="rail">
+    <div class="mark" title="Classess"></div>
+    <nav class="nav">
+      <div class="ni active" data-route="home"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 13h6v7H4zM14 4h6v16h-6zM4 4h6v5H4z"/></svg></span><span class="lbl">Home</span></div>
+      <div class="ni" data-route="learn"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="M9 9h6M9 13h4"/></svg></span><span class="lbl">Learn</span></div>
+      <div class="ni" data-route="practice"><span class="ic"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 8l7-5 7 5"/></svg></span><span class="lbl">Practice</span></div>
+      <div class="ni" data-route="progress"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></span><span class="lbl">Progress</span></div>
+      <div class="sep"></div>
+      <div class="ni" data-route="feed"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span><span class="lbl">Proactive feed</span></div>
+      <div class="ni" data-route="search"><span class="ic"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span><span class="lbl">Search and history</span></div>
+    </nav>
+    <div class="foot">
+      <div class="pin" id="pinBtn"><span class="ic" style="width:20px;display:grid;place-items:center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 4v16M4 9h16"/></svg></span><span class="lbl">Pin sidebar</span></div>
+      <div class="pin"><span class="ic" style="width:20px;display:grid;place-items:center"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19 12a7 7 0 0 0-.1-1l2-1.6-2-3.4-2.3 1a7 7 0 0 0-1.7-1l-.3-2.5h-4l-.3 2.5a7 7 0 0 0-1.7 1l-2.3-1-2 3.4 2 1.6a7 7 0 0 0 0 2l-2 1.6 2 3.4 2.3-1a7 7 0 0 0 1.7 1l.3 2.5h4l.3-2.5a7 7 0 0 0 1.7-1l2.3 1 2-3.4-2-1.6c.1-.3.1-.7.1-1Z"/></svg></span><span class="lbl">Settings</span></div>
+      <div class="pin" style="margin-top:4px"><span class="avatar"></span><span class="lbl" style="margin-left:0">Shreyan</span></div>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main">
+    <div class="topbar">
+      <div class="role">Student · Class 10-B · Northfield International</div>
+      <div class="actions">
+        <button class="icnbtn" id="kbtn" title="Command (Cmd/Ctrl-K)"><svg viewBox="0 0 24 24"><path d="M9 9h6v6H9z"/><path d="M9 4v2M15 4v2M9 18v2M15 18v2M4 9h2M4 15h2M18 9h2M18 15h2"/></svg></button>
+        <button class="icnbtn" id="themeBtn" title="Theme"><svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8Z"/></svg></button>
+      </div>
+    </div>
+
+    <!-- HOME -->
+    <section class="home" id="home">
+      <div class="ambient"><canvas id="ambientCanvas"></canvas></div>
+      <div class="center">
+        <div class="greet">Where would you like to begin, <span class="nm">Shreyan</span></div>
+        <div class="subtle">Ask anything, or pick up where you left off</div>
+        <div class="composer">
+          <div class="plus" title="Attach"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></div>
+          <input id="ask" placeholder="Ask Vidya, or describe what you want to do" />
+          <div class="model">Auto<svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="m6 9 6 6 6-6"/></svg></div>
+          <div class="mic" id="micBtn" title="Voice (or press and hold Space)"><svg viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3"/></svg></div>
+        </div>
+        <div class="chips">
+          <div class="chip" data-q="Show me where I'm weakest in Mathematics"><span class="dot" style="background:var(--violet)"></span>Where am I weakest</div>
+          <div class="chip" data-q="Build a 15-minute fix for fractions"><span class="dot" style="background:var(--molten)"></span>Fix fractions · 15 min</div>
+          <div class="chip" data-q="Quiz me on photosynthesis"><span class="dot" style="background:var(--emerald)"></span>Quiz me · photosynthesis</div>
+          <div class="chip" data-q="Plan my revision for the unit test"><span class="dot" style="background:var(--ultramarine)"></span>Plan my revision</div>
+        </div>
+      </div>
+      <div class="hintbar">
+        <span><span class="kbd">Cmd</span><span class="kbd">K</span> command</span>
+        <span>click the orb or <span class="kbd">hold Space</span> to talk</span>
+        <span>hover the rail to expand</span>
+      </div>
+    </section>
+
+    <!-- THREAD (generative surface) -->
+    <section class="thread" id="thread">
+      <div class="scroll"><div class="inner" id="threadInner"></div></div>
+    </section>
+  </main>
+</div>
+
+<!-- ===== FLOATING ORB ===== -->
+<div class="orb" id="orb" title="Vidya">
+  <div class="ring"></div>
+  <div class="core"></div>
+  <div class="glass"></div>
+  <div class="spark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 3v18M3 12h18M6 6l12 12M18 6 6 18"/></svg></div>
+  <div class="hint">Talk to Vidya · <span class="kbd">Space</span></div>
+</div>
+
+<!-- ===== VOICE BLOOM ===== -->
+<div class="voice" id="voice">
+  <div class="bloom"><canvas id="bloomCanvas"></canvas></div>
+  <div class="panel">
+    <div class="vspark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 2v20M2 12h20M5 5l14 14M19 5 5 19"/></svg></div>
+    <div class="vlabel">Listening — press <span class="kbd">esc</span> to stop</div>
+    <div class="transcript" id="vtrans"></div>
+  </div>
+</div>
+
+<!-- ===== COMMAND PALETTE ===== -->
+<div class="scrim" id="scrim"></div>
+<div class="palette" id="palette">
+  <div class="pin">
+    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="m20 20-3.5-3.5" stroke="currentColor" stroke-width="1.5"/></svg>
+    <input id="pinput" placeholder="Search, jump to a page, or ask Vidya" />
+    <span class="kbd">esc</span>
+  </div>
+  <div class="sect" id="palOpts">
+    <div class="lbl">Suggested</div>
+    <div class="opt voice sel" data-act="voice"><span class="oic"><svg viewBox="0 0 24 24"><path d="M12 4a3 3 0 0 1 3 3v5a3 3 0 0 1-6 0V7a3 3 0 0 1 3-3Z"/><path d="M6 11a6 6 0 0 0 12 0M12 17v3"/></svg></span><span class="ot">Talk to Vidya</span><span class="osub">voice</span></div>
+    <div class="opt" data-act="ask" data-q="Show me where I'm weakest in Mathematics"><span class="oic"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18M6 6l12 12"/></svg></span><span class="ot">Ask Vidya a question</span><span class="osub">chat</span></div>
+    <div class="lbl">Go to</div>
+    <div class="opt" data-act="route" data-r="progress"><span class="oic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></span><span class="ot">Progress · my knowledge view</span></div>
+    <div class="opt" data-act="route" data-r="practice"><span class="oic"><svg viewBox="0 0 24 24"><path d="M12 3v18M5 8l7-5 7 5"/></svg></span><span class="ot">Practice</span></div>
+    <div class="opt" data-act="route" data-r="feed"><span class="oic"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span><span class="ot">Proactive feed</span></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ----------------------------- helpers ----------------------------- */
+const $ = s => document.querySelector(s);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+function toast(msg){ const t=$('#toast'); t.textContent=msg; t.classList.add('show'); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('show'),2200); }
+
+/* ----------------------------- rail expand ----------------------------- */
+const rail = $('#rail'); let pinned=false;
+rail.addEventListener('mouseenter', ()=>{ if(!pinned) rail.classList.add('expanded'); });
+rail.addEventListener('mouseleave', ()=>{ if(!pinned) rail.classList.remove('expanded'); });
+$('#pinBtn').addEventListener('click', ()=>{ pinned=!pinned; rail.classList.toggle('expanded', pinned); toast(pinned?'Sidebar pinned':'Sidebar unpinned'); });
+document.querySelectorAll('.nav .ni').forEach(n=> n.addEventListener('click', ()=>{
+  document.querySelectorAll('.nav .ni').forEach(x=>x.classList.remove('active')); n.classList.add('active');
+  const r=n.dataset.route; if(r==='progress'){ openProgress(); } else if(r==='home'){ closeThread(); } else { toast('Route → '+n.querySelector('.lbl').textContent); }
+}));
+
+/* ----------------------------- theme ----------------------------- */
+$('#themeBtn').addEventListener('click', ()=>{ const h=document.documentElement; h.dataset.theme = h.dataset.theme==='dark'?'light':'dark'; });
+
+/* ----------------------------- ambient bloom (home) ----------------------------- */
+(function ambient(){
+  const cv=$('#ambientCanvas'); if(!cv) return; const ctx=cv.getContext('2d'); let w,h;
+  function size(){ w=cv.width=cv.offsetWidth*devicePixelRatio; h=cv.height=cv.offsetHeight*devicePixelRatio; }
+  size(); addEventListener('resize', size);
+  const blobs=[{x:.42,y:.62,r:.42,c:[255,77,26],a:.05},{x:.6,y:.5,r:.5,c:[31,53,224],a:.06},{x:.5,y:.7,r:.36,c:[122,47,242],a:.04}];
+  let t=0;
+  function frame(){ t+=0.0024; ctx.clearRect(0,0,w,h);
+    blobs.forEach((b,i)=>{ const cx=(b.x+Math.sin(t+i*1.7)*0.05)*w, cy=(b.y+Math.cos(t*0.9+i)*0.04)*h, rr=b.r*Math.min(w,h);
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,rr); g.addColorStop(0,`rgba(${b.c[0]},${b.c[1]},${b.c[2]},${b.a})`); g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,w,h); });
+    if(!reduce) requestAnimationFrame(frame); }
+  frame();
+})();
+
+/* ----------------------------- the floating orb + voice ----------------------------- */
+const orb=$('#orb'), voice=$('#voice'), vtrans=$('#vtrans');
+let voiceOn=false, bloomRAF=null;
+function openVoice(){ if(voiceOn) return; voiceOn=true; voice.classList.add('show'); startBloom();
+  vtrans.textContent='';
+  // simulated transcript for the prototype
+  const lines=['…','show me where I am weakest in mathematics'];
+  let i=0; clearInterval(voice._iv); voice._iv=setInterval(()=>{ vtrans.textContent=lines[Math.min(i,lines.length-1)]; i++;
+    if(i>lines.length){ clearInterval(voice._iv); closeVoice(); openThread("Show me where I'm weakest in Mathematics"); } },900);
+}
+function closeVoice(){ voiceOn=false; voice.classList.remove('show'); stopBloom(); clearInterval(voice._iv); }
+orb.addEventListener('click', openVoice);
+$('#micBtn').addEventListener('click', openVoice);
+
+/* living bloom canvas — flowing warm molten→ultramarine field */
+function startBloom(){
+  const cv=$('#bloomCanvas'); const ctx=cv.getContext('2d'); let w,h;
+  function size(){ w=cv.width=cv.offsetWidth*devicePixelRatio; h=cv.height=cv.offsetHeight*devicePixelRatio; } size();
+  cv._size=size; addEventListener('resize', size);
+  const dark = document.documentElement.dataset.theme==='dark';
+  const blobs=[
+    {x:.30,y:.95,r:.55,c:[255,77,26]}, {x:.55,y:1.02,r:.62,c:[255,138,0]},
+    {x:.72,y:.96,r:.5,c:[31,53,224]}, {x:.45,y:1.05,r:.46,c:[122,47,242]}, {x:.88,y:1.0,r:.4,c:[236,28,45]}
+  ];
+  let t=0;
+  function frame(){ t+=0.006; ctx.clearRect(0,0,w,h); ctx.globalCompositeOperation='lighter';
+    blobs.forEach((b,i)=>{ const cx=(b.x+Math.sin(t*1.1+i*1.3)*0.06)*w, cy=(b.y+Math.cos(t*0.8+i*0.8)*0.05)*h, rr=b.r*Math.max(w,h)*(0.9+0.1*Math.sin(t+i));
+      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,rr); const a=dark?0.5:0.42;
+      g.addColorStop(0,`rgba(${b.c[0]},${b.c[1]},${b.c[2]},${a})`); g.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=g; ctx.fillRect(0,0,w,h); });
+    ctx.globalCompositeOperation='source-over';
+    bloomRAF=requestAnimationFrame(frame); }
+  if(reduce){ frame(); } else frame();
+}
+function stopBloom(){ if(bloomRAF) cancelAnimationFrame(bloomRAF); bloomRAF=null; }
+
+/* press-and-hold Space to talk; Esc closes everything */
+let spaceHeld=false;
+addEventListener('keydown', e=>{
+  if((e.metaKey||e.ctrlKey) && e.key.toLowerCase()==='k'){ e.preventDefault(); togglePalette(); return; }
+  if(e.code==='Space' && !spaceHeld && document.activeElement.tagName!=='INPUT'){ spaceHeld=true; e.preventDefault(); openVoice(); }
+  if(e.key==='Escape'){ if(paletteOpen) togglePalette(); else if(voiceOn) closeVoice(); }
+});
+addEventListener('keyup', e=>{ if(e.code==='Space'){ spaceHeld=false; } });
+
+/* ----------------------------- command palette ----------------------------- */
+const scrim=$('#scrim'), palette=$('#palette'), pinput=$('#pinput'); let paletteOpen=false;
+function togglePalette(){ paletteOpen=!paletteOpen; scrim.classList.toggle('show',paletteOpen); palette.classList.toggle('show',paletteOpen);
+  if(paletteOpen){ setTimeout(()=>pinput.focus(),40); } else { pinput.value=''; } }
+$('#kbtn').addEventListener('click', togglePalette);
+scrim.addEventListener('click', togglePalette);
+document.querySelectorAll('.palette .opt').forEach(o=> o.addEventListener('click', ()=>{
+  const act=o.dataset.act; togglePalette();
+  if(act==='voice') openVoice();
+  else if(act==='ask') openThread(o.dataset.q);
+  else if(act==='route'){ if(o.dataset.r==='progress') openProgress(); else toast('Route → '+o.querySelector('.ot').textContent); }
+}));
+
+/* ----------------------------- generative surface ----------------------------- */
+const home=$('#home'), thread=$('#thread'), threadInner=$('#threadInner');
+function closeThread(){ thread.classList.remove('show'); threadInner.innerHTML=''; }
+document.querySelectorAll('.chip').forEach(c=> c.addEventListener('click', ()=> openThread(c.dataset.q)));
+$('#ask').addEventListener('keydown', e=>{ if(e.key==='Enter' && e.target.value.trim()){ openThread(e.target.value.trim()); e.target.value=''; } });
+
+function openThread(q){
+  thread.classList.add('show'); threadInner.innerHTML='';
+  // user msg
+  threadInner.insertAdjacentHTML('beforeend', `<div class="msg user"><div class="who"></div><div class="body"><p>${q}</p></div></div>`);
+  // vidya msg + a generated component that takes shape
+  const vid=document.createElement('div'); vid.className='msg vidya';
+  vid.innerHTML=`<div class="who"></div><div class="body">
+     <div class="meta">Vidya · composed for you · verified</div>
+     <p>Here is your Mathematics picture. You own most of trigonometry on your own; ratios in word problems are still support-dependent — that is the one to close.</p>
+     <div class="gencard" style="--mc:var(--violet)">
+       <svg class="frame" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="0.5" y="0.5" width="99" height="99" rx="5" pathLength="1"/></svg>
+       <div class="gk">Mathematics · independence-aware</div>
+       <div class="gt">Trigonometry</div>
+       <div class="mastery">
+         <span style="flex:0 0 auto"><span class="cnode" id="cnode"></span></span>
+         <span><span class="state">You can solve familiar problems on your own</span><span class="dim">Word-problem ratios are still support-dependent — the next thing to close</span></span>
+       </div>
+       <div class="viz">
+         <div class="b"><span class="nm">Ratios (unaided)</span><span class="trk"><i style="background:var(--violet)"></i></span></div>
+         <div class="b"><span class="nm">Heights & distances</span><span class="trk"><i style="background:var(--violet)"></i></span></div>
+         <div class="b"><span class="nm">Word problems</span><span class="trk"><i style="background:var(--molten)"></i></span></div>
+       </div>
+       <div class="genrow">
+         <button class="btn v-rise primary icon-slide">Start the 15-minute fix <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+         <button class="btn v-wipe" id="openPageBtn">Open in Progress</button>
+         <button class="btn v-rise" id="evBtn">Why this</button>
+       </div>
+     </div>
+     <p style="margin-top:14px; color:var(--text-secondary); font-size:13.5px">This is a live component, not a screenshot — I can take the action here, or open the full page for you. For anything I cannot finish for you, I route you there and draw the steps on screen.</p>
+   </div>`;
+  threadInner.appendChild(vid);
+  // animate the component into being
+  requestAnimationFrame(()=>{ setTimeout(()=>{
+    vid.querySelector('.gencard').classList.add('drawn');
+    const bars=vid.querySelectorAll('.viz .b .trk > i'); const vals=['86%','78%','41%'];
+    bars.forEach((b,i)=> setTimeout(()=> b.style.width=vals[i], 200+i*140));
+  }, 120); });
+  vid.querySelector('#openPageBtn').addEventListener('click', openProgress);
+  vid.querySelector('#evBtn').addEventListener('click', ()=> toast('Evidence drawer → 6 attempts, 2 quizzes · independent vs supported'));
+  vid.querySelector('.btn.primary').addEventListener('click', ()=> toast('Routing to a verified 15-minute set, guided on screen'));
+}
+
+/* ----------------------------- PROGRESS page + the CRYSTALLIZE moment ----------------------------- */
+function openProgress(){
+  thread.classList.add('show');
+  threadInner.innerHTML = `<div class="msg vidya"><div class="who"></div><div class="body">
+    <div class="meta">Progress · your knowledge view</div>
+    <p>Your Mathematics lattice. When you master a concept on your own, it resolves and locks into the structure of what you know — like this.</p>
+    <div class="demoblock">
+      <div class="lattice" id="lattice">
+        <svg><path class="edge" id="e1" d="M170 100 L90 56" pathLength="1"/><path class="edge" id="e2" d="M170 100 L270 56" pathLength="1"/><path class="edge" id="e3" d="M170 100 L110 150" pathLength="1"/></svg>
+        <div class="node neighbor" style="left:90px;top:56px"><div class="facet"><svg viewBox="0 0 34 34"><polygon points="17,2 32,11 32,23 17,32 2,23 2,11"/></svg></div><div class="grain"></div><div class="cap">Ratios</div></div>
+        <div class="node neighbor" style="left:270px;top:56px"><div class="facet"><svg viewBox="0 0 34 34"><polygon points="17,2 32,11 32,23 17,32 2,23 2,11"/></svg></div><div class="grain"></div><div class="cap">Functions</div></div>
+        <div class="node neighbor" style="left:110px;top:150px"><div class="facet"><svg viewBox="0 0 34 34"><polygon points="17,2 32,11 32,23 17,32 2,23 2,11"/></svg></div><div class="grain"></div><div class="cap">Triangles</div></div>
+        <div class="node" id="masterNode" style="left:170px;top:100px"><div class="facet"><svg viewBox="0 0 34 34"><polygon points="17,2 32,11 32,23 17,32 2,23 2,11"/></svg></div><div class="grain"></div><div class="glint"></div><div class="cap">Trigonometry</div></div>
+      </div>
+      <div style="margin-top:30px"><button class="btn v-rise primary" id="crystBtn">Mark trigonometry mastered</button>
+      <button class="btn v-wipe" id="resetBtn" style="margin-left:8px">Reset</button></div>
+      <p style="margin-top:16px; font-size:12.5px; color:var(--text-tertiary)">"Crystallize" — the signature moment, replacing the generic ignite ring. The node resolves from soft and grainy to crisp, a refraction glint crosses, and hairline edges draw out to the prerequisites it now connects.</p>
+    </div></div></div>`;
+  thread.classList.add('show');
+  $('#crystBtn').addEventListener('click', crystallize);
+  $('#resetBtn').addEventListener('click', ()=>{ const n=$('#masterNode'); n.classList.remove('resolved','crystallize'); $('#lattice').classList.remove('lit'); });
+}
+function crystallize(){
+  const n=$('#masterNode'), lat=$('#lattice'); if(n.classList.contains('resolved')) return;
+  n.classList.add('crystallize');
+  setTimeout(()=> n.classList.add('resolved'), 240);
+  setTimeout(()=> lat.classList.add('lit'), 360);     // edges draw to neighbors (lattice lock-in)
+  setTimeout(()=> n.classList.remove('crystallize'), 1000);
+  toast('Trigonometry resolved — locked into your knowledge lattice');
+}
+</script>
+</body>
+</html>

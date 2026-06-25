@@ -27,6 +27,12 @@ export interface VoiceCapsuleProps {
   converseFn?: typeof defaultConverse;
   /** Notifies the parent of the live voice state (so the orb pulse can match). */
   onStateChange?: (state: VoiceState) => void;
+  /**
+   * Notifies the parent of the latest transcript line (the spoken reply, or a
+   * status while thinking) so the voice bloom can show it live. Real STT interim
+   * text wires here when the fabric exposes it; today it carries the reply.
+   */
+  onTranscript?: (text: string) => void;
 }
 
 /** An imperative handle so the orb can drive voice-first: tap the orb to go
@@ -34,6 +40,8 @@ export interface VoiceCapsuleProps {
 export interface VoiceCapsuleHandle {
   /** Begin listening if the mic is available; no-op while busy. */
   start: () => void;
+  /** Cancel an in-flight listen WITHOUT sending (the bloom's calm dismiss). */
+  cancel: () => void;
   /** Whether the mic is supported in this environment. */
   available: () => boolean;
 }
@@ -79,7 +87,7 @@ function Waveform({ active }: { active: boolean }) {
  * configured (or no mic), the capsule reads "unavailable" and typing still works.
  */
 export const VoiceCapsule = forwardRef<VoiceCapsuleHandle, VoiceCapsuleProps>(function VoiceCapsule(
-  { onReply, role, converseFn = defaultConverse, onStateChange }: VoiceCapsuleProps,
+  { onReply, role, converseFn = defaultConverse, onStateChange, onTranscript }: VoiceCapsuleProps,
   ref,
 ) {
   const [state, setState] = useState<VoiceState>('idle');
@@ -95,6 +103,11 @@ export const VoiceCapsule = forwardRef<VoiceCapsuleHandle, VoiceCapsuleProps>(fu
   useEffect(() => {
     onStateChange?.(state);
   }, [state, onStateChange]);
+
+  // Surface the live transcript line (reply, or a calm status) to the bloom.
+  useEffect(() => {
+    onTranscript?.(reply || message);
+  }, [reply, message, onTranscript]);
 
   const sendTurn = useCallback(
     async (blob: Blob) => {
@@ -152,6 +165,16 @@ export const VoiceCapsule = forwardRef<VoiceCapsuleHandle, VoiceCapsuleProps>(fu
     await beginListening();
   }, [state, sendTurn, beginListening]);
 
+  // Cancel listening without sending — discard the recording, return to idle.
+  const cancel = useCallback(() => {
+    const rec = recRef.current;
+    recRef.current = null;
+    void rec?.stop().catch(() => undefined);
+    setReply('');
+    setMessage('');
+    setState('idle');
+  }, []);
+
   // Voice-first: the orb can tap us straight into listening on open.
   useImperativeHandle(
     ref,
@@ -159,9 +182,10 @@ export const VoiceCapsule = forwardRef<VoiceCapsuleHandle, VoiceCapsuleProps>(fu
       start: () => {
         void beginListening();
       },
+      cancel,
       available: () => micSupported(),
     }),
-    [beginListening],
+    [beginListening, cancel],
   );
 
   return (

@@ -17,6 +17,7 @@ import { isValidAttachment } from '@/lib/vidya';
 import { KEY_ENV, runVidyaTurn, type GeminiContent } from '@/lib/vidyaServer';
 import { screenText, CRISIS_SUPPORT } from '@/lib/childSafetyServer';
 import { redactPII } from '@/lib/vidyaMemory';
+import { authorizeWrite } from '@/lib/opGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -44,6 +45,15 @@ export async function POST(req: Request): Promise<Response> {
   const turns = Array.isArray(payload.messages) ? payload.messages : [];
   if (turns.length === 0) return degraded('empty', 400);
   const viewerRole = (payload.role ?? 'teacher') as Role;
+
+  // The wall authorizes the conversation turn FIRST — the orchestrator's tool use
+  // runs under the same permission ladder as every other consequential op (a
+  // denied caller cannot drive Vidya's actions). An unreachable wall degrades to
+  // the local turn below, so the assistant never goes dark.
+  const gate = await authorizeWrite(req, 'vidya', 'converse', {
+    payload: { role: viewerRole },
+  });
+  if (!gate.proceed) return degraded('forbidden', 403);
 
   // MULTIMODAL: validate the attached image/doc/screen inputs. Anything that is
   // not a known, bounded shape is dropped — the orchestrator only ever sees a

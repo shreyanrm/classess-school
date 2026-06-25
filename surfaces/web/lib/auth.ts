@@ -417,9 +417,18 @@ export async function deleteAccount(): Promise<DeleteResult> {
   const session = await getSession();
   if (session) {
     try {
+      // The wall owns the erasure decision (lib/opGate): pass the opaque caller
+      // headers (canonical_uuid + role) so identity governance authorizes it.
+      const eraseHeaders: Record<string, string> = {
+        'content-type': 'application/json',
+        'x-caller-uuid': session.userId,
+        'x-caller-app': 'school',
+      };
+      const role = readStore().account?.role;
+      if (role) eraseHeaders['x-caller-role'] = role;
       const res = await fetch('/api/account/delete', {
         method: 'POST',
-        headers: { 'content-type': 'application/json' },
+        headers: eraseHeaders,
         body: JSON.stringify({ canonicalUuid: session.userId }),
       });
       const data = (await res.json().catch(() => ({}))) as DeleteResult;

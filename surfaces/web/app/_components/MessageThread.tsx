@@ -3,7 +3,8 @@
 import { Icon } from '@classess/design-system';
 import { InlineResult, type InlineResultData } from './InlineResult';
 import { VidyaSurface } from './VidyaSurface';
-import type { SurfaceSpec } from '@/lib/vidya';
+import type { SurfaceSpec, VidyaPath } from '@/lib/vidya';
+import { pathSummary } from '@/lib/vidya';
 
 export type ChatMessage =
   | { id: string; role: 'user'; text: string }
@@ -18,6 +19,13 @@ export type ChatMessage =
        * real, interactive panel inline in the thread — not a flat card.
        */
       surface?: SurfaceSpec;
+      /**
+       * Which of the five generative-UI paths (spec 16.2) this turn took. Shown
+       * as a quiet, plain-language line so the taxonomy is legible: answered
+       * inline, composed a view, prepared for approval, routed + docked, or
+       * routed + guided. Omitted for a plain answer with nothing to name.
+       */
+      path?: VidyaPath;
     };
 
 export interface MessageThreadProps {
@@ -49,6 +57,14 @@ export function MessageThread({ messages, thinking, onOpenHref }: MessageThreadP
               Vidya
             </div>
             <div className="vidya-text body">{m.text}</div>
+            {/* The quiet path line (spec 16.2): names which of the five paths
+                this turn took, so the taxonomy is legible. Omitted for a plain
+                inline answer, which needs no label. */}
+            {m.path && m.path !== 'answer' ? (
+              <div className="vidya-path overline muted" data-path={m.path}>
+                {pathSummary(m.path)}
+              </div>
+            ) : null}
             {m.surface ? <VidyaSurface spec={m.surface} onOpenHref={onOpenHref} /> : null}
             {m.inline ? <InlineResult data={m.inline} /> : null}
           </div>

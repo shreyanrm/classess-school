@@ -17,9 +17,22 @@
    ============================================================================ */
 
 import type { EmailInput } from './emailTemplate';
+import { readStore } from './store';
 
 /** The route transactional email posts to. */
 export const EMAIL_ROUTE = '/api/email';
+
+/** Opaque caller-identity headers (canonical_uuid + role) the wall reads to
+ *  authorize the cross-context send (lib/opGate). Never PII, never a secret. */
+function callerHeaders(): Record<string, string> {
+  try {
+    const account = readStore().account;
+    if (!account?.id) return {};
+    return { 'x-caller-uuid': account.id, 'x-caller-role': account.role, 'x-caller-app': 'school' };
+  } catch {
+    return {};
+  }
+}
 
 /** The consent + timing flags the caller already holds, passed through to the route. */
 export interface SendFlags {
@@ -58,7 +71,7 @@ export async function sendEmail(
   try {
     const res = await fetchImpl(EMAIL_ROUTE, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...callerHeaders() },
       body: JSON.stringify(input),
     });
     const data = (await res.json().catch(() => ({}))) as Partial<SendEmailResult>;

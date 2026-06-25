@@ -23,6 +23,7 @@
 
 import { buildEmail } from '@/lib/emailTemplate';
 import { parseEmailInput, sendGate, type SendFlags } from '@/lib/emailGate';
+import { authorizeWrite, denied } from '@/lib/opGate';
 
 /** The env var NAME the route reads. Declared for provisioning; value stays in env. */
 const RESEND_KEY_ENV = 'CLSS_COMMS_DEV_RESEND_KEY';
@@ -67,6 +68,15 @@ export async function POST(req: Request): Promise<Response> {
   }
 
   if (!isEmail(body.to)) return reply({ sent: false, reason: 'invalid-recipient' }, 400);
+
+  // The wall authorizes the send FIRST. Email is cross-context (to a parent/guardian)
+  // so the consent purpose runs the consent gate, and the permission ladder
+  // (X-Approval-Token) gates the send. A denied caller is refused before the
+  // provider key is ever read; an unreachable wall degrades to the path below.
+  const wall = await authorizeWrite(req, 'communication', 'send', {
+    consentPurpose: 'communication.email',
+  });
+  if (!wall.proceed) return denied(wall.detail);
 
   const input = parseEmailInput(body.email);
   if (!input) return reply({ sent: false, reason: 'invalid-input' }, 400);

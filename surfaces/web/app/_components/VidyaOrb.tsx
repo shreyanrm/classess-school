@@ -26,6 +26,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Composer, Icon } from '@classess/design-system';
 import { MessageThread } from './MessageThread';
 import { VoiceCapsule, type VoiceCapsuleHandle } from './VoiceCapsule';
+import { VoiceBloom } from './VoiceBloom';
 import { VidyaSteps } from './VidyaSteps';
 import { VidyaSpotlight } from './VidyaSpotlight';
 import { VidyaCanvas } from './VidyaCanvas';
@@ -74,12 +75,34 @@ function surfaceFromPath(pathname: string, role: Role): Role {
   return role;
 }
 
+/** The role landings — conversation-first homes, NOT deep pages. Vidya FLOATS
+ *  here (the calm orb). Everything else with real work is a deep page. */
+const ROLE_HOMES = new Set(['/', '/student', '/teacher', '/admin', '/parent']);
+
+/**
+ * A DEEP PAGE is a full workspace that produces or holds persistent state — the
+ * place a Path-4 route lands. On these, Vidya DOCKS (spec 16.4/17): the same orb
+ * logic, presented as a collapsible docked panel that drives the current page
+ * rather than floating over it. The home + role landings are not deep — Vidya
+ * floats there. Any path below a role root (e.g. /student/progress) or a
+ * top-level workspace counts as deep.
+ */
+export function isDeepPage(pathname: string): boolean {
+  if (ROLE_HOMES.has(pathname)) return false;
+  if (HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return false;
+  return true;
+}
+
 export function VidyaOrb() {
   const pathname = usePathname() ?? '/';
   const router = useRouter();
   const { role } = useRole();
   const { session } = useAuth();
   const surface = surfaceFromPath(pathname, role);
+  // On a deep page Vidya DOCKS (spec 16.4/17): the SAME orb logic + thread +
+  // permission ladder, presented as a right-edge docked panel driving the page
+  // instead of floating over it. On the home + role landings it floats.
+  const docked = isDeepPage(pathname);
   const [open, setOpen] = useState(false);
 
   // The ONE Vidya send path, shared with the home/landing via useVidya. Because
@@ -106,6 +129,7 @@ export function VidyaOrb() {
   // a calm listening pulse) — voice is the primary mode; text is the fallback.
   // When a starter prompt is sent (text) or there is no mic, it stays in text.
   const [voiceState, setVoiceState] = useState<string>('idle');
+  const [transcript, setTranscript] = useState<string>('');
   const [textMode, setTextMode] = useState(false);
   // Staged multimodal attachments (image / document / screen still) sent with
   // the next turn, then cleared. Lives in the orb so the composer + voice path
@@ -173,25 +197,64 @@ export function VidyaOrb() {
     return () => window.removeEventListener('keydown', onKey);
   }, [open]);
 
+  // Press-and-hold Space talks to Vidya (spec 17.2/17.4) — but ONLY when focus is
+  // not in a text field, so typing a space is never hijacked. The first keydown
+  // opens the orb (which voice-first auto-starts listening); releasing Space stops
+  // the turn. Key-repeat is ignored so the hold reads as one gesture.
+  const orbHidden =
+    !session || HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  useEffect(() => {
+    if (orbHidden) return; // no shell to talk to on auth/onboarding flows
+    function isTextTarget(el: EventTarget | null): boolean {
+      const node = el as HTMLElement | null;
+      if (!node) return false;
+      const tag = node.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || node.isContentEditable;
+    }
+    function onDown(e: KeyboardEvent) {
+      if (e.code !== 'Space' || e.repeat || isTextTarget(e.target)) return;
+      e.preventDefault();
+      setTextMode(false);
+      setOpen(true);
+    }
+    function onUp(e: KeyboardEvent) {
+      if (e.code !== 'Space' || isTextTarget(e.target)) return;
+      // Release Space dismisses the bloom (spec 17.2): the field recedes back
+      // toward the orb; never a hard cut. We only act if we were listening.
+      if (voiceState === 'listening') closeOrb();
+    }
+    window.addEventListener('keydown', onDown);
+    window.addEventListener('keyup', onUp);
+    return () => {
+      window.removeEventListener('keydown', onDown);
+      window.removeEventListener('keyup', onUp);
+    };
+  }, [voiceState, orbHidden]);
+
   // The orb is hidden on the auth + onboarding flows (no signed-in shell there),
   // and until there is a session (so it never flashes during the sign-in redirect).
-  if (HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
-    return null;
-  }
-  if (!session) return null;
+  if (orbHidden) return null;
 
   const hasThread = messages.length > 0 || thinking;
   const isListening = voiceState === 'listening';
 
   function closeOrb() {
     setOpen(false);
+    voiceRef.current?.cancel(); // recede the bloom: stop listening, no send
+    setTranscript('');
     clearVisuals();
     setAttachments([]);
     orbRef.current?.focus();
   }
 
   return (
-    <div className="vidya-orb-root" data-surface={surface}>
+    <div className="vidya-orb-root" data-surface={surface} data-docked={docked ? 'true' : undefined}>
+      {/* The Siri-like voice bloom (spec 17.2): a fixed full-screen warm field +
+          frosted panel, shown while Vidya is listening. It is a VISUAL layer over
+          the existing voice path (VoiceCapsule → voiceConverse); dismiss recedes
+          it back toward the orb (esc / release Space / click the field). */}
+      <VoiceBloom open={isListening} transcript={transcript} onClose={closeOrb} />
+
       {/* Speak-and-show overlays render at the page level so they can ring any
           on-screen region while Vidya talks. Visual only — never mutating. */}
       {highlight ? (
@@ -282,6 +345,7 @@ export function VidyaOrb() {
               onReply={applyVoiceTurn}
               role={role}
               onStateChange={setVoiceState}
+              onTranscript={setTranscript}
             />
             {/* Voice is primary; text is the fallback. The composer stays mounted
                 (so its test hook + the typed path are always present) but is
@@ -345,7 +409,11 @@ export function VidyaOrb() {
         data-testid="vidya-orb"
         onClick={() => setOpen((v) => !v)}
       >
+        {/* The living presence: hairline ring + drifting/breathing gradient core
+            + glass highlight + centered low-opacity spark. No shadow (spec 17.1). */}
+        <span className="vidya-orb-ring" aria-hidden="true" />
         <span className="vidya-orb-core" aria-hidden="true" />
+        <span className="vidya-orb-glass" aria-hidden="true" />
         <Icon name="spark" size="md" />
       </button>
     </div>

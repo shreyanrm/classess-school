@@ -128,7 +128,7 @@ test.describe('clickability — shared shell', () => {
     await page.getByRole('button', { name: /search and history/i }).dispatchEvent('click');
     const search = page.getByRole('searchbox', { name: /search your conversations/i });
     await expect(search).toBeVisible();
-    await search.evaluate((el, v) => { const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); }, 'algebra');
+    await search.evaluate((el, v) => { const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!; s.call(el, v); el.dispatchEvent(new Event('input', { bubbles: true })); }, 'algebra');
     await expect(page.getByText(/no matches for/i)).toBeVisible();
     await assertNoErrors(gate, 'search drawer');
   });

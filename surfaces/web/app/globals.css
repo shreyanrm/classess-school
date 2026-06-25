@@ -1257,91 +1257,220 @@ a {
   pointer-events: auto;
 }
 
-/* The idle orb. A living, breathing aura in the SURFACE accent — never frantic. */
+/* The idle orb — the living Vidya presence (spec 17.1). A ~52px circle whose
+   core is a layered radial gradient (molten -> ultramarine -> violet) that DRIFTS
+   (~7s) and BREATHES (~1.05 scale, ~3.6s). Depth = hairline ring + living
+   gradient + glass highlight. NO shadow, ever. Reduced-motion holds a static,
+   still-beautiful position. Ported from components-react/VidyaOrb.jsx. */
 .vidya-orb {
   position: relative;
-  width: 56px;
-  height: 56px;
-  flex: 0 0 56px;
+  width: 52px;
+  height: 52px;
+  flex: 0 0 52px;
   border-radius: 999px;
-  border: var(--border-width) solid var(--accent);
-  background: var(--bg-surface);
-  color: var(--accent-ink, var(--accent));
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--text-inverse, #fff);
+  display: inline-grid;
+  place-items: center;
   cursor: pointer;
   overflow: visible;
-  transition: transform var(--dur) var(--ease), border-color var(--dur) var(--ease);
-}
-
-/* A soft aura ring that breathes outward — the "alive" tell, very subtle. */
-.vidya-orb::after {
-  content: "";
-  position: absolute;
-  inset: -3px;
-  border-radius: 999px;
-  border: 1.5px solid var(--accent);
-  opacity: 0;
-  animation: vidya-orb-aura 4.2s var(--ease) infinite;
-  pointer-events: none;
+  transition: transform var(--dur) var(--ease);
 }
 
 .vidya-orb:hover {
-  border-color: var(--accent);
-  transform: scale(1.04);
+  transform: scale(1.06);
+}
+
+.vidya-orb:active {
+  transform: scale(0.96);
 }
 
 .vidya-orb:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: 3px;
 }
 
 .vidya-orb.is-open {
   transform: scale(0.94);
 }
 
-/* When the panel is open, the orb is no longer the focus — settle it to a stable,
-   static state: stop the breathing pulse/aura and freeze the hover transform so
-   nothing under the cursor mutates between animation frames. This is what lets
-   automated input (and a calm human) land a real click on the open panel without
-   the element perpetually moving. The living aura returns when the orb closes. */
-.vidya-orb.is-open .vidya-orb-core,
-.vidya-orb.is-open::after {
-  animation: none;
-  opacity: 0;
-}
-.vidya-orb.is-open:hover {
-  transform: scale(0.94);
-}
-
-/* The living gradient core — a calm, slow breathing pulse in the surface accent. */
-.vidya-orb-core {
+/* The hairline ring that defines the edge — depth without shadow. */
+.vidya-orb-ring {
   position: absolute;
   inset: 0;
+  border-radius: 999px;
+  border: 0.5px solid var(--border-strong);
+  pointer-events: none;
+}
+
+/* The living gradient core — molten top-left, ultramarine + violet through the
+   body. Drifts via background-position; breathes via transform scale. */
+.vidya-orb-core {
+  position: absolute;
+  inset: 5px;
   pointer-events: none;
   border-radius: 999px;
   overflow: hidden;
-  background: radial-gradient(circle at 30% 30%, var(--accent-tint), transparent 70%);
-  opacity: 0.9;
-  animation: vidya-orb-pulse 3.6s ease-in-out infinite;
+  background:
+    radial-gradient(120% 120% at 30% 22%, var(--molten) 0%, transparent 55%),
+    radial-gradient(120% 120% at 72% 78%, var(--ultramarine) 0%, transparent 60%),
+    radial-gradient(140% 140% at 50% 50%, var(--violet) 0%, var(--ultramarine) 80%);
+  background-size: 200% 200%, 200% 200%, 160% 160%;
+  filter: saturate(1.05);
+  animation: vidya-orb-drift 7s var(--ease) infinite,
+    vidya-orb-breath 3.6s ease-in-out infinite;
+}
+
+/* A faint top-left glass highlight. */
+.vidya-orb-glass {
+  position: absolute;
+  inset: 5px;
+  pointer-events: none;
+  border-radius: 999px;
+  background: radial-gradient(100% 70% at 32% 22%, rgba(255, 255, 255, 0.5), transparent 50%);
 }
 
 .vidya-orb .icon,
 .vidya-orb svg {
   position: relative;
   z-index: 1;
+  opacity: 0.9;
 }
 
-@keyframes vidya-orb-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.5; }
-  50% { transform: scale(1.1); opacity: 0.9; }
+/* When the panel is open the orb is no longer the focus: freeze the drift/breath
+   so nothing under the cursor mutates between frames (lets a real click land on
+   the open panel). The living motion returns when the orb closes. */
+.vidya-orb.is-open .vidya-orb-core {
+  animation: none;
+}
+.vidya-orb.is-open:hover {
+  transform: scale(0.94);
 }
 
-@keyframes vidya-orb-aura {
-  0% { transform: scale(1); opacity: 0; }
-  35% { opacity: 0.35; }
-  100% { transform: scale(1.5); opacity: 0; }
+@keyframes vidya-orb-drift {
+  0% { background-position: 0% 30%, 100% 70%, 50% 50%; }
+  50% { background-position: 100% 60%, 0% 40%, 60% 55%; }
+  100% { background-position: 0% 30%, 100% 70%, 50% 50%; }
+}
+
+@keyframes vidya-orb-breath {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* ----------------------------------------------------------------------------
+   The voice bloom (spec 17.2) — a Siri-like full-screen layer. The bottom ~62vh
+   is a living warm field (canvas blobs, blurred + additively blended, masked to
+   fade toward the top); a frosted panel floats above with the pulsing spark, the
+   listening label, and the live transcript. No hard edges, NO shadow. Open/close
+   animate opacity + a small translateY. Reduced-motion = static frosted field.
+   Ported from components-react/VoiceBloom.jsx; lives ABOVE the orb (z 1000).
+   ---------------------------------------------------------------------------- */
+.voice-bloom {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: none;
+  pointer-events: none;
+}
+.voice-bloom.is-open {
+  display: block;
+}
+
+.voice-bloom-field {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 62vh;
+  pointer-events: auto;
+  -webkit-mask-image: linear-gradient(to top, #000 28%, transparent 100%);
+  mask-image: linear-gradient(to top, #000 28%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.5s var(--ease);
+}
+.voice-bloom.is-open .voice-bloom-field {
+  opacity: 1;
+}
+.voice-bloom-field canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  filter: blur(26px) saturate(1.12);
+}
+
+.voice-bloom-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  pointer-events: auto;
+  transform: translateY(14px);
+  opacity: 0;
+  transition: transform 0.5s var(--ease), opacity 0.5s var(--ease);
+}
+.voice-bloom.is-open .voice-bloom-panel {
+  transform: none;
+  opacity: 1;
+}
+
+.voice-bloom-spark {
+  width: 40px;
+  height: 40px;
+  color: var(--molten-ink);
+  display: grid;
+  place-items: center;
+}
+.voice-bloom-spark svg {
+  width: 40px;
+  height: 40px;
+  animation: voice-bloom-spark 2.2s ease-in-out infinite;
+}
+@keyframes voice-bloom-spark {
+  0%, 100% { transform: scale(1) rotate(0); opacity: 0.85; }
+  50% { transform: scale(1.12) rotate(8deg); opacity: 1; }
+}
+
+.voice-bloom-label {
+  font-size: 17px;
+  color: var(--molten-ink);
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.voice-bloom-label kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  background: var(--molten-tint);
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius-xs, 4px);
+  padding: 2px 6px;
+  color: var(--molten-ink);
+}
+.voice-bloom-transcript {
+  font-size: 15px;
+  color: var(--text-secondary);
+  min-height: 22px;
+  max-width: 560px;
+  text-align: center;
+}
+[data-theme='dark'] .voice-bloom-label,
+[data-theme='dark'] .voice-bloom-spark {
+  color: var(--molten-tint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-bloom-field canvas { filter: blur(30px) saturate(1.12); }
+  .voice-bloom-field,
+  .voice-bloom-panel { transition: none; }
+  .voice-bloom-spark svg { animation: none; }
 }
 
 /* The compact assistant panel — small, bottom-right anchored. A smooth, calm
@@ -1417,10 +1546,57 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vidya-orb-core { animation: none; }
-  .vidya-orb::after { animation: none; opacity: 0; }
+  /* Hold a static, still-beautiful gradient position; no breathing, no drift. */
+  .vidya-orb-core {
+    animation: none;
+    background-position: 20% 28%, 100% 72%, 55% 52%;
+  }
   .vidya-orb:hover { transform: none; }
   .vidya-orb-panel { animation: none; }
+  /* The dock never slides in under reduced motion. */
+  .vidya-orb-root[data-docked='true'] .vidya-orb-panel { animation: none; }
+}
+
+/* ===========================================================================
+   THE VIDYA DOCK (spec 16.4 / 17). On a deep page Vidya does not float — it
+   DOCKS: the same orb logic + thread + composer + permission ladder, presented
+   as a collapsible right-edge panel that DRIVES the current page. The root
+   switches to a full-height right anchor; the panel becomes a tall dock; the
+   orb sits at its foot as the collapse handle. No shadow (depth = the hairline
+   left border + tonal surface). Reduced-motion holds it still.
+   =========================================================================== */
+.vidya-orb-root[data-docked='true'] {
+  top: 0;
+  right: 0;
+  bottom: 0;
+  align-items: stretch;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+.vidya-orb-root[data-docked='true'] .vidya-orb-panel {
+  width: 380px;
+  max-width: calc(100vw - var(--space-5));
+  max-height: none;
+  height: 100%;
+  border-radius: 0;
+  border-top: 0;
+  border-right: 0;
+  border-bottom: 0;
+  border-left: var(--border-width) solid var(--border);
+  transform-origin: right center;
+  animation: vidya-dock-open var(--dur-slow, 200ms) var(--ease) both;
+}
+
+@keyframes vidya-dock-open {
+  from { transform: translateX(16px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@media (max-width: 480px) {
+  .vidya-orb-root[data-docked='true'] .vidya-orb-panel {
+    width: calc(100vw - var(--space-4));
+  }
 }
 
 /* The mic, while listening, carries a calm pulse (not the frantic waveform —
@@ -2412,5 +2588,131 @@ body {
 }
 @media (prefers-reduced-motion: reduce) {
   .auth-gate-spinner { animation: none; }
+}
+
+/* ============================================================================ *
+ *  COMMAND PALETTE (spec 17.3) — universal Cmd/Ctrl-K launcher.                *
+ *  Centered-near-top frosted panel over a scrim. Hairline border, radius-md,   *
+ *  NO shadow (depth is the frost + the hairline). Sits above the orb (1000)    *
+ *  as its keyboard twin. prefers-reduced-motion drops the open transition.     *
+ * ============================================================================ */
+.cmdk-scrim {
+  position: fixed;
+  inset: 0;
+  background: var(--scrim);
+  z-index: 1200;
+}
+.cmdk {
+  position: fixed;
+  left: 50%;
+  top: 14vh;
+  transform: translateX(-50%);
+  width: min(620px, calc(100vw - 2 * var(--space-4)));
+  z-index: 1201;
+  display: flex;
+  flex-direction: column;
+  max-height: 64vh;
+  background: var(--frost-bg);
+  -webkit-backdrop-filter: var(--frost-blur);
+  backdrop-filter: var(--frost-blur);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  animation: cmdk-in var(--dur-slow, 200ms) var(--ease) both;
+}
+@keyframes cmdk-in {
+  from { transform: translateX(-50%) translateY(-8px); opacity: 0; }
+  to { transform: translateX(-50%) translateY(0); opacity: 1; }
+}
+.cmdk-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border-bottom: var(--border-width) solid var(--border);
+  color: var(--text-tertiary);
+}
+.cmdk-input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  outline: none;
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  color: var(--text-primary);
+}
+.cmdk-input::placeholder {
+  color: var(--text-tertiary);
+}
+.cmdk-kbd {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 2px 6px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+.cmdk-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-2) var(--space-2) var(--space-3);
+}
+.cmdk-section {
+  margin: var(--space-3) var(--space-3) var(--space-1);
+  color: var(--text-tertiary);
+}
+.cmdk-empty {
+  margin: var(--space-4);
+}
+.cmdk-opt {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+.cmdk-opt.is-sel {
+  background: var(--bg-sunken);
+}
+.cmdk-icn {
+  display: grid;
+  place-items: center;
+  color: var(--text-secondary);
+}
+.cmdk-opt.is-voice .cmdk-icn {
+  color: var(--molten);
+}
+.cmdk-label {
+  flex: 1;
+  font-size: 0.875rem;
+}
+.cmdk-sub {
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+}
+.cmdk-sheet-list {
+  padding: var(--space-3) var(--space-4) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.cmdk-sheet-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+@media (prefers-reduced-motion: reduce) {
+  .cmdk { animation: none; }
 }
 

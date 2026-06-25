@@ -18,6 +18,7 @@
 import { getPool, type PoolLike } from '@/lib/db';
 import { ok, degraded, isUuid, str } from '@/lib/opRoute';
 import { screenText, type SafetyVerdict } from '@/lib/childSafetyServer';
+import { authorizeWrite, denied } from '@/lib/opGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -92,6 +93,17 @@ export async function POST(req: Request): Promise<Response> {
   if (!isUuid(body.institutionId) || !isUuid(body.senderRef) || !str(body.body)) {
     return ok({ persisted: false, reason: 'invalid-input' }, 400);
   }
+
+  // The wall authorizes the send FIRST. Messaging is cross-context (e.g. to a
+  // parent) so the consent purpose runs the consent gate; the approval token (if
+  // the surface attached one) feeds the permission ladder. A denied caller is
+  // refused before any row persists; an unreachable wall degrades to the path
+  // below. Child-safety still screens regardless (a crisis is never silenced).
+  const gate = await authorizeWrite(req, 'messages', 'send', {
+    payload: { institution_id: body.institutionId, channel_id: body.channelId, surface: body.surface },
+    consentPurpose: 'communication.message',
+  });
+  if (!gate.proceed) return denied(gate.detail);
 
   // CHILD-SAFETY runs on the server BEFORE anything persists. The real verdict
   // (not a hard-coded flagged:false) decides whether the message holds for a

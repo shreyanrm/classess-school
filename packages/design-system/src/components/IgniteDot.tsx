@@ -7,10 +7,14 @@ export interface IgniteDotProps extends HTMLAttributes<HTMLSpanElement> {
 }
 
 /**
- * The ignite — the signature mastery moment. An ultramarine core with a ring
- * that expands and fades outward, continuously. This is one of the two places
- * the ultramarine signature is allowed (the other is the brand mark); never
- * use it as decoration. Honors reduced motion (the ring is suppressed).
+ * The ignite — a compact inline ultramarine dot marking the mastery moment.
+ *
+ * SUPERSEDED by {@link CrystallizeNode} as the signature mastery moment per
+ * v4.1 §17.5 (lattice lock-in instead of an expanding ring). Retained for the
+ * inline dot use-case; prefer CrystallizeNode for the knowledge/progress
+ * surfaces. This is one of the two places the ultramarine signature is allowed
+ * (the other is the brand mark); never use it as decoration. Honors reduced
+ * motion (the ring is suppressed).
  *
  * Visual treatment lives in .ignite (motion.css).
  */

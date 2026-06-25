@@ -21,10 +21,22 @@
      - events are immutable/append-only on the server; this client only appends.
    ============================================================================ */
 
+import { readStore } from './store';
+
 export const EVENTS_ROUTE = '/api/events';
 
 /** The app that emits — the school surface. Stamped on every event. */
 export const EVENT_APP = 'school' as const;
+
+/** The locally-held account role, for the wall's RBAC (never PII). Empty when
+ *  there is no account yet (pre-sign-in / server render). */
+function callerRole(): string {
+  try {
+    return readStore().account?.role ?? '';
+  } catch {
+    return '';
+  }
+}
 
 /**
  * The purposes the surface emits under. The SAME purpose must be consented for
@@ -122,9 +134,18 @@ export async function emitEvent(
     return { persisted: false, reason: 'invalid-input' };
   }
   try {
+    // The wall identifies the emitter by the opaque caller headers (lib/opGate).
+    // The emitter IS the event's subject (self-emit), so the body's canonical_uuid
+    // is the caller uuid; the role comes from the locally-held account. Never PII.
+    const callerHeaders: Record<string, string> = {
+      'x-caller-uuid': body.canonical_uuid,
+      'x-caller-app': EVENT_APP,
+    };
+    const role = callerRole();
+    if (role) callerHeaders['x-caller-role'] = role;
     const res = await fetchImpl(route, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', ...callerHeaders },
       body: JSON.stringify(body),
     });
     const data = (await res.json().catch(() => ({}))) as Partial<EmitEventResult>;

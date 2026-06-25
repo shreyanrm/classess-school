@@ -17,6 +17,7 @@
 
 import { getPool, type PoolLike } from '@/lib/db';
 import { ok, degraded, isUuid, str } from '@/lib/opRoute';
+import { authorizeWrite, denied } from '@/lib/opGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,6 +70,13 @@ export async function POST(req: Request): Promise<Response> {
   if (!isUuid(body.institutionId) || !isUuid(body.sessionId) || !Array.isArray(body.marks)) {
     return ok({ persisted: false, reason: 'invalid-input' }, 400);
   }
+
+  // The wall authorizes this consequential write FIRST (RBAC/ABAC/audit). A
+  // caller without the right role/scope is denied; an unreachable wall degrades.
+  const gate = await authorizeWrite(req, 'attendance', 'confirm', {
+    payload: { institution_id: body.institutionId, session_id: body.sessionId },
+  });
+  if (!gate.proceed) return denied(gate.detail);
 
   const pool = getPool();
   if (!pool) return degraded();

@@ -26,6 +26,7 @@
    ============================================================================ */
 
 import type { Role } from './mock';
+import { readStore } from './store';
 export type { Role } from './mock';
 
 export const VIDYA_CHAT_ROUTE = '/api/vidya/chat';
@@ -83,6 +84,48 @@ export type NavTarget = (typeof NAV_TARGETS)[number];
 export function isNavTarget(value: unknown): value is NavTarget {
   return typeof value === 'string' && (NAV_TARGETS as readonly string[]).includes(value);
 }
+
+/** Plain-language labels for the navigable routes — the single source of truth
+ *  reused by the command palette's "Go to" section. Mirrors the rail wording. */
+export const NAV_LABELS: Record<NavTarget, string> = {
+  '/': 'Home',
+  '/loop': 'The live loop',
+  '/teacher': 'Teacher — your day',
+  '/teacher/assign': 'Assign a quick check',
+  '/teacher/evaluate': 'Evaluation review',
+  '/teacher/students': 'Student insights',
+  '/teacher/attendance': 'Attendance',
+  '/teacher/plan': 'Class diary and plan',
+  '/teacher/growth': 'Your growth',
+  '/classroom': 'Classroom delivery',
+  '/student': 'Student — today',
+  '/student/learn': 'Learn',
+  '/student/practice': 'Practice',
+  '/student/progress': 'Your progress',
+  '/student/mocks': 'Mocks and study plan',
+  '/student/work': 'Your work',
+  '/student/portfolio': 'Portfolio and credentials',
+  '/content': 'Resource library',
+  '/admin': 'Admin — morning briefing',
+  '/admin/intelligence': 'School-wide intelligence',
+  '/admin/exams': 'Exam operations',
+  '/admin/curriculum': 'Curriculum and ontology',
+  '/admin/governance': 'Governance and audit',
+  '/admin/network': 'Network leadership',
+  '/admin/integrations': 'Integrations',
+  '/admin/calendar': 'Calendar and timetable',
+  '/admin/control-centre': 'AI control centre',
+  '/admin/setup': 'Setup and hierarchy',
+  '/messages': 'Messages',
+  '/proactive': 'Approval queue',
+  '/insights': 'Class read',
+  '/parent': 'Parent — this week',
+  '/parent/child': 'The child view',
+  '/parent/reports': 'Reports and feedback',
+  '/parent/together': 'Learn alongside and PTM',
+  '/profile': 'Profile',
+  '/settings': 'Settings',
+};
 
 // ---------------------------------------------------------------------------
 // Render specs — the small, typed component shapes the thread can render inline.
@@ -540,6 +583,101 @@ export interface VidyaChatResult {
   degraded?: boolean;
   /** Internal reason on degrade (never a key, never a stack). */
   reason?: string;
+}
+
+// ---------------------------------------------------------------------------
+// THE 5-PATH GENERATIVE-UI CLASSIFIER CONTRACT (spec 16.2).
+//
+// A request enters via the composer, a chip, voice, or Cmd-K. The orchestrator
+// classifies it and takes EXACTLY ONE of five paths. The taxonomy is the
+// contract the surface builds to. Rather than re-derive intent on the client,
+// this is a PURE projection of the actions the orchestrator already returned
+// onto the five-path taxonomy — one truth, no divergence between what the
+// orchestrator did and how the home/dock describes it.
+//
+//   Path 1 — answer    : prose in the thread (+ sources + ConfidenceBand). No
+//                        component manufactured. (no render/canvas/navigate.)
+//   Path 2 — compose   : a live, verified component in-thread (border-draw
+//                        reveal) — a surface, a derivation/canvas, a mastery/
+//                        gaps/recommendation card. Carries ConfidenceBand +
+//                        "Why this" + a primary action + "Open in <page>".
+//   Path 3 — act        : the request is a task; Vidya PREPARES it and surfaces
+//                        an ApprovalControl for anything consequential (a draft
+//                        quick-check/plan, a composed quiz/plan-board the human
+//                        must approve). The ladder is never bypassed in chat.
+//   Path 4 — route+dock : the task needs a full workspace; Vidya opens the page
+//                        and DOCKS itself (VidyaDock), pre-filled with context.
+//   Path 5 — route+guide: the user MUST act (a decision, a credential, a manual
+//                        step); Vidya routes AND draws an on-screen SVG guide —
+//                        soft spotlight + hairline arrow + caption (VidyaSpotlight).
+//
+// When ambiguous, Vidya asks ONE clarifying question rather than guessing —
+// that is a Path-1 answer with no actions (handled by the orchestrator prompt).
+// ---------------------------------------------------------------------------
+
+export type VidyaPath =
+  | 'answer' // Path 1
+  | 'compose' // Path 2
+  | 'act' // Path 3
+  | 'route-dock' // Path 4
+  | 'route-guide'; // Path 5
+
+/** True when a render spec is a CONSEQUENTIAL prepare — it carries an approval
+ *  step (a draft) or a surface whose primary affordance is permission-laddered
+ *  (a quiz to publish, a plan-board to adopt). Path 3 is exactly this set. */
+function isConsequentialRender(spec: RenderSpec): boolean {
+  if (spec.kind === 'draft') return true; // requiresApproval is always true
+  if (spec.kind === 'surface') {
+    return spec.surface.kind === 'quiz-builder' || spec.surface.kind === 'plan-board';
+  }
+  return false;
+}
+
+/**
+ * Classify a turn into exactly one of the five paths from the actions the
+ * orchestrator returned. Precedence (highest first) honours the spec decision
+ * rule "the user must act → Path 5; needs a workspace → Path 4; an action Vidya
+ * may take → Path 3; a view helps → Path 2; answerable → Path 1":
+ *
+ *   navigate + (highlight|annotate) -> route-guide  (Path 5: route + SVG guide)
+ *   navigate alone                   -> route-dock   (Path 4: route + dock)
+ *   render/canvas that is consequential -> act       (Path 3: prepare + approve)
+ *   render/canvas otherwise          -> compose      (Path 2: live component)
+ *   nothing renders/routes           -> answer       (Path 1: prose; clarify too)
+ *
+ * Pure and deterministic — the same projection on the home and the dock, so the
+ * thread's "what just happened" line never disagrees with what Vidya did.
+ */
+export function classifyPath(actions: VidyaAction[]): VidyaPath {
+  const navigates = actions.some((a) => a.type === 'navigate');
+  const guides = actions.some((a) => a.type === 'highlight' || a.type === 'annotate');
+  if (navigates && guides) return 'route-guide';
+  if (navigates) return 'route-dock';
+  const renders = actions.filter(
+    (a): a is RenderAction | CanvasAction => a.type === 'render' || a.type === 'canvas',
+  );
+  if (renders.length > 0) {
+    const consequential = renders.some((a) => a.type === 'render' && isConsequentialRender(a.spec));
+    return consequential ? 'act' : 'compose';
+  }
+  return 'answer';
+}
+
+/** A calm, plain-language line naming the path Vidya took — shown quietly in the
+ *  thread so the taxonomy is legible (spec 16.2). No orchestrator name; no PII. */
+export function pathSummary(path: VidyaPath): string {
+  switch (path) {
+    case 'answer':
+      return 'Answered inline';
+    case 'compose':
+      return 'Composed a live, verified view';
+    case 'act':
+      return 'Prepared this for your approval';
+    case 'route-dock':
+      return 'Opened the page and docked here';
+    case 'route-guide':
+      return 'Opened the page and drew the steps';
+  }
 }
 
 /**
@@ -1281,9 +1419,22 @@ export async function vidyaChat(
   fetchImpl: typeof fetch = fetch,
 ): Promise<VidyaChatResult> {
   try {
+    // The wall authorizes the turn by the opaque caller headers (lib/opGate):
+    // the locally-held account uuid + the request's role. Never PII, never a key.
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    try {
+      const account = readStore().account;
+      if (account?.id) {
+        headers['x-caller-uuid'] = account.id;
+        headers['x-caller-role'] = req.role;
+        headers['x-caller-app'] = 'school';
+      }
+    } catch {
+      /* no account yet — the route degrades to the local responder */
+    }
     const res = await fetchImpl(route, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers,
       body: JSON.stringify(req),
     });
     const data = (await res.json().catch(() => ({}))) as Partial<VidyaChatResult>;

@@ -41,6 +41,7 @@ from fastapi import Body, FastAPI, Header, HTTPException
 from fastapi.responses import JSONResponse
 
 from . import loader
+from .wall_auth import WallTokenVerifier
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("clss.backend")
@@ -54,6 +55,7 @@ _gw_main = __import__(f"{loader.GATEWAY_ALIAS}.main", fromlist=["app"])
 _gw_caps = __import__(f"{loader.GATEWAY_ALIAS}.capabilities", fromlist=["*"])
 _gw_wall = __import__(f"{loader.GATEWAY_ALIAS}.wall", fromlist=["*"])
 _gw_rl = __import__(f"{loader.GATEWAY_ALIAS}.ratelimit", fromlist=["*"])
+_gw_cfg = __import__(f"{loader.GATEWAY_ALIAS}.config", fromlist=["*"])
 
 gateway_app: FastAPI = _gw_main.app
 
@@ -65,11 +67,24 @@ _limiter = _gw_rl.RateLimiter(
         limit=120, window_seconds=60.0, algorithm=_gw_rl.Algorithm.TOKEN_BUCKET
     )
 )
-# No verifier/consent/child-safety wired here => the wall degrades to SAFE
-# defaults (deny-all auth, fail-closed child safety, in-memory audit ring). It
-# NEVER runs open. Real implementations are injected by ops via env-configured
-# collaborators; absent them the public capability door denies by default.
-_wall = _gw_wall.Wall(registry=_registry, limiter=_limiter)
+# Token verification for the in-process Wall. We read the gateway's per-service
+# settings (CLSS_GATEWAY_DEV_*) BY NAME and build a synchronous verifier the Wall
+# can call. When NO public key and NO introspect URL are configured (the deploy
+# case), the verifier accepts the clearly-marked DEV-UNSIGNED token (logged as
+# dev-only) so the live gateway can actually resolve a Principal and serve
+# capability reads — RBAC/ABAC still gate downstream. When a real key/introspect
+# is configured, dev tokens are rejected. Reading settings here performs no I/O
+# and reveals no secret value; absent config degrades to dev-only, never open.
+_gw_settings = _gw_cfg.get_settings()
+_wall_verifier = WallTokenVerifier(
+    principal_cls=_gw_caps.Principal,
+    public_key=_gw_settings.jwt_public_key,
+    introspect_url=_gw_settings.identity_introspect_url,
+)
+# consent/child-safety remain SAFE defaults (cross-context reads still gate;
+# free text fails closed). Audit is the in-memory ring when no DB is wired. The
+# wall NEVER runs open.
+_wall = _gw_wall.Wall(registry=_registry, limiter=_limiter, verifier=_wall_verifier)
 
 
 # --------------------------------------------------------------------------- #
@@ -162,6 +177,19 @@ _ACTION_ALIASES = {
     "update": "write",
     "export": "export",
     "approve": "approve",
+    # Consequential write verbs the surfaces use map onto the canonical "write"
+    # action the wall enforces (RBAC/ABAC/consent/approval/child-safety/audit).
+    # The semantic name stays legible at the door; the wall still gates it as a
+    # write, so a surface can never reach a module without passing the wall.
+    "confirm": "write",   # attendance confirm
+    "send": "write",      # messages / communication send (permission ladder)
+    "submit": "write",    # coursement submission (permission ladder)
+    "emit": "write",      # event append
+    "publish": "write",   # school structure publish
+    "converse": "write",  # Vidya turn (the orchestrator's tool-use ladder)
+    "grade": "write",     # evaluation grade (permission ladder)
+    "delete": "write",    # erasure
+    "erase": "write",     # identity erasure
 }
 
 

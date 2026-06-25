@@ -91,6 +91,16 @@ class GatewaySettings(BaseSettings):
     identity_base_url: str | None = Field(default=None)
     # clss.gateway.dev.event_store_base_url
     event_store_base_url: str | None = Field(default=None)
+    # The deep intelligence engine (mastery / gaps / recommendations / class
+    # insights). The ONE source of truth lives in the Python spine and is reached
+    # only through the wall. Unset -> route returns 503 and the web surface falls
+    # back to its in-browser engine port. clss.gateway.dev.intelligence_base_url
+    intelligence_base_url: str | None = Field(default=None)
+    # In the SINGLE DEPLOYABLE the identity + event-store services run in-process
+    # and are mounted under {self_base_url}/internal/{name}. When the explicit
+    # per-capability base urls are unset, the gateway forwards to these in-process
+    # mounts over loopback instead of returning a 503. clss.gateway.dev.self_base_url
+    self_base_url: str | None = Field(default=None)
 
     # --- Audit sink ------------------------------------------------------
     # clss.gateway.dev.database_url  (writes platform.audit_log; INVARIANT 9)
@@ -112,17 +122,46 @@ class GatewaySettings(BaseSettings):
             ),
         )
 
+    def _internal_mount(self, name: str) -> str | None:
+        """In-process loopback target for a spine service mounted under
+        ``/internal/<name>`` in the single deployable. ``None`` when no
+        ``self_base_url`` is configured (then the explicit per-capability base
+        url is the only source)."""
+        if not self.self_base_url:
+            return None
+        return self.self_base_url.rstrip("/") + f"/internal/{name}"
+
     def capability_targets(self) -> dict[str, CapabilityTarget]:
+        # Prefer an explicit per-capability base url; otherwise, in the single
+        # deployable, forward to the in-process internal mount over loopback.
         return {
             "identity": CapabilityTarget(
                 name="identity",
-                base_url=self.identity_base_url,
+                base_url=self.identity_base_url or self._internal_mount("identity"),
                 base_url_env="clss.gateway.dev.identity_base_url",
             ),
             "event-store": CapabilityTarget(
                 name="event-store",
-                base_url=self.event_store_base_url,
+                base_url=self.event_store_base_url or self._internal_mount("event-store"),
                 base_url_env="clss.gateway.dev.event_store_base_url",
+            ),
+            # The deep intelligence engine — one source of truth (the Python
+            # spine). Both the learner read (learning) and the cross-context
+            # class/recommendation views (intelligence-views) forward here.
+            "intelligence": CapabilityTarget(
+                name="intelligence",
+                base_url=self.intelligence_base_url or self._internal_mount("intelligence"),
+                base_url_env="clss.gateway.dev.intelligence_base_url",
+            ),
+            "learning": CapabilityTarget(
+                name="learning",
+                base_url=self.intelligence_base_url or self._internal_mount("intelligence"),
+                base_url_env="clss.gateway.dev.intelligence_base_url",
+            ),
+            "intelligence-views": CapabilityTarget(
+                name="intelligence-views",
+                base_url=self.intelligence_base_url or self._internal_mount("intelligence"),
+                base_url_env="clss.gateway.dev.intelligence_base_url",
             ),
         }
 
@@ -130,10 +169,11 @@ class GatewaySettings(BaseSettings):
         missing: list[str] = []
         if not self.jwt_public_key and not self.identity_introspect_url:
             missing.append("clss.gateway.dev.jwt_public_key (or clss.gateway.dev.identity_introspect_url)")
-        if not self.identity_base_url:
-            missing.append("clss.gateway.dev.identity_base_url")
-        if not self.event_store_base_url:
-            missing.append("clss.gateway.dev.event_store_base_url")
+        # In-process forwarding (self_base_url) satisfies these upstreams.
+        if not self.identity_base_url and not self.self_base_url:
+            missing.append("clss.gateway.dev.identity_base_url (or clss.gateway.dev.self_base_url)")
+        if not self.event_store_base_url and not self.self_base_url:
+            missing.append("clss.gateway.dev.event_store_base_url (or clss.gateway.dev.self_base_url)")
         if not self.database_url:
             missing.append("clss.gateway.dev.database_url (audit sink)")
         return missing

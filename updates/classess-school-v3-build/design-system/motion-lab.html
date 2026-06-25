@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classess · Motion Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;500&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@300..700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<style>
+  /* ---- lab shell ---- */
+  .doc { max-width: 1120px; margin: 0 auto; padding: 0 32px 140px; }
+  .toolbar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; justify-content: space-between;
+             padding: 14px 32px; background: var(--frost-bg); backdrop-filter: var(--frost-blur); -webkit-backdrop-filter: var(--frost-blur);
+             border-bottom: .5px solid var(--border); }
+  .cover { padding: 80px 0 56px; }
+  .cover .display { max-width: 16ch; margin-bottom: 20px; }
+  .cover .lede { font-size: 18px; color: var(--text-secondary); max-width: 64ch; line-height: 1.6; }
+  .note { margin-top: 22px; border: .5px solid var(--border); border-left: 2px solid var(--signature); border-radius: 4px;
+          padding: 14px 18px; background: var(--bg-surface); font-size: 14px; color: var(--text-secondary); max-width: 72ch; line-height: 1.6; }
+  .section { padding: 56px 0; border-top: .5px solid var(--border); }
+  .section > .head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 28px; flex-wrap: wrap; gap: 12px; }
+  .section .head h3 { font-size: 24px; font-weight: 600; letter-spacing: -.01em; }
+  .section .head .hint { font-family: var(--font-mono); font-size: 11px; color: var(--text-tertiary); letter-spacing: .1em; text-transform: uppercase; }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 14px; }
+  .tile { border: .5px solid var(--border); border-radius: 6px; background: var(--bg-surface); overflow: hidden; display: flex; flex-direction: column; }
+  .stage { flex: 1; min-height: 150px; display: flex; align-items: center; justify-content: center; padding: 28px 22px; background: var(--bg-canvas); }
+  .cap { padding: 12px 16px; border-top: .5px solid var(--border); }
+  .cap .nm { font-size: 13px; font-weight: 600; display: flex; align-items: center; gap: 8px; }
+  .cap .nm .ltr { font-family: var(--font-mono); font-size: 11px; color: var(--signature); }
+  .cap .ds { font-size: 12px; color: var(--text-tertiary); margin-top: 3px; line-height: 1.5; }
+  .pill { font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--text-tertiary);
+          border: .5px solid var(--border); border-radius: 999px; padding: 1px 7px; margin-left: auto; }
+
+  .replay { display: inline-flex; align-items: center; gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--text-secondary);
+            border: .5px solid var(--border); border-radius: 3px; padding: 5px 10px; background: var(--bg-surface); cursor: pointer; transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease); }
+  .replay:hover { border-color: var(--signature); color: var(--signature); }
+
+  /* =====================================================================
+     BUTTONS — variants
+     ===================================================================== */
+  /* A · fill wipe (ultramarine wipes in from left) */
+  .v-wipe { position: relative; overflow: hidden; z-index: 0; transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+  .v-wipe::before { content: ""; position: absolute; inset: 0; background: var(--signature); transform: scaleX(0); transform-origin: left; transition: transform .4s var(--ease); z-index: -1; }
+  .v-wipe:hover { color: #fff; border-color: var(--signature); }
+  .v-wipe:hover::before { transform: scaleX(1); }
+
+  /* B · sheen sweep (light band crosses once) */
+  .v-sheen { position: relative; overflow: hidden; }
+  .v-sheen::after { content: ""; position: absolute; top: 0; left: -65%; width: 45%; height: 100%;
+                    background: linear-gradient(90deg, transparent, rgba(255,255,255,.4), transparent); transform: skewX(-18deg); }
+  .v-sheen:hover::after { animation: sweep .75s var(--ease); }
+  @keyframes sweep { from { left: -65%; } to { left: 130%; } }
+
+  /* C · magnetic (JS nudges toward cursor) + subtle scale */
+  .v-magnet { transition: transform .18s var(--ease); will-change: transform; }
+  .v-magnet:active { transform: scale(.97); }
+
+  /* D · icon slide (gap opens, arrow advances) */
+  .v-islide .ico { transition: transform .3s var(--ease); }
+  .v-islide:hover .ico { transform: translateX(5px); }
+
+  /* E · press ripple (JS, ultramarine ink) */
+  .v-ripple { position: relative; overflow: hidden; }
+  .rip { position: absolute; border-radius: 50%; background: rgba(31,53,224,.35); transform: scale(0); pointer-events: none; animation: rip .6s var(--ease) forwards; }
+  [data-theme="dark"] .rip { background: rgba(120,140,255,.4); }
+  @keyframes rip { to { transform: scale(4.5); opacity: 0; } }
+
+  /* F · rise fill (ultramarine floods up from baseline) */
+  .v-rise { position: relative; overflow: hidden; z-index: 0; transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease); }
+  .v-rise::before { content: ""; position: absolute; inset: 0; background: var(--signature); transform: translateY(100%); transition: transform .32s var(--ease); z-index: -1; }
+  .v-rise:hover { color: #fff; border-color: var(--signature); }
+  .v-rise:hover::before { transform: translateY(0); }
+
+  /* =====================================================================
+     CARDS — variants
+     ===================================================================== */
+  .lab-card { border: .5px solid var(--border); border-radius: 6px; background: var(--bg-surface); padding: 20px; width: 100%; max-width: 260px; }
+  .lab-card .k { font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--text-tertiary); }
+  .lab-card .t { font-size: 18px; font-weight: 500; letter-spacing: -.01em; margin-top: 8px; }
+  .lab-card .p { font-size: 13px; color: var(--text-secondary); margin-top: 6px; line-height: 1.5; }
+
+  /* A · hairline lift (transform + border to signature; no shadow) */
+  .c-lift { transition: transform .3s var(--ease), border-color .3s var(--ease), background var(--dur) var(--ease); }
+  .c-lift:hover { transform: translateY(-5px); border-color: var(--signature); background: var(--bg-raised); }
+
+  /* B · tilt 3D (JS, toward cursor) */
+  .c-tilt { transition: transform .25s var(--ease); transform-style: preserve-3d; will-change: transform; }
+
+  /* C · spotlight follow (faint signature tint tracks cursor; not a glow) */
+  .c-spot { position: relative; overflow: hidden; transition: border-color var(--dur) var(--ease); }
+  .c-spot::before { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity var(--dur) var(--ease);
+                    background: radial-gradient(180px circle at var(--mx,50%) var(--my,50%), rgba(31,53,224,.10), transparent 60%); }
+  .c-spot:hover { border-color: var(--border-strong); }
+  .c-spot:hover::before { opacity: 1; }
+
+  /* D · top-line wipe + content nudge */
+  .c-line { position: relative; transition: background var(--dur) var(--ease); }
+  .c-line::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 2px; background: var(--signature); transform: scaleX(0); transform-origin: left; transition: transform .3s var(--ease); }
+  .c-line > * { transition: transform .3s var(--ease); }
+  .c-line:hover { background: var(--bg-raised); }
+  .c-line:hover::after { transform: scaleX(1); }
+  .c-line:hover > * { transform: translateX(3px); }
+
+  /* E · border draw (SVG stroke draws around on hover) */
+  .c-draw { position: relative; }
+  .c-draw .frame { position: absolute; inset: 0; pointer-events: none; }
+  .c-draw .frame rect { fill: none; stroke: var(--signature); stroke-width: 1.5; vector-effect: non-scaling-stroke;
+                        stroke-dasharray: 1; stroke-dashoffset: 1; pathLength: 1; transition: stroke-dashoffset .55s var(--ease); }
+  .c-draw:hover .frame rect { stroke-dashoffset: 0; }
+
+  /* F · entrance reveal (replayable) */
+  .c-reveal.run { animation: rise .55s var(--ease) both; }
+
+  /* =====================================================================
+     REVEALS / ENTRANCE
+     ===================================================================== */
+  .rev { opacity: 1; }
+  .rev .bar { height: 46px; border-radius: 4px; background: var(--bg-sunken); border: .5px solid var(--border); margin-bottom: 8px; }
+  .run .r-fade   { animation: rise .55s var(--ease) both; }
+  .run .r-casc > * { animation: rise .5s var(--ease) both; }
+  .run .r-casc > *:nth-child(1){animation-delay:.05s}.run .r-casc > *:nth-child(2){animation-delay:.13s}.run .r-casc > *:nth-child(3){animation-delay:.21s}
+  .run .r-clip   { animation: clipup .6s var(--ease) both; }
+  .run .r-blur   { animation: blurin .6s var(--ease) both; }
+  .run .r-mask   { position: relative; overflow: hidden; }
+  .run .r-mask::after { content:""; position:absolute; inset:0; background:var(--bg-canvas); animation: maskoff .6s var(--ease) both; }
+  @keyframes clipup { from { clip-path: inset(100% 0 0 0); } to { clip-path: inset(0 0 0 0); } }
+  @keyframes blurin { from { filter: blur(12px); opacity: 0; } to { filter: blur(0); opacity: 1; } }
+  @keyframes maskoff { from { transform: translateY(0); } to { transform: translateY(-101%); } }
+
+  /* =====================================================================
+     DATA / PROGRESS
+     ===================================================================== */
+  .barwrap { width: 100%; max-width: 220px; }
+  .barwrap .lbl { display:flex; justify-content:space-between; font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-bottom:6px; }
+  .lab-prog { height: 6px; background: var(--bg-sunken); border-radius: 999px; overflow: hidden; }
+  .lab-prog > span { display:block; height:100%; width:0; background: var(--signature); border-radius:999px; }
+  .run .e-out  > span { animation: grow 1s var(--ease) forwards; }
+  .run .e-spring > span { animation: grow 1.1s cubic-bezier(.34,1.56,.64,1) forwards; }
+  .run .e-lin  > span { animation: grow 1s linear forwards; }
+  @keyframes grow { to { width: var(--val,80%); } }
+
+  .ringbox svg { transform: rotate(-90deg); }
+  .ringbox .trk { fill:none; stroke: var(--bg-sunken); stroke-width: 5; }
+  .ringbox .fil { fill:none; stroke: var(--signature); stroke-width: 5; stroke-linecap: round; stroke-dasharray: 151; stroke-dashoffset: 151; }
+  .run .ringbox .fil { animation: ringdraw 1.1s var(--ease) forwards; }
+  @keyframes ringdraw { to { stroke-dashoffset: 40; } }
+
+  .spark path { fill:none; stroke: var(--signature); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+                stroke-dasharray: 240; stroke-dashoffset: 240; }
+  .run .spark path { animation: linedraw 1.2s var(--ease) forwards; }
+  @keyframes linedraw { to { stroke-dashoffset: 0; } }
+
+  .odo { display:inline-flex; font-variant-numeric: tabular-nums; font-weight: 500; font-size: 38px; overflow: hidden; height: 1em; line-height: 1; }
+  .odo .col { width: .62ch; overflow: hidden; height: 1em; }
+  .odo .col .strip { display:flex; flex-direction:column; transition: transform .9s var(--ease); }
+  .odo .col .strip span { height: 1em; }
+
+  /* =====================================================================
+     IGNITE — the signature moment
+     ===================================================================== */
+  .ig { position: relative; width: 12px; height: 12px; }
+  .ig .core { position:absolute; inset:0; border-radius:50%; background: var(--signature); }
+  /* A · single ring */
+  .run .ig-a .core { animation: pop .4s var(--ease) both; }
+  .run .ig-a::after { content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--signature); animation: ring1 1s var(--ease) both; }
+  /* B · double burst */
+  .run .ig-b .core { animation: pop .4s var(--ease) both; }
+  .run .ig-b::after, .run .ig-b::before { content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--signature); animation: ring1 1.1s var(--ease) both; }
+  .run .ig-b::before { animation-delay: .18s; }
+  /* C · flood (signature floods the chip then recedes) */
+  .ig-c-cell { position: relative; overflow: hidden; }
+  .ig-c-cell .flood { position:absolute; inset:0; background: var(--signature); transform: scale(0); border-radius:50%; opacity:.16; }
+  .run .ig-c-cell .flood { animation: flood 1.1s var(--ease) both; }
+  /* D · dot pop + steady ring */
+  .run .ig-d .core { animation: pop2 .5s cubic-bezier(.34,1.56,.64,1) both; }
+  .run .ig-d::after { content:""; position:absolute; inset:-5px; border-radius:50%; border:1.5px solid var(--signature); opacity:.5; animation: ring1 1.2s var(--ease) infinite; }
+
+  @keyframes pop { 0%{transform:scale(0)} 60%{transform:scale(1.25)} 100%{transform:scale(1)} }
+  @keyframes pop2 { 0%{transform:scale(0)} 100%{transform:scale(1)} }
+  @keyframes ring1 { 0%{transform:scale(.5);opacity:.85} 100%{transform:scale(1.9);opacity:0} }
+  @keyframes flood { 0%{transform:scale(0);opacity:.22} 100%{transform:scale(3);opacity:0} }
+
+  /* shared rise (kit parity) */
+  @keyframes rise { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform:none; } }
+
+  .micro-row { display:flex; flex-wrap:wrap; gap: 12px; align-items: stretch; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M13 3c.5 3 3 4 3 7.5A4 4 0 0 1 8 11c0-2 1-2.8 1.5-3.3C10 9 11 9 11 7.5 11 6 12 4 13 3Z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></symbol>
+  <symbol id="i-replay" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.3 5.6"/><path d="M4 20v-4h4"/></symbol>
+  <symbol id="i-sparkle" viewBox="0 0 24 24"><path d="M11 4l1.5 4.2L17 10l-4.5 1.5L11 16l-1.5-4.5L5 10l4.5-1.8z"/></symbol>
+</svg>
+
+<div class="toolbar">
+  <div class="brand"><span class="mark"></span>Classess · Motion Lab</div>
+  <button class="btn btn-secondary btn-sm" id="themeBtn"><span id="themeLbl">Dark</span></button>
+</div>
+
+<div class="doc">
+
+  <header class="cover">
+    <div class="overline" style="margin-bottom:20px">Exploration · sits on top of v4.1 · not a replacement</div>
+    <h1 class="display">Motion, dialed up — pick by letter.</h1>
+    <p class="lede">Same identity as the locked kit: ultramarine signature, warm steel, sharp corners, one sans. Only the motion changes. Every element below is rendered in several labeled variants — hover, click, and replay them, then tell me which letters to fold in (e.g. Button B, Card E, Ignite C).</p>
+    <div class="note">One rule held even here: no drop shadows. Every "lift" is transform plus a hairline and a tone step, never a shadow — that restraint is most of why the kit reads premium rather than templated. If a variant ever feels too much, that's the signal it's not for this brand.</div>
+  </header>
+
+  <!-- ============================ BUTTONS ============================ -->
+  <section class="section">
+    <div class="head"><h3>Buttons</h3><span class="hint">hover · click E</span></div>
+    <div class="grid">
+      <div class="tile"><div class="stage"><button class="btn btn-secondary v-wipe">Start session</button></div>
+        <div class="cap"><div class="nm"><span class="ltr">A</span>Fill wipe<span class="pill">subtle</span></div><div class="ds">Ultramarine wipes in from the left. Calm, decisive.</div></div></div>
+
+      <div class="tile"><div class="stage"><button class="btn btn-primary v-sheen">Start session</button></div>
+        <div class="cap"><div class="nm"><span class="ltr">B</span>Sheen sweep<span class="pill">subtle</span></div><div class="ds">A light band crosses once on hover. Quiet luxury.</div></div></div>
+
+      <div class="tile"><div class="stage"><button class="btn btn-primary v-magnet js-magnet">Start session</button></div>
+        <div class="cap"><div class="nm"><span class="ltr">C</span>Magnetic<span class="pill">medium</span></div><div class="ds">Button leans toward the cursor, springs back on leave.</div></div></div>
+
+      <div class="tile"><div class="stage"><button class="btn btn-accent v-islide">Continue <svg class="icon ico"><use href="#i-arrow-right"/></svg></button></div>
+        <div class="cap"><div class="nm"><span class="ltr">D</span>Icon slide<span class="pill">subtle</span></div><div class="ds">The arrow advances; the eye follows the action.</div></div></div>
+
+      <div class="tile"><div class="stage"><button class="btn btn-secondary v-ripple js-ripple">Tap me</button></div>
+        <div class="cap"><div class="nm"><span class="ltr">E</span>Press ripple<span class="pill">medium</span></div><div class="ds">An ink ripple in signature blue spreads from the click.</div></div></div>
+
+      <div class="tile"><div class="stage"><button class="btn btn-secondary v-rise">Start session</button></div>
+        <div class="cap"><div class="nm"><span class="ltr">F</span>Rise fill<span class="pill">medium</span></div><div class="ds">Ultramarine floods up from the baseline. A touch bolder.</div></div></div>
+    </div>
+  </section>
+
+  <!-- ============================ CARDS ============================ -->
+  <section class="section">
+    <div class="head"><h3>Cards</h3><span class="hint">hover each</span></div>
+    <div class="grid">
+      <div class="tile"><div class="stage"><div class="lab-card c-lift"><div class="k">Mathematics</div><div class="t">Trigonometry</div><div class="p">Ratios in right triangles.</div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">A</span>Hairline lift<span class="pill">subtle</span></div><div class="ds">Rises a few px; border resolves to signature. No shadow.</div></div></div>
+
+      <div class="tile"><div class="stage" style="perspective:700px"><div class="lab-card c-tilt js-tilt"><div class="k">Physics</div><div class="t">Kinematics</div><div class="p">Motion in one dimension.</div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">B</span>Tilt 3D<span class="pill">expressive</span></div><div class="ds">Surface tips toward the cursor. Tactile, playful.</div></div></div>
+
+      <div class="tile"><div class="stage"><div class="lab-card c-spot js-spot"><div class="k">Chemistry</div><div class="t">Mole concept</div><div class="p">Stoichiometry basics.</div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">C</span>Spotlight<span class="pill">subtle</span></div><div class="ds">A faint signature light tracks the cursor. Not a glow.</div></div></div>
+
+      <div class="tile"><div class="stage"><div class="lab-card c-line"><div class="k">Biology</div><div class="t">Cell division</div><div class="p">Mitosis and meiosis.</div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">D</span>Top-line wipe<span class="pill">subtle</span></div><div class="ds">The kit's matrix hover, plus a small content nudge.</div></div></div>
+
+      <div class="tile"><div class="stage"><div class="lab-card c-draw"><svg class="frame" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="0.5" y="0.5" width="99" height="99" rx="5" pathLength="1"/></svg><div class="k">Computer Science</div><div class="t">Arrays</div><div class="p">Indexing and traversal.</div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">E</span>Border draw<span class="pill">medium</span></div><div class="ds">A signature stroke draws itself around the card.</div></div></div>
+
+      <div class="tile"><div class="stage"><div class="lab-card c-reveal" id="cReveal"><div class="k">English</div><div class="t">Rhetoric</div><div class="p">Ethos, pathos, logos.</div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">F</span>Entrance reveal<span class="pill">subtle</span><button class="replay" data-run="#cReveal" style="margin-left:auto"><svg class="icon icon-sm"><use href="#i-replay"/></svg>Replay</button></div><div class="ds">Fade and rise on appear. The kit default.</div></div></div>
+    </div>
+  </section>
+
+  <!-- ============================ REVEALS ============================ -->
+  <section class="section">
+    <div class="head"><h3>Entrance transitions</h3><button class="replay" data-run="#revWrap"><svg class="icon icon-sm"><use href="#i-replay"/></svg>Replay all</button></div>
+    <div class="grid" id="revWrap">
+      <div class="tile"><div class="stage rev"><div class="r-fade" style="width:100%;max-width:200px"><div class="bar"></div><div class="bar" style="margin:0"></div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">A</span>Fade rise<span class="pill">subtle</span></div><div class="ds">Opacity plus a 10px lift. Quiet, default.</div></div></div>
+
+      <div class="tile"><div class="stage rev"><div class="r-casc" style="width:100%;max-width:200px"><div class="bar"></div><div class="bar"></div><div class="bar" style="margin:0"></div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">B</span>Stagger cascade<span class="pill">medium</span></div><div class="ds">Items arrive in sequence. Good for lists and matrices.</div></div></div>
+
+      <div class="tile"><div class="stage rev"><div class="r-clip" style="width:100%;max-width:200px"><div class="bar" style="height:100px;margin:0;background:var(--signature);opacity:.9"></div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">C</span>Clip wipe<span class="pill">medium</span></div><div class="ds">Content unmasks upward. Crisp and architectural.</div></div></div>
+
+      <div class="tile"><div class="stage rev"><div class="r-blur" style="font-size:30px;font-weight:300;letter-spacing:-.02em">Cognitive fitness</div></div>
+        <div class="cap"><div class="nm"><span class="ltr">D</span>Blur in<span class="pill">expressive</span></div><div class="ds">Defocus resolves to sharp. Premium for hero type.</div></div></div>
+
+      <div class="tile"><div class="stage rev"><div class="r-mask" style="width:100%;max-width:200px"><div class="bar" style="height:100px;margin:0"></div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">E</span>Mask slide<span class="pill">expressive</span></div><div class="ds">A steel panel slides off to reveal. Editorial.</div></div></div>
+    </div>
+  </section>
+
+  <!-- ============================ MICRO ============================ -->
+  <section class="section">
+    <div class="head"><h3>Micro-interactions</h3><span class="hint">toggle · tab · check</span></div>
+    <div class="grid">
+      <div class="tile"><div class="stage"><label class="switch"><input type="checkbox" checked><span class="track"></span></label></div>
+        <div class="cap"><div class="nm"><span class="ltr">A</span>Switch<span class="pill">subtle</span></div><div class="ds">Knob glides; track fills to signature.</div></div></div>
+
+      <div class="tile"><div class="stage"><div class="tabs" style="border:0"><div class="tab active">Today</div><div class="tab">Learn</div><div class="tab">Progress</div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">B</span>Tab underline<span class="pill">subtle</span></div><div class="ds">Active indicator slides between tabs.</div></div></div>
+
+      <div class="tile"><div class="stage"><label class="check" style="cursor:pointer"><input type="checkbox" checked><span class="box"><svg viewBox="0 0 24 24" class="js-checkdraw"><path d="m5 12 5 5L19 7"/></svg></span> Verified</label></div>
+        <div class="cap"><div class="nm"><span class="ltr">C</span>Check draw<span class="pill">medium</span><button class="replay" data-checkdraw style="margin-left:auto"><svg class="icon icon-sm"><use href="#i-replay"/></svg></button></div><div class="ds">The tick draws itself stroke-first.</div></div></div>
+
+      <div class="tile"><div class="stage" style="gap:28px"><div style="text-align:center"><div style="font-size:38px;font-weight:500;font-variant-numeric:tabular-nums"><span class="count" data-to="87">0</span>%</div><div class="cap" style="border:0;padding:6px 0 0;font-family:var(--font-mono);font-size:10px;color:var(--text-tertiary)">count-up</div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">D</span>Count-up<span class="pill">subtle</span><button class="replay" data-count style="margin-left:auto"><svg class="icon icon-sm"><use href="#i-replay"/></svg></button></div><div class="ds">Numerals climb to value. Smooth.</div></div></div>
+
+      <div class="tile"><div class="stage"><div class="odo" id="odo" data-to="87"><div class="col"><div class="strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></div></div><div class="col"><div class="strip"><span>0</span><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span></div></div><span style="font-size:38px;font-weight:500">%</span></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">E</span>Odometer roll<span class="pill">expressive</span><button class="replay" data-odo style="margin-left:auto"><svg class="icon icon-sm"><use href="#i-replay"/></svg></button></div><div class="ds">Digits roll into place. Mechanical, satisfying.</div></div></div>
+
+      <div class="tile"><div class="stage"><span class="tag tag-success js-pop" id="popTag"><span class="dot"></span>Mastered</span></div>
+        <div class="cap"><div class="nm"><span class="ltr">F</span>Tag pop<span class="pill">medium</span><button class="replay" data-pop style="margin-left:auto"><svg class="icon icon-sm"><use href="#i-replay"/></svg></button></div><div class="ds">Status scales in when it changes.</div></div></div>
+    </div>
+  </section>
+
+  <!-- ============================ DATA ============================ -->
+  <section class="section">
+    <div class="head"><h3>Data &amp; progress</h3><button class="replay" data-run="#dataWrap"><svg class="icon icon-sm"><use href="#i-replay"/></svg>Replay all</button></div>
+    <div class="grid" id="dataWrap">
+      <div class="tile"><div class="stage"><div class="barwrap"><div class="lbl"><span>ease-out</span><span>78%</span></div><div class="lab-prog e-out" style="--val:78%"><span></span></div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">A</span>Bar · ease-out<span class="pill">subtle</span></div><div class="ds">Decelerates into place. The kit default.</div></div></div>
+
+      <div class="tile"><div class="stage"><div class="barwrap"><div class="lbl"><span>spring</span><span>78%</span></div><div class="lab-prog e-spring" style="--val:78%"><span></span></div></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">B</span>Bar · spring<span class="pill">expressive</span></div><div class="ds">Slight overshoot and settle. More alive.</div></div></div>
+
+      <div class="tile"><div class="stage"><div class="ringbox" style="position:relative;width:64px;height:64px"><svg width="64" height="64" viewBox="0 0 64 64"><circle class="trk" cx="32" cy="32" r="24"/><circle class="fil" cx="32" cy="32" r="24"/></svg></div></div>
+        <div class="cap"><div class="nm"><span class="ltr">C</span>Ring draw<span class="pill">medium</span></div><div class="ds">Mastery ring sweeps in like a stopwatch.</div></div></div>
+
+      <div class="tile"><div class="stage"><svg class="spark" width="180" height="56" viewBox="0 0 180 56"><path d="M2 44 L30 38 L58 42 L86 24 L114 28 L142 12 L178 6"/></svg></div>
+        <div class="cap"><div class="nm"><span class="ltr">D</span>Sparkline draw<span class="pill">medium</span></div><div class="ds">Trend line draws left to right. For progress over time.</div></div></div>
+    </div>
+  </section>
+
+  <!-- ============================ IGNITE ============================ -->
+  <section class="section">
+    <div class="head"><h3>The ignite — signature moment</h3><button class="replay" data-run="#igWrap"><svg class="icon icon-sm"><use href="#i-replay"/></svg>Replay all</button></div>
+    <div class="grid" id="igWrap">
+      <div class="tile"><div class="stage" style="background:var(--bg-inverse)"><span class="ig ig-a"><span class="core"></span></span></div>
+        <div class="cap"><div class="nm"><span class="ltr">A</span>Single ring<span class="pill">subtle</span></div><div class="ds">One ring expands and fades. The kit default.</div></div></div>
+
+      <div class="tile"><div class="stage" style="background:var(--bg-inverse)"><span class="ig ig-b"><span class="core"></span></span></div>
+        <div class="cap"><div class="nm"><span class="ltr">B</span>Double burst<span class="pill">medium</span></div><div class="ds">Two staggered rings. A bigger event.</div></div></div>
+
+      <div class="tile"><div class="stage ig-c-cell" style="background:var(--bg-inverse)"><span class="flood"></span><span class="ig"><span class="core"></span></span></div>
+        <div class="cap"><div class="nm"><span class="ltr">C</span>Flood<span class="pill">expressive</span></div><div class="ds">Signature floods the surface, then recedes.</div></div></div>
+
+      <div class="tile"><div class="stage" style="background:var(--bg-inverse)"><span class="ig ig-d"><span class="core"></span></span></div>
+        <div class="cap"><div class="nm"><span class="ltr">D</span>Pop + halo<span class="pill">medium</span></div><div class="ds">Dot springs in under a steady, breathing halo.</div></div></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+  const root = document.documentElement;
+  const tbtn = document.getElementById('themeBtn'), tlbl = document.getElementById('themeLbl');
+  tbtn.addEventListener('click', () => { const d = root.getAttribute('data-theme')==='dark'; root.setAttribute('data-theme', d?'light':'dark'); tlbl.textContent = d?'Dark':'Light'; });
+
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* --- magnetic buttons --- */
+  document.querySelectorAll('.js-magnet').forEach(el => {
+    el.addEventListener('mousemove', e => { const r = el.getBoundingClientRect(); const x = e.clientX-r.left-r.width/2, y = e.clientY-r.top-r.height/2; el.style.transform = `translate(${x*0.3}px, ${y*0.4}px)`; });
+    el.addEventListener('mouseleave', () => el.style.transform = '');
+  });
+
+  /* --- tilt cards --- */
+  document.querySelectorAll('.js-tilt').forEach(el => {
+    el.addEventListener('mousemove', e => { const r = el.getBoundingClientRect(); const px = (e.clientX-r.left)/r.width-0.5, py = (e.clientY-r.top)/r.height-0.5; el.style.transform = `rotateY(${px*10}deg) rotateX(${-py*10}deg)`; });
+    el.addEventListener('mouseleave', () => el.style.transform = '');
+  });
+
+  /* --- spotlight cards --- */
+  document.querySelectorAll('.js-spot').forEach(el => {
+    el.addEventListener('mousemove', e => { const r = el.getBoundingClientRect(); el.style.setProperty('--mx', (e.clientX-r.left)+'px'); el.style.setProperty('--my', (e.clientY-r.top)+'px'); });
+  });
+
+  /* --- ripple buttons --- */
+  document.querySelectorAll('.js-ripple').forEach(el => {
+    el.addEventListener('click', e => { const r = el.getBoundingClientRect(); const s = document.createElement('span'); s.className='rip'; const d = Math.max(r.width,r.height); s.style.width=s.style.height=d+'px'; s.style.left=(e.clientX-r.left-d/2)+'px'; s.style.top=(e.clientY-r.top-d/2)+'px'; el.appendChild(s); setTimeout(()=>s.remove(),650); });
+  });
+
+  /* --- replay containers (reveals, data, ignite) --- */
+  function runEl(el){ if(!el) return; el.classList.remove('run'); void el.offsetWidth; el.classList.add('run'); }
+  document.querySelectorAll('[data-run]').forEach(b => b.addEventListener('click', () => {
+    const t = document.querySelector(b.getAttribute('data-run'));
+    if (t.id==='revWrap' || t.id==='dataWrap' || t.id==='igWrap') { t.querySelectorAll('.stage').forEach(s=>{ s.classList.remove('run'); void s.offsetWidth; s.classList.add('run'); }); }
+    else runEl(t);
+  }));
+
+  /* --- card reveal F --- */
+  document.querySelectorAll('[data-run="#cReveal"]').forEach(b => b.addEventListener('click', () => { const c = document.getElementById('cReveal'); c.classList.remove('run'); void c.offsetWidth; c.classList.add('run'); }));
+
+  /* --- count-up --- */
+  function countUp(el){ const to = +el.getAttribute('data-to'); if(reduce){el.textContent=to;return;} let s=null; function step(t){ if(!s)s=t; const k=Math.min((t-s)/1100,1); el.textContent=Math.round(k*to); if(k<1)requestAnimationFrame(step); } requestAnimationFrame(step); }
+  document.querySelectorAll('.count').forEach(countUp);
+  document.querySelectorAll('[data-count]').forEach(b => b.addEventListener('click', ()=> b.closest('.tile').querySelectorAll('.count').forEach(el=>{ el.textContent='0'; countUp(el); })));
+
+  /* --- odometer --- */
+  function runOdo(){ const o=document.getElementById('odo'); const to=o.getAttribute('data-to').padStart(2,'0'); const cols=o.querySelectorAll('.col .strip'); cols.forEach((c,i)=>{ c.style.transform='translateY(0)'; }); void o.offsetWidth; cols.forEach((c,i)=>{ const dgt=+to[i]; c.style.transform = reduce? `translateY(-${dgt}em)` : `translateY(-${dgt}em)`; }); }
+  runOdo();
+  document.querySelectorAll('[data-odo]').forEach(b => b.addEventListener('click', ()=>{ const o=document.getElementById('odo'); o.querySelectorAll('.strip').forEach(s=>s.style.transform='translateY(0)'); setTimeout(runOdo,60); }));
+
+  /* --- check draw --- */
+  function checkDraw(){ document.querySelectorAll('.js-checkdraw path').forEach(p=>{ const len=p.getTotalLength(); p.style.transition='none'; p.style.strokeDasharray=len; p.style.strokeDashoffset=len; void p.getBoundingClientRect(); p.style.transition='stroke-dashoffset .5s cubic-bezier(.2,0,0,1)'; p.style.strokeDashoffset='0'; }); }
+  checkDraw();
+  document.querySelectorAll('[data-checkdraw]').forEach(b=>b.addEventListener('click',checkDraw));
+
+  /* --- tag pop --- */
+  document.querySelectorAll('[data-pop]').forEach(b=>b.addEventListener('click',()=>{ const t=document.getElementById('popTag'); t.style.animation='none'; void t.offsetWidth; t.style.animation='pop .45s cubic-bezier(.34,1.56,.64,1)'; }));
+  const popKf = document.createElement('style'); popKf.textContent='@keyframes pop{0%{transform:scale(.4);opacity:0}60%{transform:scale(1.12)}100%{transform:scale(1);opacity:1}}'; document.head.appendChild(popKf);
+
+  /* --- run the in-view sections once on load --- */
+  window.addEventListener('load', () => {
+    ['#revWrap','#dataWrap','#igWrap'].forEach(sel => { document.querySelectorAll(sel+' .stage').forEach(s=>s.classList.add('run')); });
+  });
+</script>
+</body>
+</html>

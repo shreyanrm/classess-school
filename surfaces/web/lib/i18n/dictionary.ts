@@ -107,6 +107,8 @@ const en: Dictionary = {
 
   // Role landing
   'landing.homeSuffix': 'home',
+  'landing.sub': 'Ask anything, or pick up where you left off',
+  'landing.askPlaceholder': 'Ask Vidya, or describe what you want to do',
   'landing.tryWithVidya': 'Try with Vidya',
   'landing.yourBriefing': 'Your briefing',
   'landing.quickLinks': 'Quick links',
@@ -206,6 +208,8 @@ const hi: Dictionary = {
     'हर टैप एक संकेत है, फ़ॉर्म नहीं। मैं इन्हीं से आपकी जगह बनाता हूँ — आपको खुद को बताने की कभी ज़रूरत नहीं।',
 
   'landing.homeSuffix': 'होम',
+  'landing.sub': 'कुछ भी पूछें, या जहाँ छोड़ा था वहीं से शुरू करें',
+  'landing.askPlaceholder': 'Vidya से पूछें, या बताएँ कि आप क्या करना चाहते हैं',
   'landing.tryWithVidya': 'Vidya के साथ आज़माएँ',
   'landing.yourBriefing': 'आपका सारांश',
   'landing.quickLinks': 'त्वरित लिंक',

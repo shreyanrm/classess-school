@@ -1,0 +1,880 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Classess · Component Playground</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;500&family=Caveat:wght@500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans+Flex:wght@300..700&family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="components.css">
+<link rel="stylesheet" href="playground.css">
+</head>
+<body data-cursor="default">
+
+<div class="cursor-dot" id="cursorDot"></div>
+<div class="cursor-ring" id="cursorRing"></div>
+<div class="spotlight" id="spotlight"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M3 11.5 12 4l9 7.5"/><path d="M5.5 10v9h13v-9"/></symbol>
+  <symbol id="i-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1"/><rect x="13" y="4" width="7" height="7" rx="1"/><rect x="4" y="13" width="7" height="7" rx="1"/><rect x="13" y="13" width="7" height="7" rx="1"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="m20 20-3.6-3.6"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5.5 19a6.5 6.5 0 0 1 13 0"/></symbol>
+  <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 5.6a3 3 0 0 1 0 5.7"/><path d="M17 14.4A5.5 5.5 0 0 1 20.5 19"/></symbol>
+  <symbol id="i-settings" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/><circle cx="9" cy="7" r="2.3"/><circle cx="15" cy="12" r="2.3"/><circle cx="8" cy="17" r="2.3"/></symbol>
+  <symbol id="i-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 0 1 12 0c0 4 1.4 5 2 6H4c.6-1 2-2 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></symbol>
+  <symbol id="i-calendar" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="15" rx="1.5"/><path d="M4 9h16M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M5 4h11a2 2 0 0 1 2 2v13H7a2 2 0 0 1-2-2Z"/><path d="M5 17a2 2 0 0 1 2-2h11"/></symbol>
+  <symbol id="i-chart" viewBox="0 0 24 24"><rect x="4" y="11" width="3.4" height="9"/><rect x="10.3" y="5" width="3.4" height="15"/><rect x="16.6" y="14" width="3.4" height="6"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6 18 18M18 6 6 18"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-minus" viewBox="0 0 24 24"><path d="M5 12h14"/></symbol>
+  <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-chevron-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="i-chevron-up" viewBox="0 0 24 24"><path d="m6 15 6-6 6 6"/></symbol>
+  <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+  <symbol id="i-arrow-right" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
+  <symbol id="i-arrow-left" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+  <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
+  <symbol id="i-pause" viewBox="0 0 24 24"><path d="M8 5v14M16 5v14"/></symbol>
+  <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5"/><path d="M5 19h14"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V4M7.5 8.5 12 4l4.5 4.5"/><path d="M5 19h14"/></symbol>
+  <symbol id="i-file" viewBox="0 0 24 24"><path d="M7 3h7l4 4v14H7Z"/><path d="M14 3v4h4"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M4 7a1 1 0 0 1 1-1h4l2 2h7a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M16 4 20 8 9 19l-4.5 1 1-4.5z"/></symbol>
+  <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5.5" y="11" width="13" height="9" rx="1.5"/><path d="M8.5 11V8a3.5 3.5 0 0 1 7 0v3"/></symbol>
+  <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2.5 12S6 6 12 6s9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.5"/></symbol>
+  <symbol id="i-eye-off" viewBox="0 0 24 24"><path d="M4 4l16 16M9.5 9.6A2.5 2.5 0 0 0 12 14.5M6.5 6.7C4 8.3 2.5 12 2.5 12s3.5 6 9.5 6a9 9 0 0 0 4.5-1.2M10 6.2A9 9 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-2.2 3"/></symbol>
+  <symbol id="i-star" viewBox="0 0 24 24"><path d="m12 4 2.4 5 5.4.6-4 3.8 1 5.4-4.8-2.7-4.8 2.7 1-5.4-4-3.8 5.4-.6z"/></symbol>
+  <symbol id="i-heart" viewBox="0 0 24 24"><path d="M12 20s-7-4.3-7-9.5A3.8 3.8 0 0 1 12 8a3.8 3.8 0 0 1 7-2.5C19 10.7 12 20 12 20Z"/></symbol>
+  <symbol id="i-message" viewBox="0 0 24 24"><path d="M4 6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H9l-4 4v-4a1 1 0 0 1-1-1Z"/></symbol>
+  <symbol id="i-send" viewBox="0 0 24 24"><path d="M20 4 11 13M20 4l-6 16-3-7-7-3z"/></symbol>
+  <symbol id="i-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><circle cx="12" cy="12" r="1" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-flame" viewBox="0 0 24 24"><path d="M13 3c.5 3 3 4 3 7.5A4 4 0 0 1 8 11c0-2 1-2.8 1.5-3.3C10 9 11 9 11 7.5 11 6 12 4 13 3Z"/></symbol>
+  <symbol id="i-trophy" viewBox="0 0 24 24"><path d="M8 5h8v4a4 4 0 0 1-8 0Z"/><path d="M8 6H5.5a2.5 2.5 0 0 0 3 3M16 6h2.5a2.5 2.5 0 0 1-3 3"/><path d="M12 13v3M9.5 20h5M10.5 20l.4-4M13.5 20l-.4-4"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M11 4l1.5 4.2L17 10l-4.5 1.5L11 16l-1.5-4.5L5 10l4.5-1.8z"/><path d="M18 14.5l.7 1.9 1.8.6-1.8.7-.7 1.9-.7-1.9-1.8-.7 1.8-.6z"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+  <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5h16l-6 7v6l-4-2v-4z"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="6" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-mic" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4.5-4.5L13 16l3-3 3 3"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M9 15l6-6M10 6l1-1a4 4 0 0 1 6 6l-1 1M14 18l-1 1a4 4 0 0 1-6-6l1-1"/></symbol>
+  <symbol id="i-share" viewBox="0 0 24 24"><circle cx="6" cy="12" r="2.5"/><circle cx="17" cy="6" r="2.5"/><circle cx="17" cy="18" r="2.5"/><path d="M8.2 11 14.8 7.2M8.2 13l6.6 3.8"/></symbol>
+  <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4h12v16l-6-4-6 4z"/></symbol>
+  <symbol id="i-replay" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 1 2.3 5.6"/><path d="M4 20v-4h4"/></symbol>
+  <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></symbol>
+  <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14A8 8 0 0 1 10 4a8 8 0 1 0 10 10Z"/></symbol>
+  <symbol id="i-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M4 12h16M12 4c2.5 2.5 2.5 13 0 16M12 4c-2.5 2.5-2.5 13 0 16"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect x="4" y="6" width="16" height="12" rx="1.5"/><path d="m5 8 7 5 7-5"/></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1Z"/><circle cx="12" cy="13" r="3.2"/></symbol>
+  <symbol id="i-sigma" viewBox="0 0 24 24"><path d="M16.5 5H8l5 7-5 7h8.5"/></symbol>
+  <symbol id="i-atom" viewBox="0 0 24 24"><circle cx="12" cy="12" r="2"/><ellipse cx="12" cy="12" rx="9" ry="3.6"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(60 12 12)"/><ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(120 12 12)"/></symbol>
+  <symbol id="i-flask" viewBox="0 0 24 24"><path d="M9 3v6l-4.2 8.2A2 2 0 0 0 6.6 20h10.8a2 2 0 0 0 1.8-2.8L15 9V3M8 3h8M7.5 14h9"/></symbol>
+  <symbol id="i-code" viewBox="0 0 24 24"><path d="m8 8-4 4 4 4M16 8l4 4-4 4M13 6l-2 12"/></symbol>
+  <symbol id="i-zap" viewBox="0 0 24 24"><path d="M13 3 5 13h5l-1 8 8-10h-5z"/></symbol>
+  <symbol id="i-award" viewBox="0 0 24 24"><circle cx="12" cy="9" r="5"/><path d="M9 13.5 8 21l4-2 4 2-1-7.5"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 4 8 4-8 4-8-4z"/><path d="m4 12 8 4 8-4M4 16l8 4 8-4"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M5 7h8M17 7h2M5 12h2M11 12h8M5 17h11M19 17h0"/><circle cx="15" cy="7" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="18" cy="17" r="2"/></symbol>
+  <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4M4 13a8 8 0 0 0 14 4"/><path d="M18 3v4h-4M6 21v-4h4"/></symbol>
+  <symbol id="i-video" viewBox="0 0 24 24"><rect x="3" y="6" width="13" height="12" rx="2"/><path d="m16 10 5-3v10l-5-3z"/></symbol>
+  <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6 3h3l1.5 5-2 1.5a11 11 0 0 0 6 6l1.5-2 5 1.5v3a2 2 0 0 1-2 2A16 16 0 0 1 4 5a2 2 0 0 1 2-2Z"/></symbol>
+  <symbol id="i-clipboard" viewBox="0 0 24 24"><rect x="6" y="5" width="12" height="16" rx="1.5"/><path d="M9 5V4h6v1M9 11h6M9 15h4"/></symbol>
+</svg>
+
+<div class="pg-top">
+  <div class="brand"><span class="mark"></span>Classess · Playground</div>
+  <div class="right">
+    <button class="btn btn-secondary btn-sm" data-cmdk><svg class="icon icon-sm"><use href="#i-search"/></svg>Search <span class="kbd">⌘K</span></button>
+    <button class="btn btn-secondary btn-sm" id="themeBtn"><span id="themeLbl">Dark</span></button>
+  </div>
+</div>
+
+<div class="pg-shell">
+  <nav class="pg-nav">
+    <div class="grp">System</div>
+    <a href="#cursor">Cursor effects</a>
+    <a href="#icons">Icons</a>
+    <div class="grp">Controls</div>
+    <a href="#buttons">Buttons</a>
+    <a href="#toggles">Toggles &amp; switches</a>
+    <a href="#sliders">Sliders</a>
+    <a href="#forms">Inputs &amp; forms</a>
+    <div class="grp">Collections</div>
+    <a href="#menus">Dropdowns &amp; menus</a>
+    <a href="#accordions">Accordions</a>
+    <a href="#tabs">Tabs</a>
+    <a href="#cards">Cards</a>
+    <a href="#tables">Tables</a>
+    <div class="grp">Data</div>
+    <a href="#dataviz">Charts &amp; data</a>
+    <a href="#loaders">Loaders &amp; skeletons</a>
+    <a href="#steppers">Steppers &amp; timeline</a>
+    <div class="grp">Surfaces</div>
+    <a href="#drawers">Drawers &amp; sheets</a>
+    <a href="#modals">Modals</a>
+    <a href="#feedback">Toasts &amp; alerts</a>
+    <a href="#overlays2">Tooltips &amp; popovers</a>
+    <div class="grp">Comms</div>
+    <a href="#chat">Chat &amp; Vidya</a>
+    <a href="#voice">Voice &amp; mic</a>
+    <a href="#upload">File upload</a>
+    <div class="grp">Elements</div>
+    <a href="#badges">Badges &amp; avatars</a>
+    <a href="#nav">Navigation</a>
+    <a href="#misc">Rating · calendar · more</a>
+  </nav>
+
+  <main class="pg-main">
+
+  <!-- ===================== CURSOR ===================== -->
+  <section class="pg-sec" id="cursor">
+    <div class="sh"><h3>Cursor effects</h3><span class="n">/ pointer system</span></div>
+    <p class="sub">Switch the pointer mode — it applies across the whole playground so you can feel each one. A custom dot with a trailing ring, a spotlight that follows globally, a magnetic ring that swells over anything interactive, and a difference-blend cursor. Reverts to the system cursor on Default.</p>
+    <div class="demo">
+      <div class="cursor-bar" style="margin-bottom:22px">
+        <button class="on" data-cursor="default">Default</button>
+        <button data-cursor="dot">Dot + ring</button>
+        <button data-cursor="spotlight">Spotlight</button>
+        <button data-cursor="magnet">Magnetic</button>
+        <button data-cursor="invert">Invert / blend</button>
+      </div>
+      <div class="row" style="gap:18px">
+        <button class="btn btn-primary" data-magnetic>Hover me</button>
+        <button class="btn btn-secondary" data-magnetic>And me</button>
+        <div class="lab-card c-lift" style="max-width:220px" data-magnetic><div class="k" style="font-family:var(--font-mono);font-size:11px;color:var(--text-tertiary);text-transform:uppercase;letter-spacing:.1em">Try it</div><div style="font-size:18px;font-weight:500;margin-top:6px">Move across the surfaces</div><p style="font-size:13px;color:var(--text-secondary);margin-top:6px">The ring reacts to interactive targets.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BUTTONS ===================== -->
+  <section class="pg-sec" id="buttons">
+    <div class="sh"><h3>Buttons</h3><span class="n">/ every kind</span></div>
+    <p class="sub">The full button system plus six motion treatments to mix in. Ink leads; ultramarine is the single most-important action; outline and ghost carry the rest.</p>
+
+    <div class="demo">
+      <div class="lblm">Variants &amp; sizes</div>
+      <div class="row" style="margin-bottom:16px">
+        <button class="btn btn-primary">Primary</button>
+        <button class="btn btn-secondary">Secondary</button>
+        <button class="btn btn-ghost">Ghost</button>
+        <button class="btn btn-accent">Accent</button>
+        <button class="btn" style="background:var(--success);color:#fff">Success</button>
+        <button class="btn btn-danger">Danger</button>
+        <button class="btn btn-primary" disabled>Disabled</button>
+      </div>
+      <div class="row">
+        <button class="btn btn-primary btn-sm">Small</button>
+        <button class="btn btn-primary">Medium</button>
+        <button class="btn btn-primary btn-lg">Large</button>
+        <button class="btn btn-icon btn-secondary" data-magnetic><svg class="icon"><use href="#i-plus"/></svg></button>
+        <button class="fab" data-magnetic><svg class="icon"><use href="#i-plus"/></svg></button>
+        <button class="btn btn-primary js-load">Click to load</button>
+        <button class="btn btn-secondary js-toggle"><svg class="icon"><use href="#i-bookmark"/></svg>Toggle</button>
+      </div>
+      <div class="row" style="margin-top:16px">
+        <div class="btn-group">
+          <button class="btn btn-secondary on">Day</button>
+          <button class="btn btn-secondary">Week</button>
+          <button class="btn btn-secondary">Month</button>
+        </div>
+        <div class="dd">
+          <button class="btn btn-primary js-dd">Actions <svg class="icon caret"><use href="#i-chevron-down"/></svg></button>
+          <div class="menu">
+            <div class="menu-item"><svg class="icon"><use href="#i-edit"/></svg>Edit</div>
+            <div class="menu-item"><svg class="icon"><use href="#i-share"/></svg>Share</div>
+            <div class="menu-sep"></div>
+            <div class="menu-item" style="color:var(--danger)"><svg class="icon"><use href="#i-trash"/></svg>Delete</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo">
+      <div class="lblm">Motion treatments — hover (click E)</div>
+      <div class="wrap-grid">
+        <div class="tile2"><div class="st"><button class="btn btn-secondary v-wipe">Start</button></div><div class="cp"><b><span class="l">A</span>Fill wipe</b></div></div>
+        <div class="tile2"><div class="st"><button class="btn btn-primary v-sheen">Start</button></div><div class="cp"><b><span class="l">B</span>Sheen sweep</b></div></div>
+        <div class="tile2"><div class="st"><button class="btn btn-primary v-magnet js-magnet">Start</button></div><div class="cp"><b><span class="l">C</span>Magnetic</b></div></div>
+        <div class="tile2"><div class="st"><button class="btn btn-accent v-islide">Continue <svg class="icon ico"><use href="#i-arrow-right"/></svg></button></div><div class="cp"><b><span class="l">D</span>Icon slide</b></div></div>
+        <div class="tile2"><div class="st"><button class="btn btn-secondary v-ripple js-ripple">Tap</button></div><div class="cp"><b><span class="l">E</span>Press ripple</b></div></div>
+        <div class="tile2"><div class="st"><button class="btn btn-secondary v-rise">Start</button></div><div class="cp"><b><span class="l">F</span>Rise fill</b></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TOGGLES ===================== -->
+  <section class="pg-sec" id="toggles">
+    <div class="sh"><h3>Toggles &amp; switches</h3><span class="n">/ state</span></div>
+    <p class="sub">Binary and multi-state controls, all animating between states.</p>
+    <div class="demo">
+      <div class="row" style="gap:40px">
+        <div class="col" style="gap:14px">
+          <div class="lblm" style="margin:0">Switch</div>
+          <label class="switch"><input type="checkbox" checked><span class="track"></span></label>
+          <label class="switch"><input type="checkbox"><span class="track"></span></label>
+        </div>
+        <div class="col" style="gap:14px">
+          <div class="lblm" style="margin:0">Theme pill</div>
+          <div class="theme-pill"><button class="on"><svg class="icon icon-sm"><use href="#i-sun"/></svg>Light</button><button><svg class="icon icon-sm"><use href="#i-moon"/></svg>Dark</button></div>
+          <div class="tristate"><button class="on">Quiet</button><button>Balanced</button><button>Proactive</button></div>
+        </div>
+        <div class="col" style="gap:14px">
+          <div class="lblm" style="margin:0">Icon toggles</div>
+          <div class="row tight">
+            <button class="icon-toggle js-toggle on"><svg class="icon"><use href="#i-bell"/></svg></button>
+            <button class="icon-toggle js-toggle"><svg class="icon"><use href="#i-heart"/></svg></button>
+            <button class="icon-toggle js-toggle"><svg class="icon"><use href="#i-bookmark"/></svg></button>
+            <button class="icon-toggle js-toggle"><svg class="icon"><use href="#i-star"/></svg></button>
+          </div>
+        </div>
+        <div class="col" style="gap:14px">
+          <div class="lblm" style="margin:0">Segmented</div>
+          <div class="segmented"><button class="active">All</button><button>Active</button><button>Done</button></div>
+          <label class="check"><input type="checkbox" checked><span class="box"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L19 7"/></svg></span> Remember me</label>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== SLIDERS ===================== -->
+  <section class="pg-sec" id="sliders">
+    <div class="sh"><h3>Sliders</h3><span class="n">/ ranges</span></div>
+    <p class="sub">Single, dual, stepped and vertical — thumbs scale on hover, fills track in signature.</p>
+    <div class="demo">
+      <div class="row" style="gap:48px;align-items:flex-start">
+        <div style="flex:1;min-width:240px">
+          <div class="lblm">Single · value bubble</div>
+          <div class="slider-wrap"><span class="bubble">50</span><input type="range" class="rng js-range" min="0" max="100" value="50"></div>
+          <div class="lblm" style="margin-top:28px">Difficulty · stepped</div>
+          <input type="range" class="rng js-range" min="1" max="5" step="1" value="3" style="margin-top:8px">
+          <div class="bar-x"><span>Intro</span><span>Easy</span><span>Core</span><span>Hard</span><span>Olympiad</span></div>
+        </div>
+        <div style="flex:1;min-width:240px">
+          <div class="lblm">Dual · range</div>
+          <div class="dual" style="margin-top:10px"><div class="track"></div><div class="fill"></div><input type="range" min="0" max="100" value="25"><input type="range" min="0" max="100" value="72"></div>
+          <div class="lblm" style="margin-top:30px">Vertical</div>
+          <input type="range" class="rng vrange js-range" min="0" max="100" value="64" style="margin-top:10px">
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FORMS ===================== -->
+  <section class="pg-sec" id="forms">
+    <div class="sh"><h3>Inputs &amp; forms</h3><span class="n">/ entry</span></div>
+    <p class="sub">Floating labels, an animated focus underline, steppers, OTP, tag entry, and password reveal.</p>
+    <div class="demo">
+      <div class="wrap-grid" style="grid-template-columns:repeat(auto-fill,minmax(260px,1fr))">
+        <div class="col">
+          <div class="lblm">Floating label</div>
+          <div class="fl"><input class="input" placeholder=" " id="fl1"><label for="fl1">Student name</label></div>
+          <div class="lblm" style="margin-top:6px">Focus underline</div>
+          <div class="uline"><input placeholder="Search the catalogue"></div>
+          <div class="lblm" style="margin-top:6px">Select &amp; search</div>
+          <select class="select"><option>Class 10-B</option><option>Class 10-A</option><option>Class 9-C</option></select>
+          <div class="search"><svg class="icon"><use href="#i-search"/></svg><input class="input" placeholder="Search students"></div>
+        </div>
+        <div class="col">
+          <div class="lblm">Number stepper</div>
+          <div class="stepper"><button class="minus"><svg class="icon icon-sm"><use href="#i-minus"/></svg></button><input value="12"><button class="plus"><svg class="icon icon-sm"><use href="#i-plus"/></svg></button></div>
+          <div class="lblm" style="margin-top:6px">OTP</div>
+          <div class="otp"><input class="input" maxlength="1"><input class="input" maxlength="1"><input class="input" maxlength="1"><input class="input" maxlength="1"></div>
+          <div class="lblm" style="margin-top:6px">Password</div>
+          <div class="pw-wrap"><input class="input" type="password" value="secret123"><button class="toggle"><svg class="icon icon-sm"><use href="#i-eye"/></svg></button></div>
+        </div>
+        <div class="col">
+          <div class="lblm">Tag entry · type + Enter</div>
+          <div class="tagsin"><span class="chip">Algebra <button>&times;</button></span><span class="chip">Trigonometry <button>&times;</button></span><input placeholder="Add topic"></div>
+          <div class="lblm" style="margin-top:6px">Textarea</div>
+          <textarea class="textarea" placeholder="A short, encouraging note to parents…"></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MENUS ===================== -->
+  <section class="pg-sec" id="menus">
+    <div class="sh"><h3>Dropdowns &amp; menus</h3><span class="n">/ navigation</span></div>
+    <p class="sub">Dropdown menus, multi-select, a command palette, and a right-click context menu — all with spring-in transitions.</p>
+    <div class="demo">
+      <div class="row" style="gap:24px;align-items:flex-start">
+        <div class="dd">
+          <button class="btn btn-secondary js-dd">Menu <svg class="icon caret"><use href="#i-chevron-down"/></svg></button>
+          <div class="menu">
+            <div class="menu-label">Account</div>
+            <div class="menu-item"><svg class="icon"><use href="#i-user"/></svg>Profile</div>
+            <div class="menu-item"><svg class="icon"><use href="#i-settings"/></svg>Settings</div>
+            <div class="menu-item"><svg class="icon"><use href="#i-bell"/></svg>Notifications</div>
+            <div class="menu-sep"></div>
+            <div class="menu-item">Sign out</div>
+          </div>
+        </div>
+        <div class="dd">
+          <button class="btn btn-secondary js-dd"><span class="ms-count">2 selected</span> <svg class="icon caret"><use href="#i-chevron-down"/></svg></button>
+          <div class="menu">
+            <div class="menu-label">Subjects</div>
+            <div class="multi-opt sel"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="m5 12 5 5L19 7"/></svg></span>Mathematics</div>
+            <div class="multi-opt sel"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="m5 12 5 5L19 7"/></svg></span>Physics</div>
+            <div class="multi-opt"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="m5 12 5 5L19 7"/></svg></span>Chemistry</div>
+            <div class="multi-opt"><span class="box"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3"><path d="m5 12 5 5L19 7"/></svg></span>Biology</div>
+          </div>
+        </div>
+        <button class="btn btn-primary" data-cmdk>Command palette <span class="kbd">⌘K</span></button>
+        <div id="ctxZone" class="banner" style="cursor:context-menu">Right-click anywhere in this strip for a context menu</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ACCORDIONS ===================== -->
+  <section class="pg-sec" id="accordions">
+    <div class="sh"><h3>Accordions</h3><span class="n">/ disclosure</span></div>
+    <p class="sub">Smooth height animation via grid-rows. Single-open by default; set multi to allow several.</p>
+    <div class="demo">
+      <div class="row" style="align-items:flex-start;gap:14px">
+        <div class="acc" style="flex:1;min-width:280px">
+          <div class="acc-item open"><div class="acc-head">What is cognitive fitness? <svg class="icon"><use href="#i-chevron-down"/></svg></div><div class="acc-body"><div><div class="inner">A daily practice for the mind — mastery built through retrieval and independent attempts, not passive watching. A ritual, not a cram.</div></div></div></div>
+          <div class="acc-item"><div class="acc-head">How does the daily budget work? <svg class="icon"><use href="#i-chevron-down"/></svg></div><div class="acc-body"><div><div class="inner">It meters concepts mastered, not minutes spent. The limit loosens early and tightens as you grow — and never bites before the aha.</div></div></div></div>
+          <div class="acc-item"><div class="acc-head">Is my child's data safe? <svg class="icon"><use href="#i-chevron-down"/></svg></div><div class="acc-body"><div><div class="inner">Identity is vaulted and kept separate from behaviour. Nothing is sold. Deep profiling only switches on at the consent tier the law permits.</div></div></div></div>
+        </div>
+        <div class="acc" data-multi style="flex:1;min-width:280px">
+          <div class="acc-item open"><div class="acc-head">Mathematics <svg class="icon"><use href="#i-chevron-down"/></svg></div><div class="acc-body"><div><div class="inner">Trigonometry · Algebra · Coordinate geometry. Multi-open — open as many as you like.</div></div></div></div>
+          <div class="acc-item open"><div class="acc-head">Physics <svg class="icon"><use href="#i-chevron-down"/></svg></div><div class="acc-body"><div><div class="inner">Kinematics · Laws of motion · Work and energy.</div></div></div></div>
+          <div class="acc-item"><div class="acc-head">Chemistry <svg class="icon"><use href="#i-chevron-down"/></svg></div><div class="acc-body"><div><div class="inner">Mole concept · Periodic trends · Bonding.</div></div></div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TABS ===================== -->
+  <section class="pg-sec" id="tabs">
+    <div class="sh"><h3>Tabs</h3><span class="n">/ switching</span></div>
+    <p class="sub">Underline, pill with a sliding indicator, and vertical.</p>
+    <div class="demo">
+      <div class="lblm">Underline</div>
+      <div class="tabs"><div class="tab active">Overview</div><div class="tab">Students</div><div class="tab">Assignments</div><div class="tab">Reports</div></div>
+      <div class="lblm" style="margin-top:24px">Pill · sliding indicator</div>
+      <div class="pilltabs"><span class="pill-ind"></span><div class="pilltab on">Today</div><div class="pilltab">Learn</div><div class="pilltab">Create</div><div class="pilltab">Progress</div></div>
+      <div class="lblm" style="margin-top:24px">Vertical</div>
+      <div class="vtabs">
+        <div class="list"><div class="vtab on">Profile</div><div class="vtab">Security</div><div class="vtab">Billing</div><div class="vtab">Privacy</div></div>
+        <div style="flex:1">
+          <div class="vpane"><div style="font-weight:500;margin-bottom:6px">Profile</div><p style="font-size:14px;color:var(--text-secondary)">Name, grade, language and accessibility preferences.</p></div>
+          <div class="vpane"><div style="font-weight:500;margin-bottom:6px">Security</div><p style="font-size:14px;color:var(--text-secondary)">Phone, sign-in methods, and active sessions.</p></div>
+          <div class="vpane"><div style="font-weight:500;margin-bottom:6px">Billing</div><p style="font-size:14px;color:var(--text-secondary)">Plan, invoices, and gift seats.</p></div>
+          <div class="vpane"><div style="font-weight:500;margin-bottom:6px">Privacy</div><p style="font-size:14px;color:var(--text-secondary)">Consent tier, connected relationships, and what Vidya remembers.</p></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CARDS ===================== -->
+  <section class="pg-sec" id="cards">
+    <div class="sh"><h3>Cards</h3><span class="n">/ surfaces</span></div>
+    <p class="sub">Base, subject, stat, profile and pricing — plus the hover treatments from the motion lab.</p>
+    <div class="demo">
+      <div class="lblm">Core set</div>
+      <div class="wrap-grid">
+        <div class="subject-card c-lift" style="--subject:#7A2FF2;--subject-ink:#fff"><div class="band"><span class="name">Mathematics</span><span class="code">MTH</span></div><div class="body"><div class="display-sm" style="font-size:22px">Trigonometry</div><div class="progress animate" style="--val:78%;margin:14px 0 8px"><span style="background:#7A2FF2"></span></div><div class="data">78% · class average</div></div></div>
+        <div class="card"><div style="display:flex;gap:12px;align-items:center"><div class="avatar">AS</div><div><div style="font-weight:500">Aarav Sharma</div><div class="caption">Class 10-B · independent learner</div></div></div><div class="divider" style="margin:16px 0"></div><div class="row" style="justify-content:space-between"><div class="data">mastery 94%</div><span class="tag tag-success"><span class="dot"></span>Mastered</span></div></div>
+        <div class="card" style="text-align:center"><div class="overline">Annual</div><div style="font-size:40px;font-weight:300;margin:6px 0">₹X,XXX</div><p class="caption" style="margin-bottom:16px">Everything, billed yearly.</p><button class="btn btn-accent btn-block v-rise">Choose plan</button></div>
+        <div class="stat"><div class="label">Class mastery</div><div class="value"><span class="count" data-to="74">0</span>%</div><div class="data" style="color:var(--success);margin-top:6px">▲ 4 this week</div></div>
+      </div>
+      <div class="lblm" style="margin-top:20px">Hover treatments — A lift · B tilt · C spotlight · D top-line · E border-draw</div>
+      <div class="wrap-grid">
+        <div class="tile2"><div class="st"><div class="lab-card c-lift"><div style="font-weight:500">Hairline lift</div><p style="font-size:13px;color:var(--text-secondary);margin-top:4px">Rises; border to signature.</p></div></div><div class="cp"><b><span class="l">A</span>Lift</b></div></div>
+        <div class="tile2"><div class="st" style="perspective:700px"><div class="lab-card c-tilt js-tilt"><div style="font-weight:500">Tilt 3D</div><p style="font-size:13px;color:var(--text-secondary);margin-top:4px">Tips toward cursor.</p></div></div><div class="cp"><b><span class="l">B</span>Tilt</b></div></div>
+        <div class="tile2"><div class="st"><div class="lab-card c-spot js-spot"><div style="font-weight:500">Spotlight</div><p style="font-size:13px;color:var(--text-secondary);margin-top:4px">Light tracks cursor.</p></div></div><div class="cp"><b><span class="l">C</span>Spotlight</b></div></div>
+        <div class="tile2"><div class="st"><div class="lab-card c-line"><div style="font-weight:500">Top-line wipe</div><p style="font-size:13px;color:var(--text-secondary);margin-top:4px">Signature line + nudge.</p></div></div><div class="cp"><b><span class="l">D</span>Top-line</b></div></div>
+        <div class="tile2"><div class="st"><div class="lab-card c-draw"><svg class="frame" viewBox="0 0 100 100" preserveAspectRatio="none"><rect x="0.5" y="0.5" width="99" height="99" rx="5" pathLength="1"/></svg><div style="font-weight:500">Border draw</div><p style="font-size:13px;color:var(--text-secondary);margin-top:4px">Stroke draws around.</p></div></div><div class="cp"><b><span class="l">E</span>Border draw</b></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TABLES ===================== -->
+  <section class="pg-sec" id="tables">
+    <div class="sh"><h3>Tables</h3><span class="n">/ data grids</span></div>
+    <p class="sub">Click a header to sort, select rows, expand a row for detail, and page through. Built for rosters and gradebooks.</p>
+    <div class="demo">
+      <div class="table-wrap">
+        <table class="table js-sort">
+          <thead><tr>
+            <th style="width:36px"><input type="checkbox" class="js-selectall"></th>
+            <th class="sortable">Student <span class="sar">▾</span></th>
+            <th class="sortable">Focus <span class="sar">▾</span></th>
+            <th class="sortable num">Mastery <span class="sar">▾</span></th>
+            <th class="sortable num">Attempts <span class="sar">▾</span></th>
+            <th>Status</th>
+            <th style="width:36px"></th>
+          </tr></thead>
+          <tbody>
+            <tr><td><input type="checkbox" class="rowsel"></td><td><div class="row tight"><div class="avatar avatar-sm">AS</div>Aarav Sharma</div></td><td class="muted">Trigonometry</td><td class="num"><span class="data">94</span></td><td class="num"><span class="data">12</span></td><td><span class="tag tag-success"><span class="dot"></span>Mastered</span></td><td><button class="btn btn-icon btn-ghost btn-sm js-expand"><svg class="icon icon-sm caret"><use href="#i-chevron-down"/></svg></button></td></tr>
+            <tr class="row-expand"><td colspan="7"><div class="inner"><div><div class="pad">School 88% · tutor 91% · independent 94%. Verified across three attempts with no hints — true independent mastery.</div></div></div></td></tr>
+            <tr><td><input type="checkbox" class="rowsel"></td><td><div class="row tight"><div class="avatar avatar-sm">RK</div>Riya Kapoor</div></td><td class="muted">Mole concept</td><td class="num"><span class="data">68</span></td><td class="num"><span class="data">9</span></td><td><span class="tag tag-info"><span class="dot"></span>Developing</span></td><td><button class="btn btn-icon btn-ghost btn-sm js-expand"><svg class="icon icon-sm caret"><use href="#i-chevron-down"/></svg></button></td></tr>
+            <tr class="row-expand"><td colspan="7"><div class="inner"><div><div class="pad">Procedural slips in mole ratios. Vidya recommends two guided sets before independent practice.</div></div></div></td></tr>
+            <tr><td><input type="checkbox" class="rowsel"></td><td><div class="row tight"><div class="avatar avatar-sm">MN</div>Mohan Nair</div></td><td class="muted">Kinematics</td><td class="num"><span class="data">41</span></td><td class="num"><span class="data">5</span></td><td><span class="tag tag-warning"><span class="dot"></span>Needs work</span></td><td><button class="btn btn-icon btn-ghost btn-sm js-expand"><svg class="icon icon-sm caret"><use href="#i-chevron-down"/></svg></button></td></tr>
+            <tr class="row-expand"><td colspan="7"><div class="inner"><div><div class="pad">Speed gap under timed conditions — correct but slow. Suggest timed retrieval drills.</div></div></div></td></tr>
+            <tr><td><input type="checkbox" class="rowsel"></td><td><div class="row tight"><div class="avatar avatar-sm">PD</div>Priya Desai</div></td><td class="muted">Cell division</td><td class="num"><span class="data">29</span></td><td class="num"><span class="data">3</span></td><td><span class="tag tag-danger"><span class="dot"></span>At risk</span></td><td><button class="btn btn-icon btn-ghost btn-sm js-expand"><svg class="icon icon-sm caret"><use href="#i-chevron-down"/></svg></button></td></tr>
+            <tr class="row-expand"><td colspan="7"><div class="inner"><div><div class="pad">Prerequisite gap in cell structure. Intervention scheduled with the class teacher.</div></div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="row" style="justify-content:space-between;margin-top:16px">
+        <span class="caption">Showing 4 of 38</span>
+        <div class="pagination"><button><svg class="icon icon-sm"><use href="#i-chevron-left"/></svg></button><button class="on">1</button><button>2</button><button>3</button><button>…</button><button>10</button><button><svg class="icon icon-sm"><use href="#i-chevron-right"/></svg></button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DATAVIZ ===================== -->
+  <section class="pg-sec" id="dataviz">
+    <div class="sh"><h3>Charts &amp; data</h3><span class="n">/ visuals</span><button class="replay" data-run="#dataviz" style="margin-left:8px"><svg class="icon icon-sm"><use href="#i-replay"/></svg>Replay</button></div>
+    <p class="sub">Pure SVG and CSS, all drawing in on load. Bars, line, donut, gauge, sparkline and a mastery heatmap.</p>
+    <div class="demo">
+      <div class="wrap-grid" style="grid-template-columns:repeat(auto-fill,minmax(280px,1fr))">
+        <div class="card">
+          <div class="lblm">Weekly mastery — bars</div>
+          <div class="bars">
+            <div class="b" style="--h:48%"><span class="v">48</span></div><div class="b" style="--h:62%"><span class="v">62</span></div><div class="b" style="--h:55%"><span class="v">55</span></div><div class="b" style="--h:74%"><span class="v">74</span></div><div class="b" style="--h:69%"><span class="v">69</span></div><div class="b" style="--h:88%"><span class="v">88</span></div>
+          </div>
+          <div class="bar-x"><span>M</span><span>T</span><span>W</span><span>T</span><span>F</span><span>S</span></div>
+        </div>
+        <div class="card">
+          <div class="lblm">Trend — line</div>
+          <svg class="linechart" viewBox="0 0 320 150" width="100%" height="150">
+            <path class="area" d="M10 120 L60 96 L110 104 L160 64 L210 76 L260 38 L310 24 L310 140 L10 140 Z"/>
+            <path class="line" d="M10 120 L60 96 L110 104 L160 64 L210 76 L260 38 L310 24"/>
+            <circle cx="10" cy="120" r="3.5" style="animation-delay:.2s"/><circle cx="60" cy="96" r="3.5" style="animation-delay:.4s"/><circle cx="110" cy="104" r="3.5" style="animation-delay:.6s"/><circle cx="160" cy="64" r="3.5" style="animation-delay:.8s"/><circle cx="210" cy="76" r="3.5" style="animation-delay:1s"/><circle cx="260" cy="38" r="3.5" style="animation-delay:1.2s"/><circle cx="310" cy="24" r="3.5" style="animation-delay:1.4s"/>
+          </svg>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;align-items:center">
+          <div class="lblm" style="align-self:flex-start">Subject mix — donut</div>
+          <div class="donut" style="position:relative"><svg width="150" height="150" viewBox="0 0 150 150"><circle cx="75" cy="75" r="40" class="seg" stroke="#7A2FF2" stroke-dasharray="125.6 251" stroke-dashoffset="0"/><circle cx="75" cy="75" r="40" class="seg" stroke="#00B5D8" stroke-dasharray="75.3 251" stroke-dashoffset="-125.6"/><circle cx="75" cy="75" r="40" class="seg" stroke="#DD1E9A" stroke-dasharray="50.2 251" stroke-dashoffset="-200.9"/></svg><div style="position:absolute;inset:0;display:grid;place-items:center"><div style="text-align:center"><div style="font-size:24px;font-weight:500">38</div><div class="caption">learners</div></div></div></div>
+        </div>
+        <div class="card" style="display:flex;flex-direction:column;align-items:center">
+          <div class="lblm" style="align-self:flex-start">Attendance — gauge</div>
+          <div class="gauge"><svg width="160" height="90" viewBox="0 0 160 90"><path class="g-trk" d="M12 86 A 68 68 0 0 1 148 86"/><path class="g-fill" d="M12 86 A 68 68 0 0 1 148 86" style="--go:65"/></svg><div style="position:absolute;bottom:0;left:0;right:0;text-align:center"><div style="font-size:22px;font-weight:500"><span class="count" data-to="96">0</span>%</div></div></div>
+        </div>
+        <div class="card">
+          <div class="lblm">Independent practice — sparkline</div>
+          <svg class="spark" width="100%" height="56" viewBox="0 0 240 56" preserveAspectRatio="none"><path d="M4 44 L40 38 L76 42 L112 24 L148 30 L184 12 L236 8" style="stroke:var(--signature);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:300;stroke-dashoffset:300;animation:linedraw 1.3s var(--ease) forwards"/></svg>
+          <div class="row" style="justify-content:space-between;margin-top:10px"><span class="data" style="color:var(--success)">▲ 18%</span><span class="caption">last 7 days</span></div>
+        </div>
+        <div class="card">
+          <div class="lblm">Class mastery map — heatmap</div>
+          <div class="heat" style="grid-template-columns:repeat(12,1fr)">
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+            <div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div><div class="cell"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== LOADERS ===================== -->
+  <section class="pg-sec" id="loaders">
+    <div class="sh"><h3>Loaders &amp; skeletons</h3><span class="n">/ waiting</span></div>
+    <p class="sub">Spinner, dots, shimmer skeletons and progress — calm, never frantic.</p>
+    <div class="demo">
+      <div class="row" style="gap:40px;align-items:flex-start">
+        <div class="col" style="align-items:flex-start"><div class="lblm" style="margin:0">Spinner</div><div class="spinner"></div></div>
+        <div class="col" style="align-items:flex-start"><div class="lblm" style="margin:0">Dots</div><div class="dots-load"><i></i><i></i><i></i></div></div>
+        <div class="col" style="align-items:flex-start;flex:1;min-width:240px"><div class="lblm" style="margin:0">Progress</div><div class="progress accent" style="width:100%"><span style="width:64%"></span></div></div>
+      </div>
+      <div class="lblm" style="margin-top:24px">Skeleton card — shimmer</div>
+      <div class="card" style="max-width:320px">
+        <div class="row tight"><div class="sk" style="width:40px;height:40px;border-radius:50%"></div><div style="flex:1"><div class="sk" style="height:12px;width:60%;margin-bottom:8px"></div><div class="sk" style="height:10px;width:40%"></div></div></div>
+        <div class="sk" style="height:10px;width:100%;margin-top:16px"></div>
+        <div class="sk" style="height:10px;width:90%;margin-top:8px"></div>
+        <div class="sk" style="height:10px;width:70%;margin-top:8px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== STEPPERS ===================== -->
+  <section class="pg-sec" id="steppers">
+    <div class="sh"><h3>Steppers &amp; timeline</h3><span class="n">/ flow</span></div>
+    <p class="sub">A multi-step wizard with animated progress, and a vertical activity timeline.</p>
+    <div class="demo">
+      <div class="steps js-wizard" style="margin-bottom:20px">
+        <div class="step active"><span class="num">1</span><span class="lbl">Account</span></div>
+        <div class="line"></div>
+        <div class="step"><span class="num">2</span><span class="lbl">Subjects</span></div>
+        <div class="line"></div>
+        <div class="step"><span class="num">3</span><span class="lbl">Diagnostic</span></div>
+        <div class="line"></div>
+        <div class="step"><span class="num">4</span><span class="lbl">Plan</span></div>
+      </div>
+      <div class="row"><button class="btn btn-secondary js-back"><svg class="icon"><use href="#i-arrow-left"/></svg>Back</button><button class="btn btn-primary js-next">Next<svg class="icon"><use href="#i-arrow-right"/></svg></button></div>
+    </div>
+    <div class="demo">
+      <div class="lblm">Activity timeline</div>
+      <div class="timeline">
+        <div class="tl-item" style="animation-delay:.05s"><div class="t">09:14</div><div class="h">Aarav mastered Trigonometry</div><p class="caption">Independent, verified across three attempts.</p></div>
+        <div class="tl-item" style="animation-delay:.13s"><div class="t">08:40</div><div class="h">Vidya flagged an integer-operations gap</div><p class="caption">Affecting 4 students in algebra.</p></div>
+        <div class="tl-item muted" style="animation-delay:.21s"><div class="t">Yesterday</div><div class="h">Weekly summaries sent to 36 families</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DRAWERS ===================== -->
+  <section class="pg-sec" id="drawers">
+    <div class="sh"><h3>Drawers &amp; sheets</h3><span class="n">/ side panels</span></div>
+    <p class="sub">Right and left side drawers and a bottom sheet, each sliding in over a frost backdrop.</p>
+    <div class="demo">
+      <div class="row">
+        <button class="btn btn-primary" data-open="#drawerRight">Open right drawer</button>
+        <button class="btn btn-secondary" data-open="#drawerLeft">Open left drawer</button>
+        <button class="btn btn-secondary" data-open="#bottomSheet">Open bottom sheet</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MODALS ===================== -->
+  <section class="pg-sec" id="modals">
+    <div class="sh"><h3>Modals &amp; dialogs</h3><span class="n">/ focus</span></div>
+    <p class="sub">A confirm dialog and a form dialog, centered over frost.</p>
+    <div class="demo">
+      <div class="row"><button class="btn btn-primary" data-open="#modalConfirm">Confirm dialog</button><button class="btn btn-secondary" data-open="#modalForm">Form dialog</button></div>
+    </div>
+  </section>
+
+  <!-- ===================== FEEDBACK ===================== -->
+  <section class="pg-sec" id="feedback">
+    <div class="sh"><h3>Toasts &amp; alerts</h3><span class="n">/ messaging</span></div>
+    <p class="sub">Inline alerts for persistent states; toasts for transient ones — they slide in, stack, and auto-dismiss.</p>
+    <div class="demo">
+      <div class="col" style="margin-bottom:20px">
+        <div class="alert alert-info"><svg class="icon"><use href="#i-spark"/></svg><div>Vidya flagged a prerequisite gap in integers — holding back algebra for 4 students.</div></div>
+        <div class="alert alert-success"><svg class="icon"><use href="#i-check"/></svg><div>Weekly parent summaries sent to 36 families.</div></div>
+        <div class="alert alert-warning"><svg class="icon"><use href="#i-bell"/></svg><div>Two assignments are due tomorrow without submissions.</div></div>
+        <div class="alert alert-danger"><svg class="icon"><use href="#i-x"/></svg><div>Sync with the school information system failed.</div></div>
+      </div>
+      <div class="lblm">Fire a toast</div>
+      <div class="row"><button class="btn btn-secondary" data-toast="success">Success</button><button class="btn btn-secondary" data-toast="info">Info</button><button class="btn btn-secondary" data-toast="warning">Warning</button><button class="btn btn-secondary" data-toast="danger">Danger</button></div>
+    </div>
+  </section>
+
+  <!-- ===================== OVERLAYS2 ===================== -->
+  <section class="pg-sec" id="overlays2">
+    <div class="sh"><h3>Tooltips &amp; popovers</h3><span class="n">/ hints</span></div>
+    <p class="sub">Tooltips on hover and a richer popover and hover card.</p>
+    <div class="demo">
+      <div class="row" style="gap:24px">
+        <div class="tip"><button class="btn btn-secondary">Hover · tooltip</button><span class="tip-body">Independent mastery, verified</span></div>
+        <div class="hovercard"><button class="btn btn-secondary">Hover · rich card</button><div class="pop"><div class="row tight" style="margin-bottom:8px"><div class="avatar avatar-sm">AS</div><div><div style="font-weight:500;font-size:14px">Aarav Sharma</div><div class="caption">Class 10-B</div></div></div><p class="caption">94% mastery · 24-day learner streak · top of class in Mathematics.</p></div></div>
+        <span class="kbd">⌘</span><span class="kbd">K</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CHAT ===================== -->
+  <section class="pg-sec" id="chat">
+    <div class="sh"><h3>Chat &amp; Vidya</h3><span class="n">/ conversation</span></div>
+    <p class="sub">The assistant surface — bubbles arrive with a spring, a typing indicator precedes replies. Vidya teaches by guiding, never hands over the answer.</p>
+    <div class="demo">
+      <div class="chat" id="chat">
+        <div class="chat-head"><div class="avatar avatar-sm" style="background:var(--signature);color:#fff">V</div><div style="flex:1"><div style="font-weight:600;font-size:14px">Vidya</div><div class="caption" style="display:flex;align-items:center;gap:5px"><span class="dot"></span>online</div></div><button class="btn btn-icon btn-ghost btn-sm"><svg class="icon"><use href="#i-more"/></svg></button></div>
+        <div class="chat-body">
+          <div class="bubble them">Let's pick up trigonometry. What does sine actually measure in a right triangle?</div>
+          <div class="bubble me">Opposite over hypotenuse?</div>
+          <div class="bubble them">That's the formula — good. But what is it telling you about the angle? Try saying it in your own words.</div>
+        </div>
+        <div class="chat-in"><input class="input" placeholder="Message Vidya…"><button class="btn btn-icon btn-primary js-send"><svg class="icon"><use href="#i-send"/></svg></button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== VOICE ===================== -->
+  <section class="pg-sec" id="voice">
+    <div class="sh"><h3>Voice &amp; mic</h3><span class="n">/ speech</span></div>
+    <p class="sub">Tap the mic to toggle listening — expanding rings and a live waveform signal that Vidya is hearing you.</p>
+    <div class="demo">
+      <div class="row" style="gap:28px">
+        <button class="mic js-mic"><svg class="icon"><use href="#i-mic"/></svg></button>
+        <div class="wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <span class="mic-state">tap to speak</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== UPLOAD ===================== -->
+  <section class="pg-sec" id="upload">
+    <div class="sh"><h3>File upload</h3><span class="n">/ drop boxes</span></div>
+    <p class="sub">Drag files onto the zone or click to browse — each file lands with an animated progress bar.</p>
+    <div class="demo">
+      <div>
+        <div class="dropzone"><svg class="icon" width="32" height="32"><use href="#i-upload"/></svg><div style="font-weight:500;margin-bottom:4px">Drop assignments here</div><div class="caption">PDF, images or worksheets · up to 4 at once</div><input type="file" multiple hidden></div>
+        <div class="file-list"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== BADGES ===================== -->
+  <section class="pg-sec" id="badges">
+    <div class="sh"><h3>Badges &amp; avatars</h3><span class="n">/ identity</span></div>
+    <p class="sub">Status tags, presence, and stacked avatars for rosters.</p>
+    <div class="demo">
+      <div class="lblm">Tags &amp; status</div>
+      <div class="row" style="margin-bottom:20px">
+        <span class="tag tag-success"><span class="dot"></span>Mastered</span>
+        <span class="tag tag-info"><span class="dot"></span>Developing</span>
+        <span class="tag tag-warning"><span class="dot"></span>Needs work</span>
+        <span class="tag tag-danger"><span class="dot"></span>At risk</span>
+        <span class="tag">Neutral</span>
+        <span class="tag" style="background:var(--signature-tint);color:var(--signature)"><svg class="icon icon-sm"><use href="#i-flame"/></svg>24-day streak</span>
+      </div>
+      <div class="lblm">Avatars &amp; groups</div>
+      <div class="row">
+        <div class="avatar presence">AS</div>
+        <div class="avatar" style="background:var(--violet);color:#fff">RK</div>
+        <div class="avatar" style="background:var(--cyan);color:#fff">MN</div>
+        <div class="avatar-group"><div class="avatar avatar-sm">AS</div><div class="avatar avatar-sm" style="background:var(--violet);color:#fff">RK</div><div class="avatar avatar-sm" style="background:var(--cyan);color:#fff">MN</div><div class="avatar avatar-sm" style="background:var(--bg-sunken);color:var(--text-secondary)">+34</div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== NAV ===================== -->
+  <section class="pg-sec" id="nav">
+    <div class="sh"><h3>Navigation</h3><span class="n">/ wayfinding</span></div>
+    <p class="sub">Breadcrumb, mobile bottom nav, and back/forward.</p>
+    <div class="demo">
+      <div class="breadcrumb" style="margin-bottom:22px"><a href="#">Dashboard</a><span class="sep">/</span><a href="#">Class 10-B</a><span class="sep">/</span><span>Mathematics</span></div>
+      <div class="lblm">Bottom navigation</div>
+      <div class="bottom-nav" style="margin-bottom:22px">
+        <a class="on"><svg class="icon"><use href="#i-home"/></svg>Today</a>
+        <a><svg class="icon"><use href="#i-book"/></svg>Learn</a>
+        <a><svg class="icon"><use href="#i-spark"/></svg>Vidya</a>
+        <a><svg class="icon"><use href="#i-chart"/></svg>Progress</a>
+        <a><svg class="icon"><use href="#i-user"/></svg>Profile</a>
+      </div>
+      <div class="row"><button class="btn btn-secondary btn-icon"><svg class="icon"><use href="#i-chevron-left"/></svg></button><button class="btn btn-secondary btn-icon"><svg class="icon"><use href="#i-chevron-right"/></svg></button></div>
+    </div>
+  </section>
+
+  <!-- ===================== MISC ===================== -->
+  <section class="pg-sec" id="misc">
+    <div class="sh"><h3>Rating · calendar · more</h3><span class="n">/ odds &amp; ends</span></div>
+    <p class="sub">A star rating, a month grid, an inline banner and an empty state.</p>
+    <div class="demo">
+      <div class="row" style="gap:48px;align-items:flex-start">
+        <div class="col" style="gap:14px">
+          <div class="lblm" style="margin:0">Rating</div>
+          <div class="rating" data-val="4"><span class="star"><svg class="icon"><use href="#i-star"/></svg></span><span class="star"><svg class="icon"><use href="#i-star"/></svg></span><span class="star"><svg class="icon"><use href="#i-star"/></svg></span><span class="star"><svg class="icon"><use href="#i-star"/></svg></span><span class="star"><svg class="icon"><use href="#i-star"/></svg></span></div>
+        </div>
+        <div class="col" style="gap:14px">
+          <div class="lblm" style="margin:0">Calendar</div>
+          <div class="cal" id="calGrid">
+            <div class="hd">S</div><div class="hd">M</div><div class="hd">T</div><div class="hd">W</div><div class="hd">T</div><div class="hd">F</div><div class="hd">S</div>
+            <div class="d dim">27</div>
+            <div class="d dim">28</div>
+            <div class="d">1</div>
+            <div class="d">2</div>
+            <div class="d">3</div>
+            <div class="d">4</div>
+            <div class="d">5</div>
+            <div class="d">6</div>
+            <div class="d">7</div>
+            <div class="d">8</div>
+            <div class="d">9</div>
+            <div class="d">10</div>
+            <div class="d">11</div>
+            <div class="d">12</div>
+            <div class="d">13</div>
+            <div class="d on">14</div>
+            <div class="d">15</div>
+            <div class="d">16</div>
+            <div class="d">17</div>
+            <div class="d">18</div>
+            <div class="d">19</div>
+            <div class="d">20</div>
+            <div class="d">21</div>
+            <div class="d">22</div>
+            <div class="d">23</div>
+            <div class="d">24</div>
+            <div class="d">25</div>
+            <div class="d">26</div>
+            <div class="d">27</div>
+            <div class="d">28</div>
+            <div class="d">29</div>
+            <div class="d">30</div>
+            <div class="d dim">1</div>
+            <div class="d dim">2</div>
+            <div class="d dim">3</div>
+          </div>
+        </div>
+      </div>
+      <div class="banner" style="margin-top:24px"><svg class="icon" style="color:var(--signature)"><use href="#i-spark"/></svg><div><div style="font-weight:500">Vidya has a suggestion</div><div class="caption">Three students are ready to move from guided to independent practice.</div></div><button class="btn btn-secondary btn-sm" style="margin-left:auto">Review</button></div>
+      <div class="empty" style="margin-top:12px"><svg class="icon" width="34" height="34"><use href="#i-folder"/></svg><div style="font-weight:500;margin-bottom:4px">No assignments yet</div><p class="caption" style="margin-bottom:16px">Create the first assignment for this class.</p><button class="btn btn-primary v-rise">New assignment</button></div>
+    </div>
+  </section>
+
+  <!-- ===================== ICONS ===================== -->
+  <section class="pg-sec" id="icons">
+    <div class="sh"><h3>Icons</h3><span class="n">/ the set</span></div>
+    <p class="sub">One consistent line family — 1.75px strokes, rounded joins. Hover any icon.</p>
+    <div class="demo">
+      <div class="wrap-grid" style="grid-template-columns:repeat(auto-fill,minmax(92px,1fr))">
+        <div class="icon-cell"><svg class="icon"><use href="#i-home"/></svg><span>home</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-grid"/></svg><span>grid</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-search"/></svg><span>search</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-user"/></svg><span>user</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-users"/></svg><span>users</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-settings"/></svg><span>settings</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-bell"/></svg><span>bell</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-calendar"/></svg><span>calendar</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-clock"/></svg><span>clock</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-book"/></svg><span>book</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-chart"/></svg><span>chart</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-check"/></svg><span>check</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-x"/></svg><span>x</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-plus"/></svg><span>plus</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-minus"/></svg><span>minus</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-chevron-right"/></svg><span>chevron-right</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-chevron-down"/></svg><span>chevron-down</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-chevron-up"/></svg><span>chevron-up</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-chevron-left"/></svg><span>chevron-left</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-arrow-right"/></svg><span>arrow-right</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-arrow-left"/></svg><span>arrow-left</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-play"/></svg><span>play</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-pause"/></svg><span>pause</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-download"/></svg><span>download</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-upload"/></svg><span>upload</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-file"/></svg><span>file</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-folder"/></svg><span>folder</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-edit"/></svg><span>edit</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-trash"/></svg><span>trash</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-lock"/></svg><span>lock</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-eye"/></svg><span>eye</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-eye-off"/></svg><span>eye-off</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-star"/></svg><span>star</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-heart"/></svg><span>heart</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-message"/></svg><span>message</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-send"/></svg><span>send</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-target"/></svg><span>target</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-flame"/></svg><span>flame</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-trophy"/></svg><span>trophy</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-spark"/></svg><span>spark</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-menu"/></svg><span>menu</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-filter"/></svg><span>filter</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-more"/></svg><span>more</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-mic"/></svg><span>mic</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-image"/></svg><span>image</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-link"/></svg><span>link</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-share"/></svg><span>share</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-bookmark"/></svg><span>bookmark</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-replay"/></svg><span>replay</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-sun"/></svg><span>sun</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-moon"/></svg><span>moon</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-globe"/></svg><span>globe</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-mail"/></svg><span>mail</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-camera"/></svg><span>camera</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-sigma"/></svg><span>sigma</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-atom"/></svg><span>atom</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-flask"/></svg><span>flask</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-code"/></svg><span>code</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-zap"/></svg><span>zap</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-award"/></svg><span>award</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-layers"/></svg><span>layers</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-sliders"/></svg><span>sliders</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-refresh"/></svg><span>refresh</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-video"/></svg><span>video</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-phone"/></svg><span>phone</span></div>
+        <div class="icon-cell"><svg class="icon"><use href="#i-clipboard"/></svg><span>clipboard</span></div>
+      </div>
+    </div>
+  </section>
+
+  </main>
+</div>
+
+<!-- ===================== OVERLAY PORTALS ===================== -->
+<div class="scrim2" id="ovScrim"></div>
+
+<aside class="drawer right" id="drawerRight">
+  <div class="drawer-head"><div style="font-weight:600;font-size:18px">Student detail</div><button class="btn btn-icon btn-ghost" data-close><svg class="icon"><use href="#i-x"/></svg></button></div>
+  <div class="row tight" style="margin-bottom:16px"><div class="avatar presence">AS</div><div><div style="font-weight:500">Aarav Sharma</div><div class="caption">Class 10-B · independent learner</div></div></div>
+  <div class="stat" style="margin-bottom:12px"><div class="label">Mastery</div><div class="value">94%</div></div>
+  <div class="lblm">Recent</div>
+  <div class="progress animate" style="--val:94%;margin-bottom:8px"><span></span></div>
+  <p class="caption" style="margin-bottom:20px">Verified across three independent attempts with no hints.</p>
+  <button class="btn btn-primary btn-block v-rise" data-close>Done</button>
+</aside>
+
+<aside class="drawer left" id="drawerLeft">
+  <div class="drawer-head"><div style="font-weight:600;font-size:18px">Filters</div><button class="btn btn-icon btn-ghost" data-close><svg class="icon"><use href="#i-x"/></svg></button></div>
+  <div class="lblm">Status</div>
+  <div class="col" style="gap:10px;margin-bottom:18px">
+    <label class="check"><input type="checkbox" checked><span class="box"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L19 7"/></svg></span> Mastered</label>
+    <label class="check"><input type="checkbox" checked><span class="box"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L19 7"/></svg></span> Developing</label>
+    <label class="check"><input type="checkbox"><span class="box"><svg viewBox="0 0 24 24"><path d="m5 12 5 5L19 7"/></svg></span> At risk</label>
+  </div>
+  <div class="lblm">Subject</div>
+  <div class="segmented" style="margin-bottom:24px"><button class="active">All</button><button>Math</button><button>Science</button></div>
+  <button class="btn btn-primary btn-block" data-close>Apply filters</button>
+</aside>
+
+<div class="sheet" id="bottomSheet">
+  <div class="grab"></div>
+  <div style="font-weight:600;font-size:18px;margin-bottom:14px">Quick actions</div>
+  <div class="menu-item"><svg class="icon"><use href="#i-edit"/></svg>New assignment</div>
+  <div class="menu-item"><svg class="icon"><use href="#i-send"/></svg>Message families</div>
+  <div class="menu-item"><svg class="icon"><use href="#i-download"/></svg>Export gradebook</div>
+  <div class="menu-sep"></div>
+  <button class="btn btn-secondary btn-block" data-close>Close</button>
+</div>
+
+<div class="modal-ov" id="modalConfirm">
+  <div class="modal" style="background:var(--bg-raised);border:.5px solid var(--border);border-radius:12px;padding:28px;max-width:420px;width:100%">
+    <h3 style="font-size:20px;font-weight:600;margin-bottom:8px">Send weekly summaries?</h3>
+    <p style="color:var(--text-secondary);font-size:14px;line-height:1.6;margin-bottom:22px">Progress notes will be delivered to 36 families. You can review each before it sends.</p>
+    <div class="row" style="justify-content:flex-end"><button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary v-sheen" data-close>Send summaries</button></div>
+  </div>
+</div>
+
+<div class="modal-ov" id="modalForm">
+  <div class="modal" style="background:var(--bg-raised);border:.5px solid var(--border);border-radius:12px;padding:28px;max-width:460px;width:100%">
+    <h3 style="font-size:20px;font-weight:600;margin-bottom:18px">New assignment</h3>
+    <div class="col">
+      <div class="fl"><input class="input" placeholder=" " id="maf1"><label for="maf1">Title</label></div>
+      <select class="select"><option>Mathematics · Trigonometry</option><option>Physics · Kinematics</option></select>
+      <textarea class="textarea" placeholder="Instructions for students…"></textarea>
+    </div>
+    <div class="row" style="justify-content:flex-end;margin-top:20px"><button class="btn btn-ghost" data-close>Cancel</button><button class="btn btn-primary" data-close>Create</button></div>
+  </div>
+</div>
+
+<div class="cmdk-scrim" id="cmdk">
+  <div class="cmdk">
+    <div class="cmdk-in"><svg class="icon"><use href="#i-search"/></svg><input placeholder="Search actions, students, lessons…"><span class="kbd">esc</span></div>
+    <div class="cmdk-list">
+      <div class="cmdk-row"><svg class="icon"><use href="#i-users"/></svg>Go to student roster<span class="kbd">G R</span></div>
+      <div class="cmdk-row"><svg class="icon"><use href="#i-edit"/></svg>Create assignment<span class="kbd">N A</span></div>
+      <div class="cmdk-row"><svg class="icon"><use href="#i-spark"/></svg>Ask Vidya for a class summary</div>
+      <div class="cmdk-row"><svg class="icon"><use href="#i-chart"/></svg>Open mastery report</div>
+      <div class="cmdk-row"><svg class="icon"><use href="#i-send"/></svg>Message families</div>
+      <div class="cmdk-row"><svg class="icon"><use href="#i-settings"/></svg>Settings &amp; privacy</div>
+    </div>
+  </div>
+</div>
+
+<div class="ctx" id="ctxMenu">
+  <div class="menu-item"><svg class="icon"><use href="#i-eye"/></svg>Open</div>
+  <div class="menu-item"><svg class="icon"><use href="#i-edit"/></svg>Rename</div>
+  <div class="menu-item"><svg class="icon"><use href="#i-share"/></svg>Share</div>
+  <div class="menu-sep"></div>
+  <div class="menu-item" style="color:var(--danger)"><svg class="icon"><use href="#i-trash"/></svg>Delete</div>
+</div>
+
+<div class="toast-stack" id="toastStack"></div>
+
+<script src="playground.js"></script>
+</body>
+</html>

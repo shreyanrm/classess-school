@@ -33,6 +33,7 @@
 import { getPool, type PoolLike } from '@/lib/db';
 import { deleteAuthUser, isAdminConfigured } from '@/lib/supabaseAdmin';
 import { ok, isUuid, str } from '@/lib/opRoute';
+import { authorizeWrite } from '@/lib/opGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -83,6 +84,19 @@ export async function POST(req: Request): Promise<Response> {
   const canonicalUuid = str(body.canonicalUuid);
   if (!isUuid(canonicalUuid)) {
     return ok({ deleted: false, reason: 'invalid-input' }, 400);
+  }
+
+  // Account erasure is the most consequential op — it goes through the wall FIRST
+  // so identity governance owns the decision (not the surface). The permission
+  // ladder (X-Approval-Token) and RBAC/ABAC gate the delete; a denied caller is
+  // refused before any privileged work. An unreachable wall degrades to the path
+  // below so the demo erasure still works end-to-end with no backend.
+  const gate = await authorizeWrite(req, 'identity', 'erase', {
+    payload: { subject_uuid: canonicalUuid },
+    consentPurpose: 'identity.erasure',
+  });
+  if (!gate.proceed) {
+    return ok({ deleted: false, reason: 'forbidden', detail: gate.detail }, 403);
   }
 
   // The PII erasure needs the live pool; the Auth delete needs the service key.

@@ -4,13 +4,15 @@
 
    SERVER-ONLY. This is where the web's high-value governed reads — the ones the
    spine owns: mastery, gaps, recommendations, and the class intelligence/insights
-   views — are routed THROUGH the live gateway (the wall) first, then FALL BACK to
-   the in-browser engine port (lib/engine + lib/classRead) on any failure /
-   unauthorized / unreachable.
+   views — are routed THROUGH the live gateway (the wall) to the ONE source of
+   truth: the Python intelligence spine. The in-browser engine port (lib/engine +
+   lib/classRead) is the DEGRADE FALLBACK ONLY — it answers when, and only when,
+   the wall is unreachable / times out / denies / returns a non-contract body.
 
-   The contract is: the user-visible result is IDENTICAL either way. When the wall
-   is reachable and authorizes the caller, the deep Python engine behind it powers
-   the read; otherwise the local engine does. The live app NEVER breaks.
+   One engine, one truth: the Python spine is the source; lib/engine is a faithful
+   port kept solely so the live app NEVER breaks when the wall is unavailable. The
+   user-visible result is identical either way; in normal operation the deep Python
+   engine behind the wall powers the read.
 
    The web PREPARES and READS; it never bypasses the wall. Writes/auth stay on the
    existing Supabase/local path — only the engine READS are routed here.
@@ -110,6 +112,9 @@ export async function readMastery(
   const result = await readCapability<MasteryResult>('learning', subjectUuid, {
     identity,
     view: `mastery:${topicId}`,
+    // The deep mastery read is a cross-context intelligence read -> assert the
+    // purpose so the wall's consent gate runs (it falls back cleanly otherwise).
+    consentPurpose: 'intelligence.mastery',
     fetchImpl: opts.fetchImpl,
   });
 
@@ -139,6 +144,8 @@ export async function readGaps(
   const result = await readCapability<GapResult[]>('learning', subjectUuid, {
     identity,
     view: `gaps:${topicId}`,
+    // Cross-context intelligence read -> assert the purpose for the consent gate.
+    consentPurpose: 'intelligence.gaps',
     fetchImpl: opts.fetchImpl,
   });
 

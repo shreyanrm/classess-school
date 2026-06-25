@@ -20,6 +20,7 @@ import { useRole } from './RoleContext';
 import {
   vidyaChat,
   specToInline,
+  classifyPath,
   type VidyaTurn,
   type VidyaAction,
   type HighlightRegion,
@@ -189,7 +190,15 @@ export function useVidya(initial: ChatMessage[] = []): UseVidyaResult {
             ? 'Here is what I found.'
             : emptyFallback;
 
-      setMessages((prev) => [...prev, { id: messageId(), role: 'vidya', text: replyText, inline, surface }]);
+      // The 5-path classifier CONTRACT (spec 16.2): project this turn's actions
+      // onto exactly one path. Pure + deterministic, so the home and the dock
+      // describe the same turn identically. The thread shows a quiet path line.
+      const path = classifyPath(actions);
+
+      setMessages((prev) => [
+        ...prev,
+        { id: messageId(), role: 'vidya', text: replyText, inline, surface, path },
+      ]);
 
       setCanvas(canvasSpec);
 

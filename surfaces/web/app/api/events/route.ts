@@ -28,6 +28,7 @@
 
 import { getPool, type PoolLike } from '@/lib/db';
 import { EVENT_APP } from '@/lib/events';
+import { authorizeWrite, denied } from '@/lib/opGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -99,6 +100,15 @@ export async function POST(req: Request): Promise<Response> {
     body.payload && typeof body.payload === 'object' && !Array.isArray(body.payload)
       ? (body.payload as Record<string, unknown>)
       : {};
+
+  // The wall authorizes the emit FIRST. The event's purpose declares the consent
+  // context the wall checks (the SAME purpose gates the governed read back); a
+  // denied caller is refused before any append, an unreachable wall degrades.
+  const gate = await authorizeWrite(req, 'events', 'emit', {
+    payload: { type, purpose },
+    consentPurpose: purpose,
+  });
+  if (!gate.proceed) return denied(gate.detail);
 
   // No live database — designed degraded path. The app stays on its local store.
   const pool = getPool();

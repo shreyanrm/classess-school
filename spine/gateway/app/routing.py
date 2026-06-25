@@ -36,6 +36,17 @@ ROUTE_MAP: dict[str, dict[str, UpstreamRoute]] = {
         "readEvents": UpstreamRoute("GET", "/v1/event-store/events", purpose_required=True),
         "readEvent": UpstreamRoute("GET", "/v1/event-store/events/{event_id}", purpose_required=True),
     },
+    # The deep intelligence engine (mastery / gaps / recommendations / class
+    # insights) is the ONE source of truth — the Python spine. The web surface
+    # routes its high-value governed reads here FIRST; only on a 503/unauthorised
+    # /unreachable wall does it fall back to its in-browser engine port. These
+    # are cross-context reads, so a purpose assertion is required (INVARIANT 6).
+    "learning": {
+        "read": UpstreamRoute("POST", "/v1/intelligence/read", purpose_required=True),
+    },
+    "intelligence-views": {
+        "read": UpstreamRoute("POST", "/v1/intelligence/read", purpose_required=True),
+    },
 }
 
 

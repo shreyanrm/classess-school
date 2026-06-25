@@ -11,6 +11,13 @@ export { Tag, type TagProps, type TagTone } from './Tag';
 export { Badge, type BadgeProps } from './Badge';
 export { ProgressBar, type ProgressBarProps } from './ProgressBar';
 export { IgniteDot, type IgniteDotProps } from './IgniteDot';
+export {
+  CrystallizeNode,
+  type CrystallizeNodeProps,
+  type CrystallizeVariant,
+  type CrystallizeNeighbor,
+} from './CrystallizeNode';
+export { ExpandingRail, type ExpandingRailProps, type ExpandingRailItem } from './ExpandingRail';
 export { ConfidenceBand, type ConfidenceBandProps } from './ConfidenceBand';
 export { Avatar, type AvatarProps } from './Avatar';
 export { Input, type InputProps } from './Input';

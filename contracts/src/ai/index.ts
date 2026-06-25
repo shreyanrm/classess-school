@@ -19,6 +19,48 @@
 import { z } from "zod";
 
 // ---------------------------------------------------------------------------
+// Vidya intent classifier — the five paths
+// ---------------------------------------------------------------------------
+
+/**
+ * The five paths the front-door classifier routes an intent into (spec `11` —
+ * "the user states intent; Vidya decides whether to answer, do, or compose a
+ * surface"). The classifier is the first hop of the request flow: classify
+ * intent -> assemble context -> select capabilities -> plan -> execute ->
+ * verify -> respond. This contract is only the classification verdict.
+ */
+export const VidyaPath = z.enum([
+  "answer", // respond directly (explanation, derivation, multilingual answer)
+  "compose", // assemble/generate a real surface inline (generative UI)
+  "act", // invoke a governed capability that does something (within the ladder)
+  "route_dock", // hand off to the docked companion on a deep page (the VidyaDock)
+  "route_guide", // route to a guided flow / surface the user should be taken through
+]);
+export type VidyaPath = z.infer<typeof VidyaPath>;
+
+export const VIDYA_PATH_DOCS: Record<z.infer<typeof VidyaPath>, string> = {
+  answer: "Answer directly — explanation, self-assembling derivation, multilingual response. No consequential action.",
+  compose: "Compose a real surface inline (generative UI), within the permission ladder.",
+  act: "Invoke a governed, least-privilege capability that performs work; consequential steps pass the ladder.",
+  route_dock: "Hand the conversation to the docked companion on a deep page — still driving, now alongside the surface.",
+  route_guide: "Route the user into a guided flow or to the surface they should be taken through.",
+};
+
+/**
+ * The classifier verdict: the chosen path plus the rationale and (when the path
+ * is `act`/`compose`) the capability it intends to call. The actual execution
+ * still goes through the capability registry + the permission ladder + the
+ * generate-and-verify gate — this is only the routing decision.
+ */
+export const VidyaClassification = z.object({
+  path: VidyaPath,
+  rationale: z.string().describe("Plain-language why this path — for observability and the audit trail."),
+  capability: z.string().optional().describe("The capability id intended for 'act'/'compose'; resolved against the registry."),
+  confidence: z.number().min(0).max(1).describe("Classifier confidence in [0,1]."),
+});
+export type VidyaClassification = z.infer<typeof VidyaClassification>;
+
+// ---------------------------------------------------------------------------
 // Capability registry
 // ---------------------------------------------------------------------------
 

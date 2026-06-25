@@ -31,8 +31,19 @@ import {
 /**
  * The closed set of v1 event types. The string value is the wire `type` and the
  * discriminator on the payload union.
+ *
+ * The catalog covers the families named in `12-data-model-and-contracts.md`
+ * (identity/consent, learning, mastery/evidence, coursework, content,
+ * attendance/ops, workflow/agent, comms, system). It is APPEND-ONLY and grows
+ * additively — never reorder or remove. The eight original families carry fully
+ * typed payloads in `EventBody`; the remaining families carry the open
+ * `GenericEventPayload` (a typed, attributed envelope with a structured but
+ * unconstrained payload) so producers can emit them from line one without a
+ * breaking schema bump. A family graduates to a strict payload by adding it to
+ * the strict arm of `EventBody` in a later additive change.
  */
 export const EventType = z.enum([
+  // Original eight — strict payloads (see EventBody strict arm).
   "attempt.recorded",
   "assignment.created",
   "submission.created",
@@ -41,8 +52,104 @@ export const EventType = z.enum([
   "intervention.fired",
   "consent.granted",
   "consent.revoked",
+  // Identity/consent.
+  "person.created",
+  "membership.granted",
+  // Learning.
+  "attempt", // spec spelling alias for the learning lesson-player attempt
+  "lesson.viewed",
+  "prediction.committed",
+  "misconception.detected",
+  "misconception.resolved",
+  "teachback.completed",
+  "retrieval.completed",
+  // Mastery/evidence.
+  "evidence.recorded",
+  "gap.detected",
+  "gap.resolved",
+  // Coursework/assessment.
+  "assessment.submitted",
+  "score", // spec spelling alias for a recorded score
+  "evaluation.completed",
+  "moderation.approved",
+  "paper.generated",
+  // Content.
+  "content.generated",
+  "content.verified",
+  "content.rejected",
+  // Attendance/ops.
+  "attendance.marked",
+  "attendance.risk",
+  "attendance.reconcile_flag",
+  "leave.requested",
+  "substitution.proposed",
+  "timetable.generated",
+  "calendar.updated",
+  "pacing.behind",
+  // Teaching (b4).
+  "plan.generated",
+  "plan.submitted",
+  "class.launched",
+  "engagement.signal",
+  "poll.run",
+  "session.summarised",
+  // Workflow/agent.
+  "recommendation.created",
+  "recommendation.actioned",
+  "intervention.created",
+  "intervention.outcome",
+  "capability.invoked",
+  "approval.given",
+  // Comms/relationship.
+  "message.sent",
+  "notification.sent",
+  "ptm.scheduled",
+  "ptm.completed",
+  "action.assigned",
+  "proof.generated",
+  // Teacher growth.
+  "coaching.signal",
+  "handover.created",
+  // Institution/policy.
+  "institution.configured",
+  "policy.changed",
+  "credential.issued",
+  "resource.ingested",
+  // System.
+  "surface.viewed",
+  "audit.entry",
+  "break_glass.used",
 ]);
 export type EventType = z.infer<typeof EventType>;
+
+/**
+ * The set of event types that carry a fully typed strict payload in `EventBody`.
+ * Everything else in `EventType` is emitted with `GenericEventPayload`.
+ */
+export const STRICT_EVENT_TYPES = [
+  "attempt.recorded",
+  "assignment.created",
+  "submission.created",
+  "score.recorded",
+  "mastery.updated",
+  "intervention.fired",
+  "consent.granted",
+  "consent.revoked",
+] as const satisfies readonly EventType[];
+
+/**
+ * The open payload for the catalog families that do not (yet) have a strict
+ * schema. It is still attributed and consent-stamped via the envelope — only the
+ * inner shape is open. This honours INVARIANT 5 ("every meaningful action emits
+ * a clean, attributed, consent-stamped event") from line one without forcing a
+ * strict schema for all 50+ families up front.
+ */
+export const GenericEventPayload = z
+  .record(z.string(), z.unknown())
+  .describe(
+    "Structured, attributed payload for a catalog family without a strict schema yet. The envelope still carries full attribution + consent. A family graduates to a strict payload additively."
+  );
+export type GenericEventPayload = z.infer<typeof GenericEventPayload>;
 
 /**
  * The discriminated union of all event payloads, keyed by `type`. Each member is
@@ -58,7 +165,13 @@ export const EventBody = z.discriminatedUnion("type", [
   z.object({ type: z.literal("intervention.fired"), payload: InterventionFiredPayload }),
   z.object({ type: z.literal("consent.granted"), payload: ConsentGrantedPayload }),
   z.object({ type: z.literal("consent.revoked"), payload: ConsentRevokedPayload }),
-]);
+  // The remaining catalog families carry the open GenericEventPayload — still
+  // attributed + consent-stamped via the envelope. Additive: a family graduates
+  // to a strict member above without breaking existing consumers.
+  ...EventType.options
+    .filter((t) => !(STRICT_EVENT_TYPES as readonly string[]).includes(t))
+    .map((t) => z.object({ type: z.literal(t), payload: GenericEventPayload })),
+] as unknown as [z.ZodObject<{ type: z.ZodLiteral<EventType>; payload: z.ZodTypeAny }>, ...z.ZodObject<{ type: z.ZodLiteral<EventType>; payload: z.ZodTypeAny }>[]]);
 export type EventBody = z.infer<typeof EventBody>;
 
 /**

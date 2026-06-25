@@ -16,6 +16,7 @@
 
 import { getPool, type PoolLike } from '@/lib/db';
 import { ok, degraded, isUuid, str, label } from '@/lib/opRoute';
+import { authorizeWrite, denied } from '@/lib/opGate';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -85,6 +86,11 @@ export async function POST(req: Request): Promise<Response> {
     if (!isUuid(body.submission.assignmentId) || !isUuid(body.submission.submittedBy)) {
       return ok({ persisted: false, reason: 'invalid-input' }, 400);
     }
+    // The wall authorizes the submit FIRST (the permission ladder gates submit).
+    const gate = await authorizeWrite(req, 'coursework', 'submit', {
+      payload: { institution_id: body.institutionId, assignment_id: body.submission.assignmentId },
+    });
+    if (!gate.proceed) return denied(gate.detail);
     const pool = getPool();
     if (!pool) return degraded();
     try {
@@ -99,6 +105,11 @@ export async function POST(req: Request): Promise<Response> {
   if (!isUuid(body.createdBy) || !str(body.title)) {
     return ok({ persisted: false, reason: 'invalid-input' }, 400);
   }
+  // The wall authorizes the create FIRST (RBAC: only a teacher/coordinator).
+  const gate = await authorizeWrite(req, 'coursework', 'create', {
+    payload: { institution_id: body.institutionId },
+  });
+  if (!gate.proceed) return denied(gate.detail);
   const pool = getPool();
   if (!pool) return degraded();
   try {

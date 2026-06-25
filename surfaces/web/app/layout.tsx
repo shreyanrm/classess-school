@@ -4,6 +4,7 @@ import { RoleProvider } from '@/lib/RoleContext';
 import { LocaleProvider } from '@/lib/i18n';
 import { AuthGate } from './_components/AuthGate';
 import { VidyaOrb } from './_components/VidyaOrb';
+import { CommandPalette } from './_components/CommandPalette';
 import '@classess/design-system/styles.css';
 import './globals.css';
 
@@ -29,6 +30,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <AuthGate>{children}</AuthGate>
               {/* Vidya floats on every route, persisting across navigation. */}
               <VidyaOrb />
+              {/* The universal Cmd/Ctrl-K command palette — the keyboard twin of
+                  the orb, available on every surface (spec 17.3-17.4). */}
+              <CommandPalette />
             </RoleProvider>
           </LocaleProvider>
         </ThemeProvider>

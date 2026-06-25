@@ -35,7 +35,7 @@ export default defineConfig({
     timezoneId: 'UTC',
     // Collapse the calm idle/entrance animations (the app honours reduced motion)
     // so the Vidya orb and panels settle immediately and are clickable/stable.
-    reducedMotion: 'reduce',
+    contextOptions: { reducedMotion: 'reduce' },
     // NB: we deliberately do NOT grant a fake microphone. Vidya is voice-first
     // (opening the orb auto-starts listening), but a granted fake media stream
     // stays live and deadlocks CDP input (keyboard/click) in headless. With no
