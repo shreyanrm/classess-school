@@ -104,6 +104,18 @@ const en: Dictionary = {
   'personalise.language': 'Which language feels most comfortable',
   'personalise.footnote':
     'Each tap is a hint, not a form. I shape your space from these — you never have to describe yourself.',
+  // Vidya's docked narration through the personalise step.
+  'personalise.vidya.greet':
+    'I am Vidya. Let us shape a calm space that fits you. A couple of natural taps, and I learn as we go — never a form.',
+  'personalise.vidya.choosing':
+    'Good. Each tap is a gentle hint. I will widen things out as we learn what helps.',
+  // The DPDP age-tier + consent step (transparent, revocable, tier-bounded).
+  'personalise.consent.heading': 'Your age, so I stay within the law',
+  'personalise.consent.agree.adult': 'Personalise for me',
+  'personalise.consent.agree.child': 'A guardian agrees',
+  'personalise.consent.notNow': 'Not now',
+  'personalise.consent.revocable':
+    'You can review or revoke this any time in Settings. Nothing here is final or hidden.',
 
   // Role landing
   'landing.homeSuffix': 'home',
@@ -294,6 +306,16 @@ const hi: Dictionary = {
   'personalise.language': 'कौन सी भाषा सबसे सहज लगती है',
   'personalise.footnote':
     'हर टैप एक संकेत है, फ़ॉर्म नहीं। मैं इन्हीं से आपकी जगह बनाता हूँ — आपको खुद को बताने की कभी ज़रूरत नहीं।',
+  'personalise.vidya.greet':
+    'मैं Vidya हूँ। आइए आपके लिए एक शांत जगह बनाएँ। कुछ सहज टैप, और मैं चलते-चलते सीखती रहूँगी — कभी कोई फ़ॉर्म नहीं।',
+  'personalise.vidya.choosing':
+    'अच्छा। हर टैप एक हल्का संकेत है। जैसे-जैसे हमें समझ आएगा, मैं चीज़ें और खोलती जाऊँगी।',
+  'personalise.consent.heading': 'आपकी उम्र, ताकि मैं कानून के भीतर रहूँ',
+  'personalise.consent.agree.adult': 'मेरे लिए वैयक्तिकृत करें',
+  'personalise.consent.agree.child': 'एक अभिभावक सहमत हैं',
+  'personalise.consent.notNow': 'अभी नहीं',
+  'personalise.consent.revocable':
+    'आप इसे कभी भी सेटिंग्स में देख या वापस ले सकते हैं। यहाँ कुछ भी अंतिम या छिपा हुआ नहीं है।',
 
   'landing.homeSuffix': 'होम',
   'landing.sub': 'कुछ भी पूछें, या जहाँ छोड़ा था वहीं से शुरू करें',

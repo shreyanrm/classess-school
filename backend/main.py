@@ -239,6 +239,13 @@ _ACTION_ALIASES = {
     "recommend_recovery": "read",             # scheduling recovery RECOMMEND
     "capture": "write",                       # attendance roll capture (proposal)
     "coaching": "read",                       # teacher-growth coaching summary
+    # PERSONALIZATION (§1 onboarding implicit profiling). INFER re-derives the
+    # provisional profile from light behavioural signals + emits a consent-stamped
+    # profile.updated event (a write — staff/learner gated, audited; the module
+    # bounds inference depth by the consent + age tier). HINTS projects the gated
+    # profile into learner-safe surface hints (a read — never leaks internals).
+    "infer": "write",                         # personalization implicit profiling
+    "hints": "read",                          # personalization surface hints
     "audit_trail": "read",                    # governance audit-trail READ
     "toggle": "execute",                      # governance AI-control toggle (ladder)
     "breakglass": "execute",                  # governance break-glass (ladder)

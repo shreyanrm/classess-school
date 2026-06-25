@@ -86,6 +86,17 @@ ROUTE_MAP: dict[str, dict[str, UpstreamRoute]] = {
     "teacher-growth": {
         "coaching": UpstreamRoute("POST", "/teacher-growth/coaching", purpose_required=True),
     },
+    # PERSONALIZATION — the consent + age-tier-gated implicit-profiling capability
+    # powering §1 onboarding. INFER re-derives the learner's PROVISIONAL profile
+    # from light behavioural signals and emits a consent-stamped profile.updated
+    # event; HINTS projects that gated profile into learner-safe surface hints.
+    # Both are cross-context reads of behavioural signals, so a purpose is
+    # required (INVARIANT 6); the inference DEPTH is bounded inside the module by
+    # the consent + age tier (DPDP). PII-free: opaque canonical_uuid only.
+    "personalization": {
+        "infer": UpstreamRoute("POST", "/personalization/infer", purpose_required=True),
+        "hints": UpstreamRoute("POST", "/personalization/hints", purpose_required=True),
+    },
     # The generate-and-verify CONTENT door (B3). External operationIds are
     # hyphenated (contract); the upstream operation segment is the deployable
     # door's underscore action name (see backend _ACTION_ALIASES). Each PREPARES

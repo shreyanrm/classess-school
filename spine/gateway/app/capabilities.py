@@ -256,6 +256,16 @@ _MODULE_PLAN: Tuple[Tuple[str, bool, bool, Optional[str]], ...] = (
     ("planning", True, False, None),
     ("classroom", True, False, None),
     ("teacher-growth", True, False, "teacher-growth.read"),
+    # PERSONALIZATION — the consent + age-tier-gated IMPLICIT PROFILING capability
+    # that powers §1 onboarding. It reads behavioural signals across a context
+    # boundary, so a cross-context read asserts the profiling consent scope
+    # (INVARIANT 6). The module itself bounds inference depth by the consent + age
+    # tier (DPDP) — the wall is the outer door, the consent_gate is the depth law.
+    # The WRITE rung (emit a consent-stamped profile.updated event) is NOT taken
+    # from this plan (which would be staff-only); it is registered separately just
+    # below with _ALL roles, because a LEARNER must be able to drive their OWN
+    # onboarding profiling (§1: account creation begins with the learner).
+    ("personalization", False, False, "personalization.read"),
     ("integration", True, False, None),
     ("feature-store", False, True, "feature-store.read"),
     # The GOVERNANCE control plane (GAP#3/#5/#7): the audit-trail READ + the
@@ -356,4 +366,26 @@ def build_default_registry() -> CapabilityRegistry:
                 rate_limit=_WRITE_LIMIT,
             )
         )
+
+    # PERSONALIZATION WRITE (§1 onboarding implicit profiling). The profiling
+    # write (re-derive the provisional profile + emit a consent-stamped
+    # profile.updated event) must be drivable by the LEARNER for their OWN
+    # account (account creation begins with the learner), so it is registered
+    # with _ALL roles — unlike the staff-only generic write rung. The wall still
+    # gates RBAC/ABAC/schema; the inference DEPTH is bounded inside the module by
+    # the consent + age tier (DPDP). The wall projects the body to the declared
+    # field for admission, so the rich behavioural payload (signals, consents)
+    # travels on to the engine handler while the wall validates only subject_uuid.
+    reg.register(
+        Capability(
+            module="personalization",
+            action=Action.WRITE,
+            roles=_ALL,
+            abac=_same_institution,
+            consent_scope=None,
+            consequential=False,
+            schema=_READ_SCHEMA,  # strict: subject_uuid only at the wall
+            rate_limit=_WRITE_LIMIT,
+        )
+    )
     return reg

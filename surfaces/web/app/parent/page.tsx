@@ -8,6 +8,7 @@ import { ChildSwitcher } from '../_components/ChildSwitcher';
 import { ConsentGated } from '../_components/ConsentGated';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { ReadStates } from '../_components/ReadStates';
+import { SourceNote } from '../_components/SourceNote';
 import { LanguageBadge } from '../_components/LanguageBadge';
 import { useParentRead } from '@/lib/useParentRead';
 import { useReaderText } from '@/lib/useReaderText';
@@ -135,6 +136,7 @@ export default function ParentTodayPage() {
               <Icon name="info" size="sm" />
               {t('parent.week.partnership', { child: child.label })}
             </p>
+            <SourceNote source={source} />
           </section>
         </>
       )}

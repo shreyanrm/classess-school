@@ -37,6 +37,18 @@ const PROBES: Record<string, string> = {
   learning: 'intelligence.mastery',
   // Cross-context family/teacher communication (the messages thread).
   communication: 'communication.translate',
+  // Coursework + its evaluation reads (the teacher evaluation review table).
+  coursework: 'coursework.evaluation',
+  // The confirmed attendance roll / risk reads (the attendance surface).
+  attendance: 'attendance.roll',
+  // The live classroom session reads (poll / attention signals).
+  classroom: 'classroom.session',
+  // The private, non-punitive coaching summary (the teacher growth surface).
+  'teacher-growth': 'teacher-growth.coaching',
+  // The implicit personalization read (onboarding finale) — gated by the wall's
+  // consent + age-tier door. Probed so the personalise step shows an honest
+  // SourceNote (live profiling vs the on-device inference fallback).
+  personalization: 'personalization.profile',
 };
 
 export async function GET(req: Request): Promise<Response> {

@@ -117,6 +117,22 @@ class PolicyEngine:
                  description="Prepare a lesson plan (draft; not published)."),
             Rule("planning", "generate-session-plan", _STAFF, abac=_scope_contains,
                  description="Prepare a session plan (draft; not published)."),
+            # PERSONALIZATION — the consent + age-tier-gated implicit-profiling
+            # capability powering §1 onboarding. INFER re-derives the learner's
+            # PROVISIONAL profile from light behavioural signals and emits a
+            # consent-stamped profile.updated event; it reads behavioural signals
+            # across a context boundary, so a purpose assertion is required
+            # (INVARIANT 6) and the depth is bounded inside the module by the
+            # consent + age tier (DPDP). Any role may drive onboarding profiling
+            # for itself (a learner, or staff/guardian setting up an account);
+            # deny-by-default otherwise. HINTS turns the profile into learner-safe
+            # surface hints (also purpose-asserted, consent-scoped).
+            Rule("personalization", "infer", _ALL_ROLES, abac=_scope_contains,
+                 purposes=frozenset({"account", "personalization"}),
+                 description="Re-derive the provisional profile + emit profile.updated (consent + age-tier gated)."),
+            Rule("personalization", "hints", _ALL_ROLES, abac=_scope_contains,
+                 purposes=frozenset({"account", "personalization"}),
+                 description="Project the gated profile into learner-safe surface hints."),
         ]
         for r in baseline_rules:
             engine.register(r)

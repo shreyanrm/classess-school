@@ -5,9 +5,11 @@ import { Cell, Icon, Matrix, ProgressBar, SpotlightCard, Stat, SuggestionChip, T
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { StudyQuadrant } from '../../_components/StudyQuadrant';
 import { Trajectory } from '../../_components/Trajectory';
 import { useAdminConfig } from '@/lib/adminConfig';
+import { useGatewaySource } from '@/lib/useGatewaySource';
 import { SCHOOL_STATS, SCHOOL_TRENDS } from '@/lib/mock';
 import { ADMIN_CONCERNS, ADMIN_INTERVENTIONS } from '@/lib/mock';
 import { PACING_ROWS, TRAJECTORY, pacingSummary, type QuadrantBand, type QuadrantPoint } from '@/lib/adminData';
@@ -85,6 +87,11 @@ export default function AdminIntelligencePage() {
   };
   const [query, setQuery] = useState<Query | null>(null);
   const pacing = pacingSummary();
+  // The school-wide stats / trends / pacing / trajectory are the spine's
+  // intelligence-views reads. Probe the wall so the OBSERVABLE source marker sits
+  // on the STATS themselves — these seed views render either way, but never as if
+  // they were live when the spine did not answer.
+  const { source } = useGatewaySource('intelligence-views', { view: 'class-insights' });
 
   // The drill that ACTS — launch the suggested remedial/grouping set for a band
   // by handing the group to Vidya, which prepares it within the permission
@@ -171,7 +178,7 @@ export default function AdminIntelligencePage() {
 
       {lens === 'academics' ? (
         <>
-          <section>
+          <section className="stack">
             <p className="overline">Across the school, this week</p>
             <Matrix columns={3}>
               {SCHOOL_STATS.map((s) => (
@@ -183,6 +190,7 @@ export default function AdminIntelligencePage() {
                 </Cell>
               ))}
             </Matrix>
+            <SourceNote source={source} />
           </section>
 
           <section className="stack">

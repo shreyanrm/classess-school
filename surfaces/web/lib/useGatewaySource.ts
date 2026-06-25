@@ -20,7 +20,15 @@ import { useStore } from './useStore';
 import { useOnline } from './useOnline';
 
 /** The governed capabilities a surface may probe (bounded by the route too). */
-export type ProbeCapability = 'intelligence-views' | 'content' | 'learning' | 'communication';
+export type ProbeCapability =
+  | 'intelligence-views'
+  | 'content'
+  | 'learning'
+  | 'communication'
+  | 'coursework'
+  | 'attendance'
+  | 'classroom'
+  | 'teacher-growth';
 
 export interface GatewaySourceState {
   /** 'gateway' when the spine answered the probe read; 'fallback' otherwise. */

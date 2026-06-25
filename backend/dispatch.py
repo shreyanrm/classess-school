@@ -965,6 +965,212 @@ def _teacher_growth_coaching(payload: dict[str, Any], approval: Optional[str]) -
         return _degraded("coaching", f"engine error: {type(exc).__name__}")
 
 
+# --- personalization (§1 onboarding: implicit profiling) ------------------- #
+def _personalization_build_consents(payload: dict[str, Any], cg: Any, subject: str) -> list[Any]:
+    """Build the consent grant(s) that bound this inference, from the payload.
+
+    DENIED-BY-DEFAULT: with no consent in the payload, an EMPTY list is returned
+    so the gate denies every trait (nothing is inferred). A grant carries only
+    opaque ids — the consent id, the opaque subject (canonical_uuid), the DPDP
+    age tier, the scopes, and the optionally-narrowed trait kinds. The age tier
+    is the legal ceiling on inference DEPTH; the grant can narrow but never widen
+    it (the module's consent_gate enforces this). PII-free throughout.
+    """
+    raw = payload.get("consents")
+    if raw is None:
+        single = payload.get("consent")
+        raw = [single] if single else []
+    consents: list[Any] = []
+    for c in raw:
+        if not isinstance(c, dict):
+            continue
+        scopes = c.get("scopes") or ["profiling"]
+        traits_raw = c.get("traits")
+        traits = None
+        if traits_raw:
+            kinds = []
+            for t in traits_raw:
+                try:
+                    kinds.append(cg.TraitKind(str(t)))
+                except Exception:
+                    continue
+            traits = frozenset(kinds)
+        consents.append(
+            cg.PersonalizationConsent(
+                consent_id=str(c.get("consent_id") or c.get("consent_ref") or "consent"),
+                subject=subject,
+                age_tier=str(c.get("age_tier", "child")),  # most-protected default
+                scopes=frozenset(str(s) for s in scopes),
+                traits=traits,
+                revoked=bool(c.get("revoked", False)),
+            )
+        )
+    return consents
+
+
+def _personalization_build_input(payload: dict[str, Any], infer: Any, subject: str) -> Any:
+    """Build the inference input from light behavioural signals + onboarding
+    choices in the payload. NO QUESTIONNAIRE: only behavioural ``Signal``s (what
+    the learner DID) and light ``OnboardingChoice`` taps are accepted. PII-free:
+    opaque ids only — a signal carries no name/email/free-text-about-a-person."""
+    signals = []
+    for s in payload.get("signals") or []:
+        if not isinstance(s, dict):
+            continue
+        try:
+            kind = infer.SignalKind(str(s.get("kind")))
+        except Exception:
+            continue
+        signals.append(
+            infer.Signal(
+                signal_id=str(s.get("signal_id") or s.get("id") or "sig"),
+                kind=kind,
+                subject_id=s.get("subject_id"),
+                weight=float(s.get("weight", 1.0)),
+                correct=s.get("correct"),
+                independent=s.get("independent"),
+                content_format=s.get("content_format"),
+                dwell_ms=s.get("dwell_ms"),
+                choice_kind=s.get("choice_kind"),
+                choice_value=s.get("choice_value"),
+            )
+        )
+    choices = []
+    for c in payload.get("onboarding_choices") or []:
+        if not isinstance(c, dict):
+            continue
+        try:
+            choices.append(
+                infer.OnboardingChoice(
+                    choice_id=str(c.get("choice_id") or c.get("id") or "choice"),
+                    kind=str(c.get("kind", "subject")),
+                    value=str(c.get("value", "")),
+                )
+            )
+        except Exception:
+            continue
+    return infer.InferenceInput(
+        subject=subject, signals=tuple(signals), onboarding_choices=tuple(choices)
+    )
+
+
+def _personalization_infer(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    """personalization.infer (§1 onboarding) — re-derive the learner's PROVISIONAL
+    profile from light behavioural signals and EMIT a consent-stamped
+    ``profile.updated`` event so the circuit is identity -> gateway -> capability
+    -> event.
+
+    REUSES the existing engine: ``profile.project_profile`` (idempotent +
+    revocable) bounds inference DEPTH by the consent + age tier (DPDP) inside the
+    module — an over-tier trait is omitted, never inferred; a revoked/narrowed
+    consent clears the no-longer-permitted traits on replay. The
+    ``PersonalizationEventEmitter`` appends the event; with no gateway sink wired
+    it DEGRADES to a clearly-labelled in-memory append-only sink and reports the
+    OBSERVABLE SourceNote (``source='fallback'``) — never a silent mock. PII-FREE:
+    the emitter asserts no PII-shaped key is present, and the profile carries only
+    the opaque canonical_uuid + opaque ids."""
+    mod = _mod("personalization")
+    if mod is None:
+        return _degraded("infer", "personalization module not loaded")
+    try:
+        alias = _alias("personalization")
+        cg = __import__(f"{alias}.consent_gate", fromlist=["*"])
+        infer = __import__(f"{alias}.infer", fromlist=["*"])
+        proj = __import__(f"{alias}.profile", fromlist=["*"])
+        events = __import__(f"{alias}.events", fromlist=["*"])
+
+        subject = str(payload.get("subject_uuid") or payload.get("canonical_uuid") or "subject")
+        consents = _personalization_build_consents(payload, cg, subject)
+        inp = _personalization_build_input(payload, infer, subject)
+
+        # Project the profile through the consent + age-tier gate (the DEPTH law).
+        profile = proj.project_profile(inp, consents=consents)
+
+        # Emit a consent-stamped profile.updated event (the circuit's terminal).
+        # The consent_ref stamps WHICH grant the event was captured under; a
+        # revocation that clears traits is a NEW append-only event, never an edit.
+        trigger = str(payload.get("trigger", "fresh-signal"))
+        if trigger not in ("fresh-signal", "revocation", "consent-change"):
+            trigger = "fresh-signal"
+        consent_ref = str(payload.get("consent_ref")
+                          or (consents[0].consent_id if consents else "no-consent"))
+        emitter = events.PersonalizationEventEmitter()
+        emitted = emitter.emit_profile_updated(
+            profile, consent_ref=consent_ref, trigger=trigger
+        )
+
+        return {
+            "dispatched": True,
+            "operation": "infer",
+            # The provisional read — trait KINDS only at the door (the full
+            # evidenced traits live on the event); each is gated + confidence-
+            # capped by the tier. Surfaces never see raw internals here.
+            "trait_kinds": sorted({t.kind.value for t in profile.traits}),
+            "trait_count": len(profile.traits),
+            # Transparency: the kinds the consent/age-tier gate DENIED, so a
+            # surface can honestly say "we do not infer this for you".
+            "denied_trait_kinds": [k for k, _ in profile.denied_traits],
+            "provisional": True,
+            # The consent-stamped event + its OBSERVABLE source note (degrade).
+            "event": {
+                "type": emitted.envelope.get("type"),
+                "consent_ref": emitted.envelope.get("consent_ref"),
+                "purpose": emitted.envelope.get("purpose"),
+                "delivered": emitted.delivered,
+                # SourceNote: 'gateway' when really delivered, else 'fallback'.
+                "source": "gateway" if emitted.delivered else "fallback",
+                "sink": emitted.sink,
+            },
+            "approval_honored": approval is not None,
+        }
+    except Exception as exc:
+        logger.warning("personalization.infer dispatch degraded: %s", exc)
+        return _degraded("infer", f"engine error: {type(exc).__name__}")
+
+
+def _personalization_hints(payload: dict[str, Any], approval: Optional[str]) -> dict[str, Any]:
+    """personalization.hints — project the gated profile into learner-safe SURFACE
+    HINTS for onboarding + home. REUSES ``preferences.to_surface_hints`` (gated by
+    the ``preferences-hints`` scope, confidence-banded). NO RAW INTERNALS reach the
+    learner: no confidence numbers, no evidence ids, no rule names — plain language
+    only. A READ — no event, no approval."""
+    mod = _mod("personalization")
+    if mod is None:
+        return _degraded("hints", "personalization module not loaded")
+    try:
+        alias = _alias("personalization")
+        cg = __import__(f"{alias}.consent_gate", fromlist=["*"])
+        infer = __import__(f"{alias}.infer", fromlist=["*"])
+        proj = __import__(f"{alias}.profile", fromlist=["*"])
+        prefs = __import__(f"{alias}.preferences", fromlist=["*"])
+
+        subject = str(payload.get("subject_uuid") or payload.get("canonical_uuid") or "subject")
+        consents = _personalization_build_consents(payload, cg, subject)
+        inp = _personalization_build_input(payload, infer, subject)
+        profile = proj.project_profile(inp, consents=consents)
+        hints = prefs.to_surface_hints(profile, consents=consents)
+        return {
+            "dispatched": True,
+            "operation": "hints",
+            # Learner-safe: opaque values + plain-language reasons only.
+            "suggested_subjects": [
+                {"value": h.value, "why": h.why} for h in hints.suggested_subjects
+            ],
+            "suggested_goal": (
+                {"value": hints.suggested_goal.value, "why": hints.suggested_goal.why}
+                if hints.suggested_goal else None
+            ),
+            "suggested_pace": (
+                {"value": hints.suggested_pace.value, "why": hints.suggested_pace.why}
+                if hints.suggested_pace else None
+            ),
+            "is_empty": hints.is_empty(),
+        }
+    except Exception as exc:
+        logger.warning("personalization.hints dispatch degraded: %s", exc)
+        return _degraded("hints", f"engine error: {type(exc).__name__}")
+
+
 # --- governance (b/A7: GAP#3/#5/#7) ---------------------------------------- #
 # AI-control toggle / break-glass / policy-version PERSIST + emit an immutable
 # audit event; the audit-trail is a READ. Reuses backend.governance_app (which
@@ -1198,6 +1404,11 @@ _DISPATCH: dict[tuple[str, str], Handler] = {
     ("attendance", "capture"): _attendance_capture,
     # teacher-growth (b10): the non-punitive coaching summary.
     ("teacher-growth", "coaching"): _teacher_growth_coaching,
+    # personalization (§1 onboarding): consent + age-tier-gated implicit
+    # profiling. INFER re-derives the provisional profile + emits a consent-
+    # stamped profile.updated event; HINTS projects learner-safe surface hints.
+    ("personalization", "infer"): _personalization_infer,
+    ("personalization", "hints"): _personalization_hints,
     # governance (GAP#3/#5/#7): toggle / break-glass / policy-version PERSIST +
     # emit an immutable audit event; audit-trail is the READ.
     ("governance", "toggle"): _gov_toggle,

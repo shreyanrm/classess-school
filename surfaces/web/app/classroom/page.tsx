@@ -4,6 +4,8 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Button, Icon, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
+import { SourceNote } from '../_components/SourceNote';
+import { useGatewaySource } from '@/lib/useGatewaySource';
 import { CLASS_LABEL, ROSTER } from '@/lib/loopData';
 
 /**
@@ -50,6 +52,12 @@ export default function ClassroomPage() {
   const [deviceFree, setDeviceFree] = useState(false);
   const [scanned, setScanned] = useState(false);
   const [scanConfirmed, setScanConfirmed] = useState(false);
+
+  // The live roster + poll/attention reads are the spine's classroom session
+  // capability. Probe the wall so the OBSERVABLE source marker sits on the
+  // surface — the seed session renders either way, but never as if it were live
+  // when the spine was unreachable.
+  const { source } = useGatewaySource('classroom');
 
   function point(e: ReactPointerEvent) {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -266,6 +274,7 @@ export default function ClassroomPage() {
             whySeeing="These are shown to help you read the room and adjust. They are never punitive and never feed a record about a student."
           />
         </div>
+        <SourceNote source={source} />
       </section>
     </SurfaceShell>
   );

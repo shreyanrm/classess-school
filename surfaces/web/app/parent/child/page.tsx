@@ -7,6 +7,7 @@ import { ChildSwitcher } from '../../_components/ChildSwitcher';
 import { ProofArtifact } from '../../_components/ProofArtifact';
 import { ConsentGated } from '../../_components/ConsentGated';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { useParentRead } from '@/lib/useParentRead';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
@@ -114,6 +115,7 @@ export default function ParentChildPage() {
             <Icon name="info" size="sm" />
             {t('parent.child.note', { child: child.label })}
           </p>
+          <SourceNote source={source} />
         </>
       )}
     </SurfaceShell>

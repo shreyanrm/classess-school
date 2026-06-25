@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useGatewaySource } from '@/lib/useGatewaySource';
 import { CLASS_LABEL, ROSTER, type Student } from '@/lib/loopData';
 
 /**
@@ -60,6 +62,10 @@ export default function AttendancePage() {
   // The roster read carries the five designed states; capture works offline and
   // syncs later, so offline is a calm last-synced read, never a dead end.
   const { phase: readPhase, refresh } = useSurfaceState();
+  // The roster + confirmed roll is the spine's attendance read. Probe the wall so
+  // the OBSERVABLE source marker sits on the surface — the seed roster renders
+  // either way, but never as if it were live when the spine was unreachable.
+  const { source } = useGatewaySource('attendance');
   const [method, setMethod] = useState<Method>('scan');
   const [phase, setPhase] = useState<Phase>('capture');
   const [marks, setMarks] = useState<Record<string, Mark>>({});
@@ -253,6 +259,8 @@ export default function AttendancePage() {
           )}
         </SpotlightCard>
       </section>
+
+      <SourceNote source={source} />
       </>
       )}
     </SurfaceShell>

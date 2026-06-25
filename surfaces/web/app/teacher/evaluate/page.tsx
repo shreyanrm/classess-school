@@ -4,8 +4,10 @@ import { useMemo, useState } from 'react';
 import { Button, ConfidenceBand, SpotlightCard, Tag, type Confidence } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { ApprovalControl } from '../../_components/ApprovalControl';
 import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useGatewaySource } from '@/lib/useGatewaySource';
 import { CLASS_LABEL, CURRENT_STUDENT, topicInfo, LOOP_TOPIC_ID } from '@/lib/loopData';
 
 /**
@@ -82,6 +84,10 @@ type RowDecision = 'pending' | 'confirmed' | 'adjusted';
 export default function EvaluatePage() {
   // The submission read carries the five designed states from one place.
   const { phase: readPhase, refresh } = useSurfaceState();
+  // The per-response rows are the spine's coursework evaluation read. Probe the
+  // wall so the OBSERVABLE source marker sits on the table — these seed rows
+  // render either way, but never as if they were live when the spine was silent.
+  const { source } = useGatewaySource('coursework');
   const [decisions, setDecisions] = useState<Record<string, RowDecision>>({});
   const [returned, setReturned] = useState(false);
 
@@ -197,6 +203,7 @@ export default function EvaluatePage() {
           a mark — illegible work is flagged for review, not penalised. The engine recommends; you
           confirm.
         </p>
+        <SourceNote source={source} />
       </section>
 
       <section>

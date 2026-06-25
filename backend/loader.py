@@ -69,6 +69,7 @@ CAPABILITY_MODULES: tuple[str, ...] = (
     "classroom",
     "learner-record",
     "communication",
+    "personalization",
 )
 
 

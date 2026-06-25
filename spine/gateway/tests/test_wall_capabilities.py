@@ -103,6 +103,10 @@ EXPECTED_MODULES = {
     # The governance control plane (GAP#3/#5/#7): the audit-trail READ + the
     # consequential AI-control toggle / break-glass / policy-version EXECUTE rung.
     "governance",
+    # PERSONALIZATION (§1 onboarding): the consent + age-tier-gated implicit-
+    # profiling capability. INFER emits a consent-stamped profile.updated event;
+    # the WRITE rung is _ALL-roles (a learner drives their OWN onboarding).
+    "personalization",
 }
 
 

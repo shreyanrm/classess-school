@@ -4,7 +4,9 @@ import { useMemo, useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
+import { SourceNote } from '../../_components/SourceNote';
 import { useSurfaceState } from '@/lib/useSurfaceState';
+import { useGatewaySource } from '@/lib/useGatewaySource';
 import {
   GROWTH_SIGNALS,
   GROWTH_DIRECTION_META,
@@ -22,6 +24,11 @@ import {
 export default function TeacherGrowthPage() {
   // Private coaching read — carries the same five designed states from one place.
   const { phase, refresh } = useSurfaceState();
+  // The coaching signals are the spine's teacher-growth.coaching read (private,
+  // non-punitive). Probe the wall so the OBSERVABLE source marker sits on the
+  // surface — the seed signals render either way, but never as if they were live
+  // when the spine was silent.
+  const { source } = useGatewaySource('teacher-growth');
   const lead = useMemo(() => nextGrowthInsight(GROWTH_SIGNALS), []);
   const [focusId, setFocusId] = useState<string | null>(lead?.id ?? null);
 
@@ -97,6 +104,7 @@ export default function TeacherGrowthPage() {
             );
           })}
         </div>
+        <SourceNote source={source} />
       </section>
       </>
       )}
