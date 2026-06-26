@@ -1,13 +1,16 @@
 'use client';
 
 /* ============================================================================
-   app/proactive/ProactiveFeed.tsx — the approval queue, wired to the live
-   proactive loop (recommend -> approve -> execute, spec 13 b11 + ladder 11).
+   app/proactive/ProactiveFeed.tsx — the approval queue, recomposed to the bar.
 
    The one manage-by-exception surface for everything Vidya has prepared and is
-   waiting on a human decision. It READS the recommendation feed gateway-first
-   (lib/useProactive -> /api/proactive -> the spine, the local list on degrade),
-   triages by confidence, and renders the real RecommendationItem control:
+   waiting on a human decision. A count-up stat matrix opens it; the queue rides
+   on .cols (1fr + 320px): the recommendation cards triage into "ready to act"
+   and "worth a closer look" on the left, and a right aside carries the dark
+   ignite-card (the crystallize moment), how-the-ladder-works, and a handnote.
+
+   READS the feed gateway-first (lib/useProactive -> /api/proactive -> the spine,
+   the local list on degrade), and renders the real RecommendationItem control:
    consequential items raise the ApprovalControl, reversible items execute with
    an undo, and a resolved gap plays the CrystallizeNode moment.
 
@@ -18,7 +21,9 @@
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { RecommendationItem } from '../_components/RecommendationItem';
 import { ReadStates } from '../_components/ReadStates';
-import { Button, Cell, Icon, Matrix, Stat } from '@classess/design-system';
+import { Button, Icon, Tag } from '@classess/design-system';
+import { Panel, FlagRow, HandnotePanel, SecHead, type FlagModel } from '../_components/StudentComposed';
+import { StatMatrix } from '../_components/StudentComposed';
 import { openVidya } from '../_components/VidyaOrb';
 import { useProactive } from '@/lib/useProactive';
 
@@ -30,22 +35,90 @@ export function ProactiveFeed() {
   const queue = [...recommendations].sort(
     (a, b) => (order[a.confidence] ?? 3) - (order[b.confidence] ?? 3),
   );
-  const high = queue.filter((r) => r.confidence === 'high').length;
-  const watch = queue.filter((r) => r.confidence !== 'high').length;
+  const ready = queue.filter((r) => r.confidence === 'high');
+  const watch = queue.filter((r) => r.confidence !== 'high');
+  const consequential = queue.filter((r) => r.consequential).length;
+
+  // The crystallize moment for the aside — a recommendation that resolves a gap
+  // into independent mastery (its plain-language line).
+  const crystallizing = queue.find((r) => r.crystallizes);
+
+  const flags: FlagModel[] = watch.slice(0, 3).map((r) => ({
+    icon: r.consequential ? 'target' : 'spark',
+    title: r.title,
+    caption: r.evidenceSummary,
+  }));
+
+  const aside = (
+    <>
+      <div className="ignite-card reveal reveal-3">
+        <div className="row-between" style={{ marginBottom: 14 }}>
+          <span className="overline">{crystallizing ? 'On approve' : 'The principle'}</span>
+          <Icon name="flame" size="sm" style={{ color: 'var(--accent)' }} />
+        </div>
+        <div className="who">
+          {crystallizing ? crystallizing.crystallizes : 'Nothing fires on its own'}
+        </div>
+        <p className="body-sm" style={{ opacity: 0.82, marginTop: 8 }}>
+          {crystallizing
+            ? 'Approving this closes a support-dependency gap into independent mastery — the crystallize moment plays once it commits.'
+            : 'Every item here is prepared and held. You hold the authority — Approve, Adjust, or Decline. Vidya never acts unasked.'}
+        </p>
+      </div>
+
+      <Panel title="Worth a closer look" meta={<Tag tone="warning" dot>{String(watch.length)}</Tag>}>
+        <p className="caption" style={{ marginBottom: 'var(--space-3)' }}>
+          Lower-confidence items — review the evidence before acting.
+        </p>
+        {flags.length > 0 ? (
+          flags.map((f, i) => <FlagRow key={i} flag={f} />)
+        ) : (
+          <p className="caption muted">Nothing lower-confidence is waiting — the queue is all high-confidence.</p>
+        )}
+      </Panel>
+
+      <Panel title="The permission ladder" meta={<span className="overline">how it works</span>}>
+        <div className="flag">
+          <div className="flag-ic"><Icon name="target" size="sm" /></div>
+          <div>
+            <div className="body-sm" style={{ fontWeight: 500 }}>Consequential</div>
+            <p className="caption">Send, publish, grade — raises the approval control, commits only on approve.</p>
+          </div>
+        </div>
+        <div className="flag">
+          <div className="flag-ic"><Icon name="check" size="sm" /></div>
+          <div>
+            <div className="body-sm" style={{ fontWeight: 500 }}>Reversible</div>
+            <p className="caption">Safe, undoable steps execute with an undo — nothing irreversible without you.</p>
+          </div>
+        </div>
+      </Panel>
+
+      <HandnotePanel>approve the high-confidence ones first — the evidence is already strong</HandnotePanel>
+    </>
+  );
 
   return (
     <SurfaceShell
       eyebrow="Class 10-B"
       title="Approval queue"
+      meta={[
+        { value: queue.length, label: 'awaiting your decision' },
+        { value: ready.length, label: 'ready to act' },
+        { value: consequential, label: 'need explicit approval' },
+      ]}
+      tabs={[
+        { label: 'Queue', active: true },
+        { label: 'Class insights', href: '/insights' },
+        { label: 'Live loop', href: '/loop' },
+      ]}
+      aside={phase === 'ready' && queue.length > 0 ? aside : undefined}
       dockIntro="This is everything I have prepared and am waiting on you to decide. Nothing runs until you approve it. Ask me to adjust or explain any item."
       dockChips={['Explain the fractions recommendation', 'Adjust the due dates', 'Approve the high-confidence items']}
     >
       {phase !== 'ready' ? (
-        // loading / error / offline / permission-denied — the four non-ready
-        // states, each with its real CTA (retry / ask Vidya / last-synced read).
         <ReadStates phase={phase} onRetry={refresh} />
       ) : queue.length === 0 ? (
-        // The empty state — a real, calm outcome, not a dead end.
         <div className="empty">
           <Icon name="info" size="lg" className="glyph" />
           <h4 className="body">Nothing waiting on you</h4>
@@ -59,41 +132,40 @@ export function ProactiveFeed() {
         </div>
       ) : (
         <>
-          <section>
-            <p className="overline">The queue, at a glance</p>
-            <Matrix columns={3}>
-              <Cell>
-                <Stat label="Awaiting your decision" value={queue.length} />
-                <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
-                  prepared, never sent on their own
-                </p>
-              </Cell>
-              <Cell>
-                <Stat label="Ready to act" value={high} />
-                <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
-                  high-confidence, corroborated evidence
-                </p>
-              </Cell>
-              <Cell>
-                <Stat label="Worth a closer look" value={watch} />
-                <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
-                  lower confidence — review before acting
-                </p>
-              </Cell>
-            </Matrix>
-          </section>
+          <StatMatrix
+            columns={3}
+            stats={[
+              { label: 'Awaiting your decision', value: queue.length, delta: 'prepared, never sent', deltaDir: 'flat' },
+              { label: 'Ready to act', value: ready.length, delta: 'corroborated evidence', deltaDir: 'up' },
+              { label: 'Worth a closer look', value: watch.length, delta: 'review before acting', deltaDir: 'down' },
+            ]}
+          />
 
-          <section className="stack">
-            <p className="overline">Triaged by confidence</p>
-            <p className="caption quiet">
-              Every item is prepared, never sent on its own. You hold the authority — Approve,
-              Adjust, or Decline. The strongest, ready-to-act items come first.
-              {source === 'fallback' ? ' Showing the last-known feed.' : ''}
-            </p>
-            {queue.map((r) => (
-              <RecommendationItem key={r.id} rec={r} onActioned={actioned} />
-            ))}
-          </section>
+          {ready.length > 0 ? (
+            <section className="stack reveal reveal-3" style={{ marginTop: 'var(--space-6)' }}>
+              <SecHead title="Ready to act" meta={<Tag tone="success" dot>{String(ready.length)}</Tag>} />
+              <p className="caption quiet">
+                High-confidence, corroborated evidence. Prepared, never sent on their own — you hold
+                the authority.
+                {source === 'fallback' ? ' Showing the last-known feed.' : ''}
+              </p>
+              {ready.map((r) => (
+                <RecommendationItem key={r.id} rec={r} onActioned={actioned} />
+              ))}
+            </section>
+          ) : null}
+
+          {watch.length > 0 ? (
+            <section className="stack reveal reveal-4" style={{ marginTop: 'var(--space-6)' }}>
+              <SecHead title="Worth a closer look" meta={<Tag tone="warning" dot>{String(watch.length)}</Tag>} />
+              <p className="caption quiet">
+                Lower confidence — review the evidence before acting. Adjust or decline if it does not fit.
+              </p>
+              {watch.map((r) => (
+                <RecommendationItem key={r.id} rec={r} onActioned={actioned} />
+              ))}
+            </section>
+          ) : null}
         </>
       )}
     </SurfaceShell>

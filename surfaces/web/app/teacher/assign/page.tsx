@@ -1,8 +1,9 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button, ConfidenceBand, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, ConfidenceBand, Icon, Input, Matrix, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { StatCell } from '../../_components/StatCell';
 import { ReadStates } from '../../_components/ReadStates';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { SourceNote } from '../../_components/SourceNote';
@@ -73,11 +74,28 @@ export default function AssignPage() {
 
   const selectedTopics = topics.filter((t) => selected.has(t.id));
   const canPrepare = selected.size > 0;
+  const gapTopicCount = topics.filter((t) => gapTopicIds.has(t.id)).length;
 
   return (
     <SurfaceShell
       eyebrow={CLASS_LABEL}
       title="Assign a quick check"
+      breadcrumb={[
+        { label: 'School', href: '/' },
+        { label: 'Grade 10', href: '/teacher' },
+        { label: 'Assign' },
+      ]}
+      meta={[
+        { value: topics.length, label: 'topics in the graph' },
+        { value: selected.size, label: 'selected' },
+        { label: 'nothing sends until you approve' },
+      ]}
+      tabs={[
+        { label: 'Overview', href: '/teacher' },
+        { label: 'Plan', href: '/teacher/plan' },
+        { label: 'Assign', active: true },
+        { label: 'Class insights', href: '/teacher/insights' },
+      ]}
       dockIntro="Pick the topics and I will prepare a check mapped to the ontology. Nothing is sent until you approve it — assigning is consequential, so it always waits for you."
       dockChips={['Map this to last week’s gaps', 'Make it shorter', 'Add one harder item']}
     >
@@ -88,6 +106,17 @@ export default function AssignPage() {
         <ReadStates phase={readPhase} onRetry={refresh} />
       ) : (
       <>
+      <Matrix columns={3} className="reveal reveal-1">
+        <StatCell label="Topics available" value={topics.length} delta="from the curriculum graph" tone="flat" />
+        <StatCell
+          label="Carry a confirmed gap"
+          value={gapTopicCount}
+          delta="prioritise these"
+          tone={gapTopicCount > 0 ? 'down' : 'flat'}
+        />
+        <StatCell label="Selected" value={selected.size} delta={`${count} items per learner`} tone="up" />
+      </Matrix>
+
       <section className="stack">
         <p className="overline">1 · Choose the subject</p>
         <div className="ladder" role="group" aria-label="Subject" style={{ maxWidth: 360 }}>

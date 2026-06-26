@@ -1,8 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
+import Link from 'next/link';
+import { Button, Icon, Matrix, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { StatCell } from '../../_components/StatCell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
@@ -29,59 +31,157 @@ import { EVENT_PURPOSE } from '@/lib/events';
 export default function AdminGovernancePage() {
   const gov = useGovernance();
 
+  const consequentialCaps = PERMISSION_MATRIX.filter((r) => r.consequential).length;
+  const lockedControls = AI_CONTROLS.filter((c) => c.locked).length;
+  // The recent audit trail for the aside — live when the round-trip answers,
+  // else the seed mock as a clearly last-known fallback (never blank).
+  const auditRows =
+    gov.source === 'gateway' && gov.audit.length > 0
+      ? gov.audit.map((e) => ({ id: e.id, action: e.action, actor: 'You', when: e.when }))
+      : AUDIT_LOG;
+
   return (
     <SurfaceShell
       eyebrow="Governance and audit"
       title="Policy, permissions, and the AI control centre"
+      breadcrumb={[{ label: 'School', href: '/' }, { label: 'Governance' }]}
+      meta={[
+        { value: PERMISSION_MATRIX.length, label: 'capabilities' },
+        { value: POLICIES.length, label: 'policies versioned' },
+        { value: consequentialCaps, label: 'human-gated' },
+        { label: 'nothing auto-fires' },
+      ]}
+      tabs={[
+        { label: 'Governance', active: true },
+        { label: 'Control centre', href: '/admin/control-centre' },
+        { label: 'Integrations', href: '/admin/integrations' },
+        { label: 'Briefing', href: '/admin' },
+      ]}
+      actions={
+        <Link href="/admin/control-centre" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
+          <Icon name="chart" size="sm" />
+          AI control centre
+        </Link>
+      }
       dockIntro="This is where you set the rules. Consequential actions can never auto-fire; break-glass is logged. Ask me to explain any permission."
       dockChips={['Explain the permission ladder', 'Who can publish reports', 'Show the recent audit trail']}
+      aside={
+        gov.phase !== 'ready' ? null : (
+          <>
+            <div className="ignite-card reveal reveal-2">
+              <div className="row-between" style={{ marginBottom: 14 }}>
+                <span className="overline">Human authority</span>
+                <Icon name="flame" size="md" style={{ color: 'var(--accent)' }} />
+              </div>
+              <div className="who">{consequentialCaps} consequential actions stay human-gated</div>
+              <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
+                Send, submit, publish, grade, charge — every one needs your explicit decision. The
+                platform prepares; you act.
+              </p>
+            </div>
+
+            <div className="panel">
+              <div className="sec-head" style={{ marginBottom: 8 }}>
+                <h4 className="h4" style={{ margin: 0 }}>
+                  Recent audit trail
+                </h4>
+                <span className="overline">append-only</span>
+              </div>
+              <p className="caption" style={{ marginBottom: 12 }}>
+                {gov.source === 'gateway'
+                  ? 'Read back from the event store — immutable, never an edit.'
+                  : 'Last-known trail; refreshes from the event store when reachable.'}
+              </p>
+              {auditRows.slice(0, 4).map((e) => (
+                <div className="flag" key={e.id}>
+                  <div className="flag-ic">
+                    <Icon name="check" size="sm" />
+                  </div>
+                  <div>
+                    <div className="body-sm" style={{ fontWeight: 500 }}>
+                      {e.actor}
+                    </div>
+                    <p className="caption">
+                      {e.action} · {e.when}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="panel" style={{ padding: '18px 20px' }}>
+              <p className="handnote" style={{ fontSize: 22 }}>
+                {lockedControls} capabilities are locked off — they can never be enabled
+              </p>
+            </div>
+          </>
+        )
+      }
     >
       {gov.phase !== 'ready' ? (
         <ReadStates phase={gov.phase} onRetry={gov.refresh} />
       ) : (
         <>
-          <section className="stack">
-            <p className="overline">Permissions matrix</p>
-            <p className="caption quiet">
-              Who may do what. Consequential actions (send, submit, publish, delete, charge, grade)
-              always require an explicit human decision and never auto-fire.
+          <Matrix columns={4} className="reveal reveal-1">
+            <StatCell label="Capabilities governed" value={PERMISSION_MATRIX.length} delta="across the tree" tone="flat" />
+            <StatCell label="Human-gated" value={consequentialCaps} delta="never auto-fire" tone="up" />
+            <StatCell label="Policies versioned" value={POLICIES.length} delta="with effective dates" tone="flat" />
+            <StatCell label="AI controls locked off" value={lockedControls} delta="consequential" tone="down" />
+          </Matrix>
+
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                Permissions matrix
+              </h3>
+              <span className="overline">who may do what</span>
+            </div>
+            <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+              Consequential actions (send, submit, publish, delete, charge, grade) always require an
+              explicit human decision and never auto-fire.
             </p>
-            <SpotlightCard>
-              <div className="table-scroll">
-                <table className="eval-table">
-                  <thead>
-                    <tr>
-                      <th>Capability</th>
-                      <th>Allowed roles</th>
-                      <th>Authority</th>
+            <div className="table-wrap">
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Capability</th>
+                    <th>Allowed roles</th>
+                    <th>Authority</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PERMISSION_MATRIX.map((row) => (
+                    <tr key={row.capability}>
+                      <td>{row.capability}</td>
+                      <td className="muted">{row.roles}</td>
+                      <td>
+                        {row.consequential ? (
+                          <Tag tone="warning" dot>
+                            Human approval
+                          </Tag>
+                        ) : (
+                          <Tag tone="neutral" dot>
+                            Read or draft
+                          </Tag>
+                        )}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {PERMISSION_MATRIX.map((row) => (
-                      <tr key={row.capability}>
-                        <td>{row.capability}</td>
-                        <td className="muted">{row.roles}</td>
-                        <td>
-                          {row.consequential ? (
-                            <Tag tone="warning">Human approval</Tag>
-                          ) : (
-                            <Tag tone="neutral">Read or draft</Tag>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </SpotlightCard>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </section>
 
-          <section className="stack">
-            <p className="overline">Policies</p>
-            <p className="caption quiet">
-              Policies flow down the tree and are versioned with effective dates. Setting a different
-              version in force is a consequential governance action — it is recorded to the immutable
-              audit trail.
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                Policies
+              </h3>
+              <span className="overline">versioned, with effective dates</span>
+            </div>
+            <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+              Policies flow down the tree. Setting a different version in force is a consequential
+              governance action — it is recorded to the immutable audit trail.
             </p>
             <div className="stack" style={{ gap: 'var(--space-3)' }}>
               {POLICIES.map((policy) => (
@@ -95,9 +195,14 @@ export default function AdminGovernancePage() {
             </div>
           </section>
 
-          <section className="stack">
-            <p className="overline">AI control centre</p>
-            <div className="cols-2">
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                AI control centre
+              </h3>
+              <span className="overline">autonomy is bounded</span>
+            </div>
+            <Matrix columns={2}>
               {AI_CONTROLS.map((c) => (
                 <AiControlCard
                   key={c.id}
@@ -106,12 +211,17 @@ export default function AdminGovernancePage() {
                   onSet={gov.setAiControl}
                 />
               ))}
-            </div>
+            </Matrix>
           </section>
 
-          <section className="stack">
-            <p className="overline">Recent audit trail</p>
-            <p className="caption quiet">
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                Recent audit trail
+              </h3>
+              <span className="overline">immutable</span>
+            </div>
+            <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
               {gov.source === 'gateway'
                 ? 'Events are append-only and immutable, read back from the event store. This is a read.'
                 : 'Events are append-only and immutable. This is the last-known trail; it refreshes from the event store when it is reachable.'}

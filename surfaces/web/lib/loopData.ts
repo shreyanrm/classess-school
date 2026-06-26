@@ -122,6 +122,29 @@ export function topicsForSubject(subjectId: string): TopicInfo[] {
 export const MATH_SUBJECT_ID = IDS.subjMath;
 export const PHYS_SUBJECT_ID = IDS.subjPhys;
 
+/** The short subject code shown in a subject-card band (mono). */
+export function subjectCode(subjectId: string): string {
+  if (subjectId === MATH_SUBJECT_ID) return 'MTH';
+  if (subjectId === PHYS_SUBJECT_ID) return 'PHY';
+  return 'SUB';
+}
+
+/**
+ * A RELATIVE progress fill (0–100) for a mastery band — a calm visual read of
+ * how far a topic has come, NEVER the raw composite or a mark. The band carries
+ * the meaning; the fill is just its visual echo for the subject card / matrix.
+ */
+const BAND_FILL: Record<string, number> = {
+  'not-started': 6,
+  emerging: 28,
+  developing: 52,
+  secure: 76,
+  independent: 96,
+};
+export function bandFill(band: string): number {
+  return BAND_FILL[band] ?? 12;
+}
+
 /** The confirmed + proposed prerequisite edges from the seed, for the engine. */
 export const EDGES: Edge[] = SEED_ONTOLOGY.edges;
 

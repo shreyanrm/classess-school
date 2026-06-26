@@ -1,33 +1,36 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Button, CrystallizeNode, Icon, SpotlightCard, Tag } from '@classess/design-system';
+import Link from 'next/link';
+import { Button, CrystallizeNode, Icon, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
-import { MasteryConclusion } from '../../_components/MasteryConclusion';
+import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { masteryEvidence } from '../../_components/MasteryConclusion';
+import { StatMatrix, IgniteCard, Panel, FlagRow, HandnotePanel } from '../../_components/StudentComposed';
 import { useDeepReads } from '@/lib/useDeepReads';
 import { useGenerator } from '@/lib/useGenerator';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
-import { computeMastery, type EngineEvent } from '@/lib/engine';
+import { BAND_SHORT, computeMastery, type EngineEvent } from '@/lib/engine';
 import type { Worksheet } from '@/lib/generate';
 import {
   CURRENT_STUDENT,
   LOOP_TOPIC_ID,
+  LOOP_DEPENDENT_TOPIC_ID,
   SCENARIO_NOW,
   liveEventId,
   topicInfo,
 } from '@/lib/loopData';
 
 /**
- * Practice — adaptive and mistake-based. The items come from the verified
- * worksheet/practice generator (gateway-first via /api/generate); difficulty is
- * still seeded from the LIVE read of the learner's mastery. When the generator is
- * unavailable the surface degrades to a fixed verified set, marked with an
- * OBSERVABLE SourceNote — never served as if live. Each item is attempted
- * independently or with support; a miss repeats the idea, a clean independent
- * success advances. Plain language only; the mastery moment is the green spark.
+ * Practice — adaptive and mistake-based, composed dense. Items come from the
+ * verified worksheet generator (gateway-first via /api/generate); difficulty is
+ * seeded from the LIVE read of mastery. When the generator is unavailable the
+ * surface degrades to a fixed verified set, marked with an OBSERVABLE SourceNote.
+ * A miss repeats the idea; a clean unaided success advances. The aside carries
+ * the live read and the Crystallize moment; the mastery moment is the green spark.
  */
 
 interface Item {
@@ -37,7 +40,6 @@ interface Item {
   difficulty: number;
 }
 
-/** The fixed verified set — the DEGRADE fallback when the generator is silent. */
 const FALLBACK_ITEMS: Item[] = [
   { id: 'p1', prompt: 'Given sin θ = 3/5 in a right triangle, find cos θ.', answer: '4/5', difficulty: 0.4 },
   { id: 'p2', prompt: 'Find tan θ when sin θ = 3/5 and cos θ = 4/5.', answer: '3/4', difficulty: 0.5 },
@@ -45,21 +47,18 @@ const FALLBACK_ITEMS: Item[] = [
   { id: 'p4', prompt: 'If cos θ = 1/2, find θ for an acute angle.', answer: '60°', difficulty: 0.6 },
 ];
 
-/** Difficulty gradient across the generated set — warm-up -> core -> stretch. */
 function difficultyAt(i: number, n: number): number {
   if (n <= 1) return 0.5;
   return 0.4 + (0.5 * i) / (n - 1);
 }
 
 const TOPIC = topicInfo(LOOP_TOPIC_ID);
+const DEPENDENT = topicInfo(LOOP_DEPENDENT_TOPIC_ID);
 const SUBJECT = CURRENT_STUDENT.ref;
 
 export default function PracticePage() {
-  // The baseline reading — gateway-first, engine fallback. Seeds difficulty.
   const { phase, reads, source } = useDeepReads([LOOP_TOPIC_ID]);
   const baseline = reads.find((r) => r.topicId === LOOP_TOPIC_ID);
-  // The verified practice set — gateway-first (SourceNote degrade). Length is
-  // seeded from mastery: a stronger learner gets a longer, harder set.
   const worksheet = useGenerator<Worksheet>('worksheet');
   const { emit } = useEmit();
 
@@ -67,8 +66,9 @@ export default function PracticePage() {
   const [index, setIndex] = useState(0);
   const [supported, setSupported] = useState(false);
   const [done, setDone] = useState(false);
+  const [correctCount, setCorrectCount] = useState(0);
+  const [unaidedCount, setUnaidedCount] = useState(0);
 
-  // Difficulty seeded from the baseline: a stronger learner starts at Core/Stretch.
   const startIndex = useMemo(() => {
     const comp = baseline?.mastery.reading.composite ?? 0;
     if (comp >= 0.55) return 2;
@@ -76,7 +76,6 @@ export default function PracticePage() {
     return 0;
   }, [baseline]);
 
-  // Generate the verified set once the baseline is in — count seeded from mastery.
   useEffect(() => {
     if (phase !== 'ready') return;
     const comp = baseline?.mastery.reading.composite ?? 0;
@@ -84,7 +83,6 @@ export default function PracticePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, baseline?.mastery.reading.composite]);
 
-  // The live items: the verified generated set, or the fixed fallback set.
   const ITEMS: Item[] = useMemo(() => {
     const w = worksheet.artifact;
     if (worksheet.phase === 'ready' && w && w.items.length > 0) {
@@ -98,8 +96,6 @@ export default function PracticePage() {
     return FALLBACK_ITEMS;
   }, [worksheet.phase, worksheet.artifact]);
 
-  // The generator either served (gateway/fallback) or is unavailable -> the fixed
-  // set, marked as a fallback. Never present the static set as if it were live.
   const itemsSource: 'gateway' | 'fallback' =
     worksheet.phase === 'ready' && (worksheet.artifact?.items.length ?? 0) > 0
       ? worksheet.source
@@ -110,7 +106,6 @@ export default function PracticePage() {
   }, [startIndex, ITEMS]);
 
   const item = ITEMS[Math.min(index, ITEMS.length - 1)]!;
-  // The in-session reading folds this session's live attempts over the baseline.
   const mastery = useMemo(
     () => computeMastery(events, SUBJECT, LOOP_TOPIC_ID, SCENARIO_NOW),
     [events],
@@ -137,7 +132,6 @@ export default function PracticePage() {
     };
     setEvents((prev) => [...prev, ev]);
 
-    // The attempt event — attributed, consent-stamped, with the independence flag.
     emit({
       type: 'attempt',
       purpose: EVENT_PURPOSE.learning,
@@ -145,11 +139,12 @@ export default function PracticePage() {
     });
 
     if (correct) {
+      setCorrectCount((c) => c + 1);
+      if (!supported) setUnaidedCount((c) => c + 1);
       emit({ type: 'practice.item.completed', purpose: EVENT_PURPOSE.learning, payload: { item_id: item.id, mode } });
       if (index + 1 >= ITEMS.length) setDone(true);
       else setIndex((i) => i + 1);
     }
-    // On a miss we stay on the same item (repeat the idea at this level).
   }
 
   function restart() {
@@ -157,117 +152,168 @@ export default function PracticePage() {
     setIndex(startIndex);
     setDone(false);
     setSupported(false);
+    setCorrectCount(0);
+    setUnaidedCount(0);
   }
+
+  const liveReading = baseline?.mastery ?? mastery;
 
   return (
     <SurfaceShell
+      breadcrumb={[
+        { label: 'Learning', href: '/student' },
+        { label: TOPIC.subjectName },
+        { label: 'Practice' },
+      ]}
       eyebrow={`${TOPIC.subjectName} · Practice`}
       title={TOPIC.name}
+      meta={[
+        { value: ITEMS.length, label: 'items, adaptive' },
+        { value: unaidedCount, label: 'on your own this session' },
+        { label: 'a miss repeats the idea' },
+      ]}
       dockIntro="Short, adaptive practice. A miss repeats the idea; doing one on your own moves you up. Tell me if an item is too easy or too hard and I will adjust."
       dockChips={['Too easy — go harder', 'I keep missing this one', 'Explain my last mistake']}
+      aside={
+        phase === 'ready' ? (
+          <>
+            {liveReading.reading.independent ? (
+              <IgniteCard
+                when="The spark"
+                who="You can do this on your own"
+                detail="A real, unaided demonstration — no hints, verified across attempts. This unlocks the next topic."
+              />
+            ) : (
+              <Panel title="Where you are" meta={<Tag tone="info">live read</Tag>}>
+                <p className="body-sm" style={{ margin: '0 0 var(--space-2)' }}>
+                  {capitalise(liveReading.plainLanguage)}.
+                </p>
+                <p className="caption muted" style={{ margin: '0 0 var(--space-3)' }}>
+                  {BAND_SHORT[liveReading.reading.band]} · the next unaided win is the one that counts.
+                </p>
+                <EvidenceDrawer
+                  evidence={masteryEvidence(liveReading, baseline?.gaps ?? [])}
+                  whySeeing="This reading comes from your own attempts and checks, read live from the learning engine."
+                />
+              </Panel>
+            )}
+
+            <Panel title="What this builds" meta={<span className="overline">unlocks next</span>}>
+              <FlagRow
+                flag={{
+                  icon: 'target',
+                  title: DEPENDENT.name,
+                  caption: 'Doing these ratios unaided opens it next.',
+                  href: `/student/topic/${LOOP_DEPENDENT_TOPIC_ID}`,
+                }}
+              />
+            </Panel>
+
+            <HandnotePanel>doing it once, on your own — that is the whole game</HandnotePanel>
+          </>
+        ) : undefined
+      }
     >
       {phase !== 'ready' ? (
         <ReadStates phase={phase} />
       ) : (
         <>
-          <section className="stack">
-            <p className="overline" style={{ margin: 0 }}>
-              Where you are now
-            </p>
-            <SpotlightCard>
-              <MasteryConclusion
-                topicName={TOPIC.name}
-                mastery={baseline?.mastery ?? mastery}
-                gaps={baseline?.gaps ?? []}
-                source={source}
-              />
-            </SpotlightCard>
-          </section>
+          <StatMatrix
+            stats={[
+              { label: 'Item', value: `${Math.min(index + 1, ITEMS.length)} / ${ITEMS.length}`, delta: done ? 'finished' : 'in progress', deltaDir: 'flat' },
+              { label: 'Got right', value: correctCount, delta: 'this session', deltaDir: correctCount > 0 ? 'up' : 'flat' },
+              { label: 'On your own', value: unaidedCount, delta: unaidedCount > 0 ? 'unaided wins' : 'the goal', deltaDir: unaidedCount > 0 ? 'up' : 'flat' },
+              { label: 'Where you are', value: <span style={{ fontSize: 15 }}>{capitalise(liveReading.reading.band)}</span>, delta: 'plain language', deltaDir: 'flat' },
+            ]}
+          />
 
           {done ? (
-            <section>
-              <SpotlightCard padLg>
-                <div className="ignite-row">
-                  {mastery.reading.independent ? (
-                    <CrystallizeNode variant="b" inline resolved label="Independent mastery" />
-                  ) : null}
-                  <h3 className="body-lg" style={{ margin: 0 }}>
-                    {mastery.reading.independent
-                      ? 'You did these on your own'
-                      : 'Good work — keep going to do these unprompted'}
-                  </h3>
-                </div>
-                <p className="body-sm muted" style={{ marginTop: 'var(--space-3)' }}>
-                  {mastery.reading.independent
-                    ? 'That is the green spark — a real, unaided demonstration. This unlocks Trigonometric Identities next.'
-                    : 'A few more unaided wins and you will be doing these on your own.'}
-                </p>
-                <div className="rec-actions" style={{ marginTop: 'var(--space-4)' }}>
-                  <Button variant="ghost" size="sm" onClick={restart}>
-                    Practise again
-                  </Button>
-                </div>
-              </SpotlightCard>
+            <section className="next-step-hero reveal reveal-3">
+              <div className="ignite-row">
+                {mastery.reading.independent ? (
+                  <CrystallizeNode variant="b" inline resolved label="Independent mastery" />
+                ) : null}
+                <h3 className="display-sm" style={{ margin: 0, fontSize: 24 }}>
+                  {mastery.reading.independent ? 'You did these on your own' : 'Good work — keep going to do these unprompted'}
+                </h3>
+              </div>
+              <p className="body-sm muted" style={{ marginTop: 'var(--space-3)', maxWidth: 540 }}>
+                {mastery.reading.independent
+                  ? `That is the green spark — a real, unaided demonstration. This unlocks ${DEPENDENT.name} next.`
+                  : 'A few more unaided wins and you will be doing these on your own.'}
+              </p>
+              <div className="rec-actions" style={{ marginTop: 'var(--space-4)' }}>
+                <Button variant="secondary" size="sm" onClick={restart}>
+                  Practise again
+                </Button>
+                {mastery.reading.independent ? (
+                  <Link href={`/student/topic/${LOOP_DEPENDENT_TOPIC_ID}`} className="btn btn-accent btn-sm">
+                    Open {DEPENDENT.name}
+                    <Icon name="arrow-right" size="sm" />
+                  </Link>
+                ) : null}
+              </div>
             </section>
           ) : (
-            // VidyaWatch reads the step the learner is on. The active item is a
-            // HARD step (worth a quiet nudge) once it is Core/Stretch — Vidya may
-            // then offer to walk it through on screen, never just hand the answer.
-            <section data-vidya-step={item.id} data-vidya-hard={item.difficulty > 0.4 ? 'true' : 'false'}>
-              <SpotlightCard padLg>
-                <div className="row-between" style={{ alignItems: 'flex-start' }}>
-                  <p className="overline" style={{ margin: 0 }}>
-                    Item {index + 1} of {ITEMS.length}
+            // VidyaWatch reads the step the learner is on; the active item is a HARD
+            // step once it is Core/Stretch — Vidya may offer to walk it through.
+            <section
+              className="next-step-hero reveal reveal-3"
+              data-vidya-step={item.id}
+              data-vidya-hard={item.difficulty > 0.4 ? 'true' : 'false'}
+            >
+              <div className="row-between" style={{ alignItems: 'flex-start' }}>
+                <p className="overline" style={{ margin: 0 }}>
+                  Item {index + 1} of {ITEMS.length}
+                </p>
+                <Tag tone="info">{difficultyLabel(item.difficulty)}</Tag>
+              </div>
+
+              <h3 className="display-sm" style={{ marginTop: 'var(--space-3)', fontSize: 24 }}>
+                {item.prompt}
+              </h3>
+
+              <div style={{ marginTop: 'var(--space-4)' }}>
+                <p className="caption quiet" style={{ marginBottom: 'var(--space-2)' }}>
+                  How are you working on this?
+                </p>
+                <div className="ladder" role="group" aria-label="Independent or supported" style={{ maxWidth: 360 }}>
+                  <button
+                    type="button"
+                    className={`ladder-rung evaluating${!supported ? ' active' : ''}`}
+                    onClick={() => setSupported(false)}
+                  >
+                    On my own
+                  </button>
+                  <button
+                    type="button"
+                    className={`ladder-rung${supported ? ' active' : ''}`}
+                    onClick={() => setSupported(true)}
+                  >
+                    With a hint
+                  </button>
+                </div>
+                {supported ? (
+                  <p className="caption quiet" style={{ marginTop: 'var(--space-2)' }}>
+                    Hint: the three sides satisfy a² + b² = c². Working with a hint helps you learn — the
+                    unaided try is what shows mastery.
                   </p>
-                  <Tag tone="neutral">{difficultyLabel(item.difficulty)}</Tag>
-                </div>
+                ) : null}
+              </div>
 
-                <h3 className="body-lg" style={{ marginTop: 'var(--space-3)' }}>
-                  {item.prompt}
-                </h3>
-
-                <div style={{ marginTop: 'var(--space-4)' }}>
-                  <p className="caption quiet" style={{ marginBottom: 'var(--space-2)' }}>
-                    How are you working on this?
-                  </p>
-                  <div className="ladder" role="group" aria-label="Independent or supported" style={{ maxWidth: 360 }}>
-                    <button
-                      type="button"
-                      className={`ladder-rung evaluating${!supported ? ' active' : ''}`}
-                      onClick={() => setSupported(false)}
-                    >
-                      On my own
-                    </button>
-                    <button
-                      type="button"
-                      className={`ladder-rung${supported ? ' active' : ''}`}
-                      onClick={() => setSupported(true)}
-                    >
-                      With a hint
-                    </button>
-                  </div>
-                  {supported ? (
-                    <p className="caption quiet" style={{ marginTop: 'var(--space-2)' }}>
-                      Hint: the three sides satisfy a² + b² = c². Working with a hint helps you learn — the
-                      unaided try is what shows mastery.
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="rec-actions" style={{ marginTop: 'var(--space-5)' }}>
-                  <Button variant="accent" size="sm" onClick={() => record(true)}>
-                    <Icon name="check" size="sm" />
-                    I got it right
-                  </Button>
-                  <Button variant="secondary" size="sm" onClick={() => record(false)}>
-                    I missed it
-                  </Button>
-                  <span className="caption muted">A miss repeats the idea; a win moves you on.</span>
-                </div>
-                <div style={{ marginTop: 'var(--space-3)' }}>
-                  <SourceNote source={itemsSource} />
-                </div>
-              </SpotlightCard>
+              <div className="rec-actions" style={{ marginTop: 'var(--space-5)' }}>
+                <Button variant="accent" size="sm" onClick={() => record(true)}>
+                  <Icon name="check" size="sm" />
+                  I got it right
+                </Button>
+                <Button variant="secondary" size="sm" onClick={() => record(false)}>
+                  I missed it
+                </Button>
+                <span className="caption muted">A miss repeats the idea; a win moves you on.</span>
+              </div>
+              <div style={{ marginTop: 'var(--space-3)' }}>
+                <SourceNote source={itemsSource} />
+              </div>
             </section>
           )}
         </>
@@ -280,4 +326,8 @@ function difficultyLabel(d: number): string {
   if (d <= 0.4) return 'Warm-up';
   if (d <= 0.55) return 'Core';
   return 'Stretch';
+}
+
+function capitalise(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

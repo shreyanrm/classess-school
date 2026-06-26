@@ -5,6 +5,7 @@ import { Button, Icon, ProgressBar, SpotlightCard, Tag } from '@classess/design-
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { SourceNote } from '../_components/SourceNote';
+import { StatMatrix, Panel, FlagRow, HandnotePanel, SecHead } from '../_components/StudentComposed';
 import { useGatewaySource } from '@/lib/useGatewaySource';
 import { CLASS_LABEL, ROSTER } from '@/lib/loopData';
 
@@ -88,15 +89,63 @@ export default function ClassroomPage() {
   }
   const totalVotes = tally.reduce((a, b) => a + b, 0);
 
+  const aside = (
+    <>
+      <div className="ignite-card reveal reveal-3">
+        <div className="row-between" style={{ marginBottom: 14 }}>
+          <span className="overline">Live now</span>
+          <Icon name="flame" size="sm" style={{ color: 'var(--accent)' }} />
+        </div>
+        <div className="who">{CLASS_LABEL} is in session</div>
+        <p className="body-sm" style={{ opacity: 0.82, marginTop: 8 }}>
+          {pollLive
+            ? `The poll is live — ${totalVotes} ${totalVotes === 1 ? 'response' : 'responses'} so far.`
+            : 'The board is ready. Launch a poll or a device-free check when the moment calls for it — nothing broadcasts on its own.'}
+        </p>
+      </div>
+
+      <Panel title="Attention signals" meta={<Tag tone="info" dot>assist</Tag>}>
+        <p className="caption" style={{ marginBottom: 'var(--space-3)' }}>
+          Gentle, assistive cues. On-device only — never a grade from a face.
+        </p>
+        {SIGNALS.map((s) => (
+          <FlagRow key={s.label} flag={{ icon: s.icon, title: s.label, caption: s.detail }} />
+        ))}
+      </Panel>
+
+      <HandnotePanel>energy dipped after the worked example — a quick poll re-engages</HandnotePanel>
+    </>
+  );
+
   return (
     <SurfaceShell
       eyebrow={`${CLASS_LABEL} · live`}
       title="Classroom delivery"
+      meta={[
+        { value: ROSTER.length, label: 'in the room' },
+        { label: pollLive ? 'poll live' : 'board ready' },
+        { label: 'teacher-launched' },
+      ]}
+      tabs={[
+        { label: 'Delivery', active: true },
+        { label: 'Attendance', href: '/teacher/attendance' },
+        { label: 'Class insights', href: '/insights' },
+      ]}
+      aside={aside}
       dockIntro="The board is ready. I can launch a poll mid-lesson, run a device-free check, and pass you gentle attention signals — assistive only, never a grade from a face. You launch everything."
       dockChips={['Launch a quick poll', 'Run a device-free check', 'What is the room telling me']}
     >
-      <section className="stack">
-        <p className="overline">The interactive board</p>
+      <StatMatrix
+        columns={3}
+        stats={[
+          { label: 'In the room', value: ROSTER.length, delta: 'present', deltaDir: 'up' },
+          { label: 'Poll responses', value: totalVotes, delta: pollLive ? 'live' : 'not launched', deltaDir: 'flat' },
+          { label: 'Board strokes', value: strokes.length, delta: 'on the board', deltaDir: 'flat' },
+        ]}
+      />
+
+      <section className="stack reveal reveal-3" style={{ marginTop: 'var(--space-6)' }}>
+        <SecHead title="The interactive board" meta={<span className="overline">infinite canvas</span>} />
         <div className="row" style={{ gap: 'var(--space-2)', marginBottom: 'var(--space-2)' }}>
           <Button variant={tool === 'pen' ? 'primary' : 'secondary'} size="sm" onClick={() => setTool('pen')}>
             <Icon name="spark" size="sm" /> Pen
@@ -137,8 +186,8 @@ export default function ClassroomPage() {
         ) : null}
       </section>
 
-      <section className="stack">
-        <p className="overline">Live poll</p>
+      <section className="stack reveal reveal-4" style={{ marginTop: 'var(--space-6)' }}>
+        <SecHead title="Live poll" meta={<Tag tone={pollLive ? 'success' : 'neutral'} dot>{pollLive ? 'Live' : 'Standby'}</Tag>} />
         <SpotlightCard padLg>
           <div className="row-between" style={{ alignItems: 'flex-start' }}>
             <h3 className="body-lg" style={{ margin: 0, maxWidth: 520 }}>
@@ -200,8 +249,8 @@ export default function ClassroomPage() {
         </SpotlightCard>
       </section>
 
-      <section className="stack">
-        <p className="overline">Device-free check</p>
+      <section className="stack reveal reveal-5" style={{ marginTop: 'var(--space-6)' }}>
+        <SecHead title="Device-free check" meta={<span className="overline">no devices needed</span>} />
         <SpotlightCard>
           <p className="body-sm">
             Where students have no device, each holds a unique response card. Photograph the room and
@@ -246,34 +295,15 @@ export default function ClassroomPage() {
         </SpotlightCard>
       </section>
 
-      <section className="stack">
-        <p className="overline">Attention signals</p>
-        <p className="caption quiet">Gentle, assistive cues. On-device only; never a grade from a face.</p>
-        <div className="stack" style={{ gap: 'var(--space-2)' }}>
-          {SIGNALS.map((s) => (
-            <SpotlightCard key={s.label}>
-              <div className="row-between" style={{ alignItems: 'flex-start' }}>
-                <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'flex-start' }}>
-                  <Icon name={s.icon} size="sm" />
-                  <div>
-                    <span className="body-sm">{s.label}</span>
-                    <p className="caption muted" style={{ marginTop: 2, maxWidth: 480 }}>
-                      {s.detail}
-                    </p>
-                  </div>
-                </div>
-                <Tag tone={s.tone}>assist</Tag>
-              </div>
-            </SpotlightCard>
-          ))}
-          <EvidenceDrawer
-            evidence={[
-              'Signals are computed on-device and assist the teacher; no face is stored or used to grade a student.',
-              'Engagement is gauged against later performance on the topic, not held against anyone in the moment.',
-            ]}
-            whySeeing="These are shown to help you read the room and adjust. They are never punitive and never feed a record about a student."
-          />
-        </div>
+      <section className="stack reveal reveal-6" style={{ marginTop: 'var(--space-6)' }}>
+        <SecHead title="How the room is read" meta={<span className="overline">privacy</span>} />
+        <EvidenceDrawer
+          evidence={[
+            'Signals are computed on-device and assist the teacher; no face is stored or used to grade a student.',
+            'Engagement is gauged against later performance on the topic, not held against anyone in the moment.',
+          ]}
+          whySeeing="The attention signals in the side rail are shown to help you read the room and adjust. They are never punitive and never feed a record about a student."
+        />
         <SourceNote source={source} />
       </section>
     </SurfaceShell>

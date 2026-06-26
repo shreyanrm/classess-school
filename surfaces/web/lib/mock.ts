@@ -39,7 +39,7 @@ export const SUBJECTS: SubjectInfo[] = [
   { name: 'Mathematics', code: 'MATH', accent: 'cobalt' },
   { name: 'Science', code: 'SCI', accent: 'emerald' },
   { name: 'English', code: 'ENG', accent: 'violet' },
-  { name: 'Social Studies', code: 'SST', accent: 'amber' },
+  { name: 'Social Studies', code: 'SST', accent: 'indigo' },
 ];
 
 /** The plain-language phrase for each mastery band — never a number. */

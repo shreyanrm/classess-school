@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ChildSwitcher } from '../../_components/ChildSwitcher';
@@ -21,24 +21,26 @@ import { sendEmail } from '@/lib/emailClient';
 import { useT } from '@/lib/i18n';
 
 /**
- * Assignments, exams and reports — with parent-specific feedback, celebration
- * points and next steps. Everything is written in the parent's language, never
- * a raw mark or formula. Reports are published by a human (consequential actions
- * never auto-fire); the parent reads what the school has chosen to share.
+ * Reports and feedback — recomposed to the sample-page bar. A stat matrix of
+ * plain-language counts (reports shared, celebration points, next steps,
+ * subjects covered), then a .cols layout:
+ *   · main — each shared report as a designed card, with a real end-to-end
+ *     "email this report" trigger over /api/email.
+ *   · aside — a "what to ask" panel that turns next steps into questions, and a
+ *     Caveat handnote. Reports are released by a human, never auto-fired.
+ *
+ * Gateway-first read; mock bundle on degrade; SourceNote degrades honestly.
+ * Generated feedback renders into the parent's language through tx(). Never a
+ * raw mark or formula. All five designed states ship.
  */
 export default function ParentReportsPage() {
   const [childId, setChildId] = useState(DEFAULT_CHILD_ID);
   const child = findChild(childId);
-  // Gateway-first governed read; the mock bundle answers on degrade. Reports are
-  // released by a human (never auto-fired); five designed states via the hook.
   const { phase, data, source } = useParentRead(childId);
   const { emit } = useEmit();
   const { t } = useT();
 
-  // The report feedback / celebration / next-step are composed in English by the
-  // read; render them into the parent's language through the TRANSLATE capability
-  // (subject terms preserved). English readers skip the network.
-  const reports = data?.reports ?? [];
+  const reports = useMemo(() => data?.reports ?? [], [data]);
   const { tx, rendering, rendered, locale } = useReaderText(
     reports.flatMap((r) => [r.feedback, r.celebration, r.nextStep]),
   );
@@ -54,16 +56,85 @@ export default function ParentReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, childId]);
 
+  const counts = useMemo(() => {
+    if (!data) return { reports: 0, celebrations: 0, nextSteps: 0, subjects: 0 };
+    const subjects = new Set(data.reports.map((r) => r.subject)).size;
+    return {
+      reports: data.reports.length,
+      celebrations: data.reports.filter((r) => r.celebration).length,
+      nextSteps: data.reports.filter((r) => r.nextStep).length,
+      subjects,
+    };
+  }, [data]);
+
+  const hasReports = phase === 'ready' && child && data && data.reports.length > 0;
+
   return (
     <SurfaceShell
       eyebrow={child ? child.section : t('parent.reports.eyebrow')}
       title={child ? `${child.label}'s reports and feedback` : 'Reports and feedback'}
+      breadcrumb={[
+        { label: 'Family', href: '/parent' },
+        { label: t('parent.reports.eyebrow') },
+      ]}
+      meta={[
+        { value: counts.reports || '—', label: 'shared with you' },
+        { value: counts.subjects || '—', label: 'subjects covered' },
+        { label: 'released by a teacher, never automatically' },
+      ]}
+      tabs={[
+        { label: 'This week', href: '/parent' },
+        { label: 'The child', href: '/parent/child' },
+        { label: 'Reports', active: true },
+        { label: 'Together', href: '/parent/together' },
+      ]}
       dockIntro="Ask what a report means in plain language, or how to act on a next step at home."
       dockChips={['What does this mean', 'What should we do next', 'Show the celebration points']}
+      aside={
+        !hasReports ? null : (
+          <>
+            <div className="panel reveal reveal-2">
+              <div className="sec-head" style={{ marginBottom: 8 }}>
+                <h4 className="h4" style={{ margin: 0 }}>
+                  What to ask
+                </h4>
+                <Tag tone="info">{counts.nextSteps}</Tag>
+              </div>
+              <p className="caption" style={{ marginBottom: 12 }}>
+                Each next step, turned into one calm question for the teacher.
+              </p>
+              {data!.reports.map((r) => (
+                <div className="flag" key={r.id}>
+                  <div className="flag-ic">
+                    <Icon name="target" size="sm" />
+                  </div>
+                  <div>
+                    <div className="body-sm" style={{ fontWeight: 500 }}>
+                      {r.title}
+                    </div>
+                    <p className="caption">{tx(r.nextStep)}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="panel reveal reveal-4" style={{ padding: '18px 20px' }}>
+              <p className="handnote" style={{ fontSize: 22 }}>
+                read the celebration first — it is true, and it is theirs
+              </p>
+            </div>
+          </>
+        )
+      }
     >
       <section className="stack">
-        <div className="row-between" style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          <p className="overline" style={{ margin: 0 }}>{t('parent.reports.whose')}</p>
+        <div
+          className="row-between"
+          style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}
+        >
+          <p className="overline" style={{ margin: 0 }}>
+            {t('parent.reports.whose')}
+          </p>
           <LanguageBadge locale={locale} rendering={rendering} rendered={rendered} />
         </div>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
@@ -88,11 +159,16 @@ export default function ParentReportsPage() {
         </section>
       ) : (
         <>
+          <ReportsMatrix counts={counts} />
+
           <section className="stack">
-            <p className="overline">{t('parent.reports.sharedWithYou')}</p>
-            <p className="caption quiet">
-              {t('parent.reports.plainNote')}
-            </p>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                {t('parent.reports.sharedWithYou')}
+              </h3>
+              <span className="overline">plain language, never a raw mark</span>
+            </div>
+            <p className="caption quiet">{t('parent.reports.plainNote')}</p>
             {data.reports.map((r) => (
               <ReportCard key={r.id} report={r} childLabel={child.label} tx={tx} />
             ))}
@@ -110,6 +186,33 @@ export default function ParentReportsPage() {
   );
 }
 
+/** The plain-language count matrix for reports. Counts, never marks. */
+function ReportsMatrix({
+  counts,
+}: {
+  counts: { reports: number; celebrations: number; nextSteps: number; subjects: number };
+}) {
+  const cells: Array<{ label: string; value: number; delta: string; tone: 'up' | 'flat' }> = [
+    { label: 'Shared with you', value: counts.reports, delta: 'by a teacher, deliberately', tone: 'flat' },
+    { label: 'Celebration points', value: counts.celebrations, delta: 'true, and theirs', tone: 'up' },
+    { label: 'Next steps', value: counts.nextSteps, delta: 'concrete and supportive', tone: 'flat' },
+    { label: 'Subjects covered', value: counts.subjects, delta: 'across this term', tone: 'flat' },
+  ];
+  return (
+    <div className="matrix reveal reveal-1" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      {cells.map((c) => (
+        <div className="cell" key={c.label}>
+          <div className="cell-label">{c.label}</div>
+          <div className="cell-value">
+            <span>{c.value}</span>
+          </div>
+          <div className={`cell-delta ${c.tone}`}>{c.delta}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ReportCard({
   report,
   childLabel,
@@ -121,10 +224,6 @@ function ReportCard({
   tx: (text: string) => string;
 }) {
   const { t } = useT();
-  // "Email this report" — a real end-to-end trigger over /api/email. The browser
-  // posts the typed { kind:'weekly-briefing', data } and the server route renders
-  // the branded HTML and (when the Resend key is present) sends it. With no key
-  // it resolves { sent:false } and we show a calm "saved, not sent" state.
   const [emailing, setEmailing] = useState(false);
   const [email, setEmail] = useState('');
   const [busy, setBusy] = useState(false);
@@ -151,7 +250,9 @@ function ReportCard({
             { title: 'One next step.', detail: report.nextStep },
           ],
           reportUrl:
-            typeof window !== 'undefined' ? `${window.location.origin}/parent/reports` : '/parent/reports',
+            typeof window !== 'undefined'
+              ? `${window.location.origin}/parent/reports`
+              : '/parent/reports',
         },
       },
       // The parent reading their own child's shared report has consent by design.
@@ -166,15 +267,31 @@ function ReportCard({
   }
 
   return (
-    <SpotlightCard padLg>
-      <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
-        <h3 className="body-lg" style={{ margin: 0 }}>
-          {report.title}
-        </h3>
-        <span className="caption muted">{report.shared}</span>
+    <SpotlightCard padLg data-subject={report.subject}>
+      <div
+        className="row"
+        style={{ gap: 'var(--space-3)', alignItems: 'center', marginBottom: 'var(--space-3)' }}
+      >
+        <span
+          className="report-subject-chip"
+          style={
+            {
+              '--subject': `var(--${report.subject})`,
+              '--subject-ink': `var(--${report.subject}-ink)`,
+            } as React.CSSProperties
+          }
+        >
+          {report.subject.slice(0, 3).toUpperCase()}
+        </span>
+        <div className="row-between" style={{ flex: 1, alignItems: 'flex-start', gap: 'var(--space-4)' }}>
+          <h3 className="body-lg" style={{ margin: 0 }}>
+            {report.title}
+          </h3>
+          <span className="caption muted">{report.shared}</span>
+        </div>
       </div>
 
-      <p className="body-sm" style={{ marginTop: 'var(--space-3)' }}>
+      <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
         {tx(report.feedback)}
       </p>
 
@@ -209,10 +326,24 @@ function ReportCard({
             placeholder="you@example.com"
           />
           <div className="rec-actions">
-            <Button variant="accent" size="sm" disabled={busy} onClick={sendReport} data-testid="report-email-send">
+            <Button
+              variant="accent"
+              size="sm"
+              disabled={busy}
+              onClick={sendReport}
+              data-testid="report-email-send"
+            >
               {busy ? 'Sending' : t('parent.reports.send')}
             </Button>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => { setEmailing(false); setStatus(null); }}>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={busy}
+              onClick={() => {
+                setEmailing(false);
+                setStatus(null);
+              }}
+            >
               Not now
             </Button>
           </div>
@@ -224,7 +355,12 @@ function ReportCard({
         </div>
       ) : (
         <div className="rec-actions">
-          <Button variant="secondary" size="sm" onClick={() => setEmailing(true)} data-testid="report-email-open">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => setEmailing(true)}
+            data-testid="report-email-open"
+          >
             <Icon name="send" size="sm" />
             {t('parent.reports.email')}
           </Button>

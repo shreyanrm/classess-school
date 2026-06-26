@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Button, Icon, Matrix, Cell, SpotlightCard, Stat, Tag } from '@classess/design-system';
+import Link from 'next/link';
+import { Button, Icon, Matrix, Cell, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { StatCell } from '../../_components/StatCell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { useAdminConfig } from '@/lib/adminConfig';
@@ -59,45 +61,118 @@ export default function AdminIntegrationsPage() {
     <SurfaceShell
       eyebrow="Integrations"
       title="The connector hub"
+      breadcrumb={[{ label: 'School', href: '/' }, { label: 'Integrations' }]}
+      meta={[
+        { value: `${health.connected}/${health.total}`, label: 'connected' },
+        { value: health.awaitingApproval, label: 'awaiting approval' },
+        { value: health.needsAttention, label: 'need a look' },
+        { label: 'two tracks, governed apart' },
+      ]}
+      tabs={[
+        { label: 'Connectors', active: true },
+        { label: 'Control centre', href: '/admin/control-centre' },
+        { label: 'Governance', href: '/admin/governance' },
+        { label: 'Setup', href: '/admin/setup' },
+      ]}
+      actions={
+        <Link href="/admin/control-centre" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
+          <Icon name="chart" size="sm" />
+          AI control centre
+        </Link>
+      }
       dockIntro="Connect the standards and platforms your campuses already use. Turning on a connector that writes data out is yours to approve; it never switches itself on. Ask me what a connector moves."
       dockChips={['What does OneRoster sync', 'Why is SCORM failing', 'Explain Track 1 vs Track 2']}
+      aside={
+        surface.phase !== 'ready' ? null : (
+          <>
+            <div className="ignite-card reveal reveal-2">
+              <div className="row-between" style={{ marginBottom: 14 }}>
+                <span className="overline">Your approval</span>
+                <Icon name="flame" size="md" style={{ color: 'var(--accent)' }} />
+              </div>
+              <div className="who">{health.awaitingApproval} connectors await your say-so</div>
+              <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
+                A connector that writes data outward never switches itself on. It sits in awaiting
+                approval until you explicitly connect it.
+              </p>
+            </div>
+
+            <div className="panel">
+              <div className="sec-head" style={{ marginBottom: 8 }}>
+                <h4 className="h4" style={{ margin: 0 }}>
+                  Need a look
+                </h4>
+                <Tag tone={health.needsAttention > 0 ? 'warning' : 'success'}>{health.needsAttention}</Tag>
+              </div>
+              <p className="caption" style={{ marginBottom: 12 }}>
+                Connectors with a failed or held sync — clear or retry to resume.
+              </p>
+              {connectors.filter((c) => c.state === 'attention' || c.state === 'error').length === 0 ? (
+                <p className="body-sm muted" style={{ margin: 0 }}>
+                  Every connected sync is healthy.
+                </p>
+              ) : (
+                connectors
+                  .filter((c) => c.state === 'attention' || c.state === 'error')
+                  .map((c) => (
+                    <div className="flag" key={c.id}>
+                      <div className="flag-ic">
+                        <Icon name="warning" size="sm" />
+                      </div>
+                      <div>
+                        <div className="body-sm" style={{ fontWeight: 500 }}>
+                          {c.name}
+                        </div>
+                        <p className="caption">{c.lastSync ?? 'Never synced'}</p>
+                      </div>
+                    </div>
+                  ))
+              )}
+            </div>
+
+            <div className="panel" style={{ padding: '18px 20px' }}>
+              <p className="handnote" style={{ fontSize: 22 }}>
+                records carry the opaque canonical id only — never a name crosses the bridge
+              </p>
+            </div>
+          </>
+        )
+      }
     >
       {surface.phase !== 'ready' ? (
         <ReadStates phase={surface.phase} onRetry={surface.refresh} />
       ) : (
-      <>
-      <section className="stack">
-        <div className="cols-2">
-          <Stat label="Connected" value={health.connected} suffix={` of ${health.total}`} />
-          <Stat label="Awaiting your approval" value={health.awaitingApproval} />
-          <Stat label="Need a look" value={health.needsAttention} />
-          <Stat label="Standards and platforms" value={health.total} />
-        </div>
-        <p className="caption quiet">
-          Last sync and health update on each call through the gateway. Behavioural records carry
-          only the opaque canonical id, never personal information.{' '}
-          {surface.source === 'gateway'
-            ? 'Connector states are read back from the event store, recorded as you set them.'
-            : 'Connector states save as you set them; they record to the event store when it is reachable.'}
-        </p>
-      </section>
+        <>
+          <Matrix columns={4} className="reveal reveal-1">
+            <StatCell label="Connected" value={health.connected} delta={`of ${health.total} offered`} tone="up" />
+            <StatCell label="Awaiting approval" value={health.awaitingApproval} delta="writes data out" tone={health.awaitingApproval > 0 ? 'down' : 'flat'} />
+            <StatCell label="Need a look" value={health.needsAttention} delta="failed or held" tone={health.needsAttention > 0 ? 'down' : 'flat'} />
+            <StatCell label="Standards and platforms" value={health.total} delta="across two tracks" tone="flat" />
+          </Matrix>
+          <p className="caption quiet" style={{ margin: 0 }}>
+            Last sync and health update on each call through the gateway. Behavioural records carry only
+            the opaque canonical id, never personal information.{' '}
+            {surface.source === 'gateway'
+              ? 'Connector states are read back from the event store, recorded as you set them.'
+              : 'Connector states save as you set them; they record to the event store when it is reachable.'}
+          </p>
 
-      <ConnectorTrackSection
-        title={TRACK_LABEL.standards}
-        note="Open, board-agnostic interoperability standards. Reading these in is low-risk."
-        connectors={standards}
-        onState={setState}
-      />
+          <ConnectorTrackSection
+            title={TRACK_LABEL.standards}
+            note="Open, board-agnostic interoperability standards. Reading these in is low-risk."
+            connectors={standards}
+            onState={setState}
+          />
 
-      <ConnectorTrackSection
-        title={TRACK_LABEL.platform}
-        note="Proprietary and edge bridges. Kept separate from the open standards in config, and governed apart."
-        connectors={platform}
-        onState={setState}
-      />
+          <ConnectorTrackSection
+            title={TRACK_LABEL.platform}
+            note="Proprietary and edge bridges. Kept separate from the open standards in config, and governed apart."
+            connectors={platform}
+            onState={setState}
+          />
 
-      <SourceNote source={surface.source} />
-      </>
+          <SourceNote source={surface.source} />
+        </>
       )}
     </SurfaceShell>
   );
@@ -115,9 +190,16 @@ function ConnectorTrackSection({
   onState: (id: string, state: ConnectorState) => void;
 }) {
   return (
-    <section className="stack">
-      <p className="overline">{title}</p>
-      <p className="caption quiet">{note}</p>
+    <section>
+      <div className="sec-head">
+        <h3 className="h3" style={{ margin: 0 }}>
+          {title}
+        </h3>
+        <span className="overline">{connectors.length} offered</span>
+      </div>
+      <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+        {note}
+      </p>
       {connectors.length === 0 ? (
         <SpotlightCard>
           <div className="empty">

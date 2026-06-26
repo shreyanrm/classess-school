@@ -1,13 +1,21 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Button, CrystallizeNode, Icon, SpotlightCard, Tag } from '@classess/design-system';
+import { useEffect, useMemo, useState } from 'react';
+import { Button, CrystallizeNode, Icon, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ProofArtifact } from '../../_components/ProofArtifact';
 import { CredentialItem } from '../../_components/CredentialItem';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { SourceNote } from '../../_components/SourceNote';
 import { openVidya } from '../../_components/VidyaOrb';
+import {
+  StatMatrix,
+  IgniteCard,
+  Panel,
+  FlagRow,
+  HandnotePanel,
+  SecHead,
+} from '../../_components/StudentComposed';
 import { useStore } from '@/lib/useStore';
 import { useGatewaySource } from '@/lib/useGatewaySource';
 import { CURRENT_STUDENT } from '@/lib/loopData';
@@ -44,17 +52,14 @@ function downloadRecord(timeline: MasteryMomentView[], credentials: CredentialVi
 }
 
 /**
- * Learner portfolio and credentials (d14). A timeline of mastered topics, each
- * with its evidence and a shareable proof; achievements / credentials with an
- * explicit issue + verify state (verifiable, tamper-evident; issuing is
- * permission-laddered); and an export/share-record action. Plain language only —
- * never a raw composite, score, or formula.
+ * Learner portfolio and credentials — composed dense. A four-up read, a portable
+ * export the learner controls, a timeline of mastered topics (each with evidence
+ * and the Crystallize mark on an unaided demonstration), a shareable proof, and
+ * verifiable credentials. The aside carries the proudest moment + a human note.
+ * Plain language only — never a raw composite, score, or formula.
  */
 export function StudentPortfolio() {
   const { state } = useStore();
-  // Probe the learner's governed mastery read so the record can show the
-  // OBSERVABLE source marker. The timeline/credentials render either way (plain
-  // language only), but never as if live when the spine did not answer.
   const { source } = useGatewaySource('learning', { subject: CURRENT_STUDENT.ref });
   const [load, setLoad] = useState<LoadState>('loading');
   const [timeline, setTimeline] = useState<MasteryMomentView[]>([]);
@@ -71,60 +76,62 @@ export function StudentPortfolio() {
     }
   }, [state]);
 
+  const independentCount = useMemo(() => timeline.filter((m) => m.independent).length, [timeline]);
+  const verifiableCount = useMemo(() => credentials.filter((c) => c.verifiable).length, [credentials]);
+  const proudest = useMemo(() => timeline.find((m) => m.independent), [timeline]);
+
   return (
     <SurfaceShell
+      breadcrumb={[{ label: 'Learning', href: '/student' }, { label: 'Portfolio' }]}
       eyebrow="Your record"
       title="Portfolio and credentials"
+      meta={[
+        { value: timeline.length, label: 'mastered' },
+        { value: independentCount, label: 'on your own' },
+        { label: 'yours to share' },
+      ]}
       dockIntro="This is the record of what you can do, in plain language, with the evidence behind it. I can help you choose what to share — sharing is always your decision."
       dockChips={['What can I share', 'Explain this credential', 'Show my proudest moment']}
-    >
-      {/* Export / share the whole record. A deliberate learner action; never auto. */}
-      <section className="stack">
-        <SpotlightCard hero padLg>
-          <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
-            <div>
-              <p className="overline" style={{ margin: 0 }}>
-                Your record
-              </p>
-              <h3 className="body-lg" style={{ margin: '4px 0 0' }}>
-                A portable record you control
-              </h3>
-            </div>
-            <Tag tone="info">Plain language</Tag>
-          </div>
-          <p className="body-sm muted" style={{ marginTop: 'var(--space-3)' }}>
-            Export your record with a school, a programme, or anyone you choose. It carries what you
-            can do and the evidence behind it — never a raw score.
-          </p>
-          <div className="rec-actions">
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={load !== 'ready'}
-              onClick={() => {
-                downloadRecord(timeline, credentials);
-                setExporting(true);
-              }}
-            >
-              Download my record
-              <Icon name="send" size="sm" />
-            </Button>
-            {exporting ? (
-              <span className="row body-sm" style={{ gap: 'var(--space-2)', color: 'var(--text-secondary)' }}>
-                <Icon name="check" size="sm" />
-                Downloaded. The file is yours to share wherever you choose.
-              </span>
-            ) : null}
-          </div>
-          <p className="caption quiet" style={{ marginTop: 'var(--space-3)' }}>
-            Nothing leaves this surface until you choose to share it — the download stays on your
-            device.
-          </p>
-        </SpotlightCard>
-      </section>
+      aside={
+        load === 'ready' ? (
+          <>
+            {proudest ? (
+              <IgniteCard
+                when="Proudest moment"
+                who={proudest.topicName}
+                detail="A real, unaided demonstration — verified and shareable. This is the line that matters."
+              />
+            ) : (
+              <Panel title="Your spark" meta={<span className="overline">soon</span>}>
+                <p className="caption">
+                  The moment you do a topic on your own, it lights here — a real, unaided demonstration.
+                </p>
+              </Panel>
+            )}
 
+            <Panel title="What you can share" meta={<Tag tone="info"><span className="dot" />{verifiableCount}</Tag>}>
+              {verifiableCount === 0 ? (
+                <p className="caption">When a credential is verified, it becomes shareable here.</p>
+              ) : (
+                credentials
+                  .filter((c) => c.verifiable)
+                  .map((c) => (
+                    <FlagRow
+                      key={c.id}
+                      flag={{ icon: 'check', title: c.title, caption: 'Signed and verifiable — share with anyone.' }}
+                    />
+                  ))
+              )}
+            </Panel>
+
+            <HandnotePanel>nothing leaves until you choose — the record is yours</HandnotePanel>
+          </>
+        ) : undefined
+      }
+    >
       {load === 'loading' ? (
         <section className="stack" aria-busy="true" aria-label="Loading your record">
+          <div className="skeleton" style={{ height: 96 }} />
           <div className="skeleton" style={{ height: 160 }} />
           <div className="skeleton" style={{ height: 160 }} />
         </section>
@@ -136,9 +143,59 @@ export function StudentPortfolio() {
         </div>
       ) : (
         <>
+          <StatMatrix
+            stats={[
+              { label: 'Mastered', value: timeline.length, delta: 'topics with evidence', deltaDir: 'up' },
+              { label: 'On your own', value: independentCount, delta: independentCount ? 'the green spark' : 'soon', deltaDir: independentCount ? 'up' : 'flat' },
+              { label: 'Credentials', value: credentials.length, delta: 'earned', deltaDir: 'flat' },
+              { label: 'Verifiable', value: verifiableCount, delta: verifiableCount ? 'shareable' : 'none yet', deltaDir: 'flat' },
+            ]}
+          />
+
+          {/* Export / share the whole record. A deliberate learner action; never auto. */}
+          <section className="next-step-hero reveal reveal-3">
+            <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+              <div>
+                <p className="overline" style={{ margin: 0 }}>
+                  Your record
+                </p>
+                <h3 className="display-sm" style={{ margin: '6px 0 0', fontSize: 24 }}>
+                  A portable record you control
+                </h3>
+              </div>
+              <Tag tone="info">Plain language</Tag>
+            </div>
+            <p className="body-sm muted" style={{ marginTop: 'var(--space-3)', maxWidth: 560 }}>
+              Export your record with a school, a programme, or anyone you choose. It carries what you can
+              do and the evidence behind it — never a raw score.
+            </p>
+            <div className="rec-actions" style={{ marginTop: 'var(--space-4)' }}>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => {
+                  downloadRecord(timeline, credentials);
+                  setExporting(true);
+                }}
+              >
+                Download my record
+                <Icon name="send" size="sm" />
+              </Button>
+              {exporting ? (
+                <span className="row body-sm" style={{ gap: 'var(--space-2)', color: 'var(--text-secondary)' }}>
+                  <Icon name="check" size="sm" />
+                  Downloaded. The file is yours to share wherever you choose.
+                </span>
+              ) : null}
+            </div>
+            <p className="caption quiet" style={{ marginTop: 'var(--space-3)' }}>
+              Nothing leaves this surface until you choose to share it — the download stays on your device.
+            </p>
+          </section>
+
           {/* Timeline of mastered topics. */}
-          <section className="stack">
-            <p className="overline">What you have mastered</p>
+          <section>
+            <SecHead title="What you have mastered" meta={<span className="overline">with the evidence</span>} />
             {timeline.length === 0 ? (
               <div className="empty">
                 <Icon name="spark" size="lg" className="glyph" />
@@ -162,7 +219,7 @@ export function StudentPortfolio() {
                     <div>
                       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
                         <span className="body">{m.topicName}</span>
-                        {m.independent ? <Tag tone="success">On your own</Tag> : <Tag tone="neutral">Reliable</Tag>}
+                        {m.independent ? <Tag tone="success">On your own</Tag> : <Tag tone="info">Reliable</Tag>}
                       </div>
                       <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
                         {m.plainLanguage}
@@ -184,16 +241,16 @@ export function StudentPortfolio() {
           </section>
 
           {/* Proudest moment — a shareable proof artifact. */}
-          {timeline.find((m) => m.independent) ? (
-            <section className="stack">
-              <p className="overline">A proud moment to share</p>
-              <ProofArtifact proof={timeline.find((m) => m.independent)!.proof} voice="self" />
+          {proudest ? (
+            <section>
+              <SecHead title="A proud moment to share" meta={<span className="overline">shareable proof</span>} />
+              <ProofArtifact proof={proudest.proof} voice="self" />
             </section>
           ) : null}
 
           {/* Credentials. */}
-          <section className="stack">
-            <p className="overline">Achievements and credentials</p>
+          <section>
+            <SecHead title="Achievements and credentials" meta={<span className="overline">verifiable</span>} />
             {credentials.length === 0 ? (
               <div className="empty">
                 <Icon name="check" size="lg" className="glyph" />

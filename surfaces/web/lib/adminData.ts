@@ -371,3 +371,162 @@ export function pacingSummary(rows: PacingRow[] = PACING_ROWS) {
     autoEligible: behind.filter((r) => r.lowRisk).length,
   };
 }
+
+/* -------------------------------------------------- Section / cohort detail */
+
+/**
+ * A per-subject roll-up inside a section's internal detail — the class-average
+ * mastery + the current focus topic. Cool/brand subject hue only (never coral),
+ * the colour band carrying the subject identity. A direction, never a grade.
+ */
+export interface SectionSubject {
+  name: string;
+  code: string;
+  /** Cool/brand subject accent — never the ultramarine signature, never coral. */
+  accent: 'cobalt' | 'cyan' | 'emerald' | 'violet' | 'indigo' | 'tiffany' | 'grape' | 'magenta';
+  focus: string;
+  blurb: string;
+  /** Class-average composite, 0..100 — a plain-language read, not a learner score. */
+  average: number;
+}
+
+/** A learner row in a section's internal detail (generic label, never a name). */
+export interface SectionLearner {
+  id: string;
+  label: string;
+  focus: string;
+  mastery: number;
+  independent: number;
+  standing: 'mastered' | 'developing' | 'needs-work' | 'at-risk';
+}
+
+/** A flagged gap inside a section, ranked by impact (for the aside panel). */
+export interface SectionFlag {
+  id: string;
+  topic: string;
+  note: string;
+}
+
+/** A section's full internal detail — the per-class/cohort drill-down. */
+export interface SectionDetail {
+  ref: string;
+  label: string;
+  grade: string;
+  teacher: string;
+  learners: number;
+  /** Class-average mastery composite, 0..100 (a direction, never a grade). */
+  mastery: number;
+  /** Share working independently, 0..100. */
+  independent: number;
+  /** Attendance, 0..100. */
+  attendance: number;
+  /** Learners flagged at risk in this section. */
+  atRisk: number;
+  /** Whether the section is behind the pacing plan. */
+  behindPlan: boolean;
+  /** Plain-language pacing read. */
+  pacingNote: string;
+  subjects: SectionSubject[];
+  roster: SectionLearner[];
+  flags: SectionFlag[];
+  schedule: { t: string; subject: string; note: string }[];
+  /** The independent-mastery moment for the dark ignite-card. */
+  ignite: { who: string; note: string };
+  handnote: string;
+}
+
+const SECTION_DETAILS: SectionDetail[] = [
+  {
+    ref: '10-b',
+    label: 'Section 10-B',
+    grade: 'Grade 10',
+    teacher: 'Class teacher, 10-B',
+    learners: 38,
+    mastery: 74,
+    independent: 61,
+    attendance: 96,
+    atRisk: 2,
+    behindPlan: true,
+    pacingNote: 'Two units behind on the Mathematics plan; a low-risk recovery is staged for approval.',
+    subjects: [
+      { name: 'Mathematics', code: 'MTH', accent: 'violet', focus: 'Trigonometry', blurb: 'Ratios in right triangles.', average: 78 },
+      { name: 'Physics', code: 'PHY', accent: 'cyan', focus: 'Kinematics', blurb: 'Motion in one dimension.', average: 62 },
+      { name: 'Chemistry', code: 'CHM', accent: 'magenta', focus: 'Mole concept', blurb: 'Stoichiometry basics.', average: 48 },
+      { name: 'Biology', code: 'BIO', accent: 'emerald', focus: 'Cell division', blurb: 'Mitosis and meiosis.', average: 88 },
+    ],
+    roster: [
+      { id: 'a', label: 'Student A', focus: 'Trigonometry', mastery: 94, independent: 90, standing: 'mastered' },
+      { id: 'b', label: 'Student B', focus: 'Kinematics', mastery: 81, independent: 72, standing: 'mastered' },
+      { id: 'c', label: 'Student C', focus: 'Mole concept', mastery: 68, independent: 55, standing: 'developing' },
+      { id: 'd', label: 'Student D', focus: 'Kinematics', mastery: 41, independent: 28, standing: 'needs-work' },
+      { id: 'e', label: 'Student E', focus: 'Cell division', mastery: 29, independent: 18, standing: 'at-risk' },
+      { id: 'f', label: 'Student F', focus: 'Trigonometry', mastery: 73, independent: 64, standing: 'developing' },
+    ],
+    flags: [
+      { id: 'f1', topic: 'Integer operations', note: 'Prerequisite gap holding back algebra for four students.' },
+      { id: 'f2', topic: 'Mole ratios', note: 'Procedural slips in seven of the last twenty attempts.' },
+      { id: 'f3', topic: 'Kinematics graphs', note: 'Correct but slow — a speed gap under timed conditions.' },
+    ],
+    schedule: [
+      { t: '09:00', subject: 'Mathematics', note: 'Trigonometry — heights and distances.' },
+      { t: '11:30', subject: 'Chemistry', note: 'Mole concept — guided practice.' },
+      { t: '14:00', subject: 'Intervention', note: 'Integer operations — four students.' },
+    ],
+    ignite: { who: 'Student A mastered Trigonometry', note: 'Independent mastery — no hints, verified across three attempts.' },
+    handnote: 'two parents still owe consent — nudge before Friday',
+  },
+  {
+    ref: '9-a',
+    label: 'Section 9-A',
+    grade: 'Grade 9',
+    teacher: 'Class teacher, 9-A',
+    learners: 34,
+    mastery: 69,
+    independent: 54,
+    attendance: 93,
+    atRisk: 3,
+    behindPlan: true,
+    pacingNote: 'Science is a practical short; the missed block folds into a combined session, no calendar change.',
+    subjects: [
+      { name: 'Mathematics', code: 'MTH', accent: 'cobalt', focus: 'Linear equations', blurb: 'Solving in one variable.', average: 71 },
+      { name: 'Science', code: 'SCI', accent: 'emerald', focus: 'Photosynthesis', blurb: 'Light and the leaf.', average: 58 },
+      { name: 'English', code: 'ENG', accent: 'violet', focus: 'Tenses in writing', blurb: 'Consistency across a paragraph.', average: 64 },
+      { name: 'Social', code: 'SOC', accent: 'tiffany', focus: 'Map skills', blurb: 'Reading scale and direction.', average: 76 },
+    ],
+    roster: [
+      { id: 'a', label: 'Student A', focus: 'Photosynthesis', mastery: 62, independent: 40, standing: 'developing' },
+      { id: 'b', label: 'Student B', focus: 'Linear equations', mastery: 88, independent: 80, standing: 'mastered' },
+      { id: 'c', label: 'Student C', focus: 'Tenses in writing', mastery: 44, independent: 30, standing: 'needs-work' },
+      { id: 'd', label: 'Student D', focus: 'Map skills', mastery: 79, independent: 70, standing: 'mastered' },
+      { id: 'e', label: 'Student E', focus: 'Photosynthesis', mastery: 31, independent: 16, standing: 'at-risk' },
+      { id: 'f', label: 'Student F', focus: 'Linear equations', mastery: 67, independent: 52, standing: 'developing' },
+    ],
+    flags: [
+      { id: 'f1', topic: 'Photosynthesis', note: 'Reliable with guidance; independence is not yet moving for six.' },
+      { id: 'f2', topic: 'Tenses in writing', note: 'Two learners slipped this fortnight — scaffolded practice recommended.' },
+    ],
+    schedule: [
+      { t: '09:45', subject: 'Science', note: 'Photosynthesis — guided practice.' },
+      { t: '12:00', subject: 'English', note: 'Tenses — scaffolded writing.' },
+      { t: '15:00', subject: 'Coaching', note: 'New evaluation flow — teacher support.' },
+    ],
+    ignite: { who: 'Student B crossed into reliable on linear equations', note: 'A targeted reset two weeks ago moved them to independent on a fresh check.' },
+    handnote: 'the teacher here is new to the eval flow — a quiet support note, not a score',
+  },
+];
+
+/** Resolve one section's internal detail by ref, or null when unknown. */
+export function sectionDetail(ref: string): SectionDetail | null {
+  return SECTION_DETAILS.find((s) => s.ref === ref) ?? null;
+}
+
+/** The standing tag tone + label for a learner row. */
+export const STANDING_META: Record<
+  SectionLearner['standing'],
+  { tone: 'success' | 'info' | 'warning' | 'danger'; label: string }
+> = {
+  mastered: { tone: 'success', label: 'Mastered' },
+  developing: { tone: 'info', label: 'Developing' },
+  'needs-work': { tone: 'warning', label: 'Needs work' },
+  'at-risk': { tone: 'danger', label: 'At risk' },
+};

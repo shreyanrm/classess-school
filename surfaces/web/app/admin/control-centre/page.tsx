@@ -1,8 +1,10 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Button, Icon, ProgressBar, SpotlightCard, Stat, Tag } from '@classess/design-system';
+import Link from 'next/link';
+import { Button, Icon, Matrix, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { StatCell } from '../../_components/StatCell';
 import { RecommendationItem } from '../../_components/RecommendationItem';
 import { ReadStates } from '../../_components/ReadStates';
 import {
@@ -21,17 +23,14 @@ import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
 
 /**
- * The AI control centre — the institution-level governance of which agents run,
- * the tools they may reach, and model routing, with a LIVE approval queue and an
- * emergency disable. The most powerful surface, the best governed:
- *   - Per-agent governance: enable/disable each agent. The choice PERSISTS
- *     (survives reload). A consequential agent may prepare but never act on its
- *     own — its act is gated by the permission ladder.
- *   - Approval queue: the live proactive feed, read gateway-first; an Approve
- *     runs the prepared action THROUGH the ladder (the wall enforces it).
- *   - The confidence gate withholds low-confidence output for a human.
- *   - Emergency disable halts all autonomy at once, with a typed confirmation.
- * Every decision keeps its lineage in an append-only, immutable log.
+ * The AI control centre — recomposed to the sample-page bar. The most powerful
+ * surface, the best governed, now reads as a dense composed console: a page-head
+ * with a mono meta line + tab strip, a count-up confidence-gate stat matrix, then
+ * cols (the agents-and-tools cell matrix + the live approval queue + the
+ * per-track usage on the main; the gate ignite-card, the break-glass / lineage
+ * flag panel, and a handnote on the 320px aside). All wiring is preserved:
+ * per-agent enable persists, the approval queue is gateway-first through the
+ * proactive loop, the emergency disable records to the immutable audit trail.
  */
 export default function AdminControlCentrePage() {
   const totals = useMemo(() => gateTotals(TRACK_USAGE), []);
@@ -40,9 +39,8 @@ export default function AdminControlCentrePage() {
   const gov = useGovernance();
   const { emit } = useEmit();
 
-  // The emergency disable EMITS an attributed event AND records to the immutable
-  // audit trail through the wall, so "recorded to the immutable audit trail" is
-  // TRUE. Best-effort; never blocks the human authority switch.
+  const runningAgents = AGENTS.filter((a) => agentEnabled(a, adminConfig?.agents)).length;
+
   async function recordEmergencyDisable() {
     await gov.recordEmergencyDisable();
     await emit({
@@ -56,58 +54,135 @@ export default function AdminControlCentrePage() {
     <SurfaceShell
       eyebrow="Governance"
       title="The AI control centre"
+      breadcrumb={[{ label: 'School', href: '/' }, { label: 'Control centre' }]}
+      meta={[
+        { value: runningAgents, label: `of ${AGENTS.length} agents running` },
+        { value: `${totals.passRate}%`, label: 'passed the gate' },
+        { value: totals.withheld, label: 'held for a human' },
+      ]}
+      tabs={[
+        { label: 'Control centre', active: true },
+        { label: 'Governance', href: '/admin/governance' },
+        { label: 'Integrations', href: '/admin/integrations' },
+        { label: 'Intelligence', href: '/admin/intelligence' },
+      ]}
+      actions={
+        <Link href="/admin/governance" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
+          <Icon name="settings" size="sm" />
+          Policy and permissions
+        </Link>
+      }
       dockIntro="This is where you watch and bound the intelligence. You choose which agents run and their tools; the confidence gate holds back anything uncertain; the approval queue acts only on your say-so. Ask me to explain any number here."
       dockChips={['What does the gate withhold', 'Which agents are running', 'Show the break-glass log']}
-    >
-      <section className="stack">
-        <p className="overline">Confidence gate, this window</p>
-        <div className="cols-2">
-          <Stat label="Model calls" value={totals.calls} />
-          <Stat label="Passed the gate" value={totals.passed} delta="provisional auto" deltaDir="up" />
-          <Stat label="Withheld for review" value={totals.withheld} delta="held for a human" />
-          <Stat label="Pass rate" value={totals.passRate} suffix="%" />
-        </div>
-        <SpotlightCard>
-          <div className="row-between">
-            <span className="body-sm">Output released vs held by the confidence gate</span>
-            <span className="caption muted">{totals.passRate}% released</span>
+      aside={
+        <>
+          <div className="ignite-card reveal reveal-2">
+            <div className="row-between" style={{ marginBottom: 14 }}>
+              <span className="overline">Generate-and-verify</span>
+              <Icon name="flame" size="md" style={{ color: 'var(--accent)' }} />
+            </div>
+            <div className="who">{totals.withheld} outputs held for a human</div>
+            <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
+              Output below the gate is never shown as final. It waits for a human read — the
+              generate-and-verify rule, made visible.
+            </p>
           </div>
-          <ProgressBar
-            value={totals.passRate}
-            accent
-            label="Share of model output the confidence gate released as provisional"
-            style={{ marginTop: 'var(--space-3)' }}
-          />
-          <p className="caption quiet" style={{ marginTop: 'var(--space-3)' }}>
-            Output below the gate is never shown as final. It waits for a human read — this is the
-            generate-and-verify rule, made visible.
-          </p>
-        </SpotlightCard>
-      </section>
 
-      <section className="stack">
-        <p className="overline">Agents and their tools</p>
-        <p className="caption quiet">
+          <div className="panel">
+            <div className="sec-head" style={{ marginBottom: 8 }}>
+              <h4 className="h4" style={{ margin: 0 }}>
+                Break-glass and lineage
+              </h4>
+              <span className="overline">immutable</span>
+            </div>
+            <p className="caption" style={{ marginBottom: 12 }}>
+              Privileged actions are break-glass; every model decision keeps its lineage. A read,
+              never an edit.
+            </p>
+            {LINEAGE_LOG.map((r) => (
+              <div className="flag" key={r.id}>
+                <div className="flag-ic">
+                  <Icon name={r.breakGlass ? 'warning' : 'check'} size="sm" />
+                </div>
+                <div>
+                  <div className="body-sm row" style={{ gap: 'var(--space-2)', alignItems: 'center', fontWeight: 500 }}>
+                    {r.breakGlass ? <Tag tone="warning">Break-glass</Tag> : null}
+                    {r.actor}
+                  </div>
+                  <p className="caption">
+                    {r.action} · {r.when}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="panel" style={{ padding: '18px 20px' }}>
+            <p className="handnote" style={{ fontSize: 22 }}>
+              the gate is the point — nothing uncertain reaches a learner unread
+            </p>
+          </div>
+        </>
+      }
+    >
+      <Matrix columns={4} className="reveal reveal-1">
+        <StatCell label="Model calls" value={totals.calls} delta="this window" tone="flat" />
+        <StatCell label="Passed the gate" value={totals.passed} delta="provisional auto" tone="up" />
+        <StatCell label="Withheld for review" value={totals.withheld} delta="held for a human" tone="down" />
+        <StatCell label="Pass rate" value={totals.passRate} unit="%" delta="released as provisional" tone="up" />
+      </Matrix>
+      <SpotlightCard>
+        <div className="row-between">
+          <span className="body-sm">Output released vs held by the confidence gate</span>
+          <span className="caption muted">{totals.passRate}% released</span>
+        </div>
+        <ProgressBar
+          value={totals.passRate}
+          accent
+          label="Share of model output the confidence gate released as provisional"
+          style={{ marginTop: 'var(--space-3)' }}
+        />
+        <p className="caption quiet" style={{ marginTop: 'var(--space-3)' }}>
+          Output below the gate is never shown as final. It waits for a human read — this is the
+          generate-and-verify rule, made visible.
+        </p>
+      </SpotlightCard>
+
+      <section>
+        <div className="sec-head">
+          <h3 className="h3" style={{ margin: 0 }}>
+            Agents and their tools
+          </h3>
+          <span className="overline">{runningAgents} running</span>
+        </div>
+        <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
           Which agents run, what they may reach, and on which model track. Turning one on or off is
           saved and survives a reload. A consequential agent can prepare but never act on its own.
         </p>
-        <div className="cols-2">
+        <Matrix columns={2}>
           {AGENTS.map((agent) => (
-            <AgentCard
+            <AgentCell
               key={agent.id}
               agent={agent}
               enabled={agentEnabled(agent, adminConfig?.agents)}
               onToggle={(next) => setAgentEnabled(agent.id, next)}
             />
           ))}
-        </div>
+        </Matrix>
       </section>
 
-      <section className="stack">
-        <p className="overline">Approval queue</p>
-        <p className="caption quiet">
-          What the agents have prepared, waiting on your decision. Approving runs the action through
-          the permission ladder — nothing consequential fires until you approve.
+      <section>
+        <div className="sec-head">
+          <h3 className="h3" style={{ margin: 0 }}>
+            Approval queue
+          </h3>
+          <Tag tone={proactive.recommendations.length > 0 ? 'warning' : 'success'}>
+            {proactive.recommendations.length}
+          </Tag>
+        </div>
+        <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+          What the agents have prepared, waiting on your decision. Approving runs the action through the
+          permission ladder — nothing consequential fires until you approve.
         </p>
         {proactive.phase !== 'ready' ? (
           <ReadStates phase={proactive.phase} onRetry={proactive.refresh} />
@@ -120,7 +195,7 @@ export default function AdminControlCentrePage() {
             </div>
           </SpotlightCard>
         ) : (
-          <div className="stack">
+          <div className="stack" style={{ gap: 'var(--space-3)' }}>
             {proactive.source === 'fallback' ? (
               <p className="caption quiet">
                 Showing the last-known queue. It will refresh from the live spine when it is reachable.
@@ -133,54 +208,35 @@ export default function AdminControlCentrePage() {
         )}
       </section>
 
-      <section className="stack">
-        <p className="overline">Model usage by track</p>
-        <p className="caption quiet">
-          The open-standards track and the proprietary/edge track are reported and governed
-          separately, never blended.
-        </p>
-        <div className="cols-2">
-          {TRACK_USAGE.map((u) => (
-            <TrackCard key={u.track} usage={u} />
-          ))}
+      <section>
+        <div className="sec-head">
+          <h3 className="h3" style={{ margin: 0 }}>
+            Model usage by track
+          </h3>
+          <span className="overline">reported apart</span>
         </div>
+        <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+          The open-standards track and the proprietary/edge track are reported and governed separately,
+          never blended.
+        </p>
+        <Matrix columns={2}>
+          {TRACK_USAGE.map((u) => (
+            <TrackCell key={u.track} usage={u} />
+          ))}
+        </Matrix>
       </section>
 
       <EmergencyDisable onRecord={recordEmergencyDisable} />
-
-      <section className="stack">
-        <p className="overline">Break-glass and lineage</p>
-        <p className="caption quiet">
-          Privileged actions are break-glass and every model decision keeps its lineage. This log is
-          append-only and immutable — a read, never an edit.
-        </p>
-        <div className="admin-list">
-          {LINEAGE_LOG.map((r) => (
-            <div key={r.id} className="admin-list-row">
-              <div>
-                <div className="body-sm row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
-                  {r.breakGlass ? <Tag tone="warning">Break-glass</Tag> : null}
-                  {r.action}
-                </div>
-                <div className="caption muted">{r.actor}</div>
-              </div>
-              <span className="caption muted" style={{ whiteSpace: 'nowrap' }}>
-                {r.when}
-              </span>
-            </div>
-          ))}
-        </div>
-      </section>
     </SurfaceShell>
   );
 }
 
 /**
- * A single governed agent — its purpose, the tools it may reach, its model
- * track, and a real enable/disable that persists. A consequential agent shows
- * the ladder note: it can prepare but never act on its own.
+ * A single governed agent in the cell matrix — its purpose, the tools it may
+ * reach, its model track, and a real enable/disable that persists. A
+ * consequential agent shows the ladder note: it can prepare but never act alone.
  */
-function AgentCard({
+function AgentCell({
   agent,
   enabled,
   onToggle,
@@ -190,7 +246,7 @@ function AgentCard({
   onToggle: (next: boolean) => void;
 }) {
   return (
-    <SpotlightCard>
+    <div className="cell" style={{ textAlign: 'left', padding: 'var(--space-5)' }}>
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
         <div>
           <h3 className="body-lg" style={{ margin: 0 }}>
@@ -223,22 +279,15 @@ function AgentCard({
         >
           {enabled ? 'Pause this agent' : 'Enable this agent'}
         </Button>
-        <span className="caption muted">
-          {enabled
-            ? agent.consequential
-              ? 'Running. It prepares; nothing it touches fires without your approval.'
-              : 'Running. It observes and recommends only.'
-            : 'Paused and saved. It will not run until you enable it.'}
-        </span>
       </div>
-    </SpotlightCard>
+    </div>
   );
 }
 
-function TrackCard({ usage }: { usage: TrackUsage }) {
+function TrackCell({ usage }: { usage: TrackUsage }) {
   const passRate = usage.calls === 0 ? 0 : Math.round((usage.passed / usage.calls) * 100);
   return (
-    <SpotlightCard>
+    <div className="cell" style={{ textAlign: 'left', padding: 'var(--space-5)' }}>
       <div className="row-between" style={{ alignItems: 'flex-start' }}>
         <div>
           <p className="overline" style={{ margin: 0 }}>
@@ -260,7 +309,7 @@ function TrackCard({ usage }: { usage: TrackUsage }) {
         <span className="caption muted">{usage.passed} passed</span>
         <span className="caption muted">{usage.withheld} withheld</span>
       </div>
-    </SpotlightCard>
+    </div>
   );
 }
 
@@ -281,8 +330,13 @@ function EmergencyDisable({ onRecord }: { onRecord: () => Promise<void> }) {
   }
 
   return (
-    <section className="stack">
-      <p className="overline">Emergency disable</p>
+    <section>
+      <div className="sec-head">
+        <h3 className="h3" style={{ margin: 0 }}>
+          Emergency disable
+        </h3>
+        <span className="overline">human authority</span>
+      </div>
       <SpotlightCard padLg>
         <div className="row" style={{ gap: 'var(--space-3)', alignItems: 'flex-start' }}>
           <Icon name="danger" size="lg" />
@@ -337,12 +391,7 @@ function EmergencyDisable({ onRecord }: { onRecord: () => Promise<void> }) {
                   autoComplete="off"
                 />
                 <div className="rec-actions" style={{ marginTop: 'var(--space-3)' }}>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    disabled={!ready}
-                    onClick={disable}
-                  >
+                  <Button variant="danger" size="sm" disabled={!ready} onClick={disable}>
                     Disable and record
                   </Button>
                   <Button

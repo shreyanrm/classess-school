@@ -254,7 +254,7 @@
 
 /* ============================================================================
    PER-SURFACE ACCENT MAPPINGS — set data-surface on the shell root.
-   student -> tiffany · teacher -> cobalt · admin -> violet · parent -> amber.
+   student -> tiffany · teacher -> cobalt · admin -> violet · parent -> indigo.
    Resolves --accent / --accent-ink / --accent-tint from the raw palette so
    every interactive/active state in the system reads as the surface's hue.
    Theme-agnostic: the -tint vars already flip per data-theme above.
@@ -275,7 +275,8 @@
   --accent-tint: var(--violet-tint);
 }
 [data-surface="parent"] {
-  --accent:      var(--amber);
-  --accent-ink:  var(--amber-ink);
-  --accent-tint: var(--amber-tint);
+  /* Cool/brand only — no warm-orange anywhere. Parent reads as a calm indigo. */
+  --accent:      var(--indigo);
+  --accent-ink:  var(--indigo-ink);
+  --accent-tint: var(--indigo-tint);
 }

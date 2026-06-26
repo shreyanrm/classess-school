@@ -1,10 +1,20 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { Button, ConfidenceBand, Icon, SpotlightCard, Tag } from '@classess/design-system';
+import {
+  Button,
+  Cell,
+  ConfidenceBand,
+  Icon,
+  Matrix,
+  SpotlightCard,
+  Tag,
+  type SubjectAccent,
+} from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { ChildSwitcher } from '../_components/ChildSwitcher';
+import { ProofArtifact } from '../_components/ProofArtifact';
 import { ConsentGated } from '../_components/ConsentGated';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { ReadStates } from '../_components/ReadStates';
@@ -21,29 +31,32 @@ import {
   findChild,
   TONE_TAG,
   type ParentBriefing,
+  type ParentChildData,
+  type PlainPoint,
 } from '@/lib/parentData';
 
 /**
- * The Parent Today — three actions that need attention this week, in the
- * parent's language. Calm, never a dashboard, never surveillance. The Child
- * switcher re-renders the whole view for the selected child; a child whose view
- * is not consented shows the consent-gated state instead of data.
+ * The Parent · This week — recomposed to the sample-page bar. A reassurance lead
+ * (the calm header line as a real ignite-style hero), a 4-up count-up stat
+ * matrix of plain-language counts (never a raw score), then a .cols layout:
+ *   · main — the three things this week, each a designed action card; and a
+ *     "where to go next" rail of real, navigable links.
+ *   · aside — the shareable win as a designed ProofArtifact, a subject-card
+ *     snapshot (the hit of cool/brand colour), and a Caveat handnote.
+ *
+ * Every read is GATEWAY-FIRST (intelligence-views via useParentRead) and falls
+ * back to the typed mock bundle on degrade; the SourceNote degrades honestly.
+ * Generated free-text renders into the parent's preferred language through tx().
+ * Consent gates the whole surface. All five designed states ship.
  */
 export default function ParentTodayPage() {
   const [childId, setChildId] = useState(DEFAULT_CHILD_ID);
   const child = findChild(childId);
-  // Gateway-first governed read for the selected child; the mock bundle answers
-  // on degrade. Switching child re-reads the whole surface. The hook exposes the
-  // five designed states (loading / error / offline / permission-denied / ready).
   const { phase, data, source } = useParentRead(childId);
   const { emit } = useEmit();
   const { t } = useT();
 
-  // The absolution-engine briefings are composed in English by the read; render
-  // their generated free-text into the parent's language through the TRANSLATE
-  // capability (subject terms preserved). English readers skip the network. The
-  // original stands until/unless a render lands — nothing ever blanks.
-  const briefings = data?.briefings ?? [];
+  const briefings = useMemo(() => data?.briefings ?? [], [data]);
   const { tx, rendering, rendered, locale } = useReaderText(
     briefings.flatMap((b) => [
       b.title,
@@ -56,7 +69,6 @@ export default function ParentTodayPage() {
     ]),
   );
 
-  // The surface viewed event — attributed, consent-stamped, with the read source.
   useEffect(() => {
     if (phase === 'ready') {
       emit({
@@ -68,16 +80,63 @@ export default function ParentTodayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, childId]);
 
+  // Plain-language counts for the meta line + the stat matrix. Counts, never
+  // scores — a parent reads how many wins, support areas, on-track signals, and
+  // minutes of suggested home time this week.
+  const counts = countParentWeek(data);
+
   return (
     <SurfaceShell
-      eyebrow={t('parent.week.eyebrow')}
+      eyebrow={child ? child.section : t('parent.week.eyebrow')}
       title={t('parent.week.title')}
+      breadcrumb={[{ label: 'Family', href: '/parent' }, { label: t('parent.week.eyebrow') }]}
+      meta={[
+        { value: counts.celebrate || '—', label: 'wins this week' },
+        { value: counts.support || '—', label: 'places to support' },
+        { label: 'a partnership, not a watch list' },
+      ]}
+      tabs={[
+        { label: 'This week', active: true },
+        { label: 'The child', href: '/parent/child' },
+        { label: 'Reports', href: '/parent/reports' },
+        { label: 'Together', href: '/parent/together' },
+      ]}
       dockIntro={t('parent.week.dockIntro')}
       dockChips={[t('parent.week.chip1'), t('parent.week.chip2'), t('parent.week.chip3')]}
+      aside={
+        phase !== 'ready' || !child || !data ? null : (
+          <>
+            {data.proof.length > 0 ? (
+              <div className="reveal reveal-2">
+                <div className="sec-head" style={{ marginBottom: 'var(--space-3)' }}>
+                  <h4 className="h4" style={{ margin: 0 }}>
+                    {t('parent.child.proud')}
+                  </h4>
+                  <span className="overline">to share</span>
+                </div>
+                <ProofArtifact proof={data.proof[0]!} />
+              </div>
+            ) : null}
+
+            <SubjectSnapshotPanel data={data} />
+
+            <div className="panel reveal reveal-4" style={{ padding: '18px 20px' }}>
+              <p className="handnote" style={{ fontSize: 22 }}>
+                {child.label.toLowerCase()} is doing well — notice one win out loud at home
+              </p>
+            </div>
+          </>
+        )
+      }
     >
       <section className="stack">
-        <div className="row-between" style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          <p className="overline" style={{ margin: 0 }}>{t('parent.week.whose')}</p>
+        <div
+          className="row-between"
+          style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}
+        >
+          <p className="overline" style={{ margin: 0 }}>
+            {t('parent.week.whose')}
+          </p>
           <LanguageBadge locale={locale} rendering={rendering} rendered={rendered} />
         </div>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
@@ -91,13 +150,41 @@ export default function ParentTodayPage() {
         <ConsentGated label={child?.label} />
       ) : (
         <>
-          <section className="stack">
-            <p className="overline">{t('parent.week.three')}</p>
-            <p className="caption quiet">
+          {/* The reassurance lead — a calm, tonal hero. Not a number; a sentence
+              of confidence drawn from this week's shape. The one accent moment. */}
+          <div className="ignite-card reveal reveal-1">
+            <div className="row-between" style={{ marginBottom: 14 }}>
+              <span className="overline">{t('parent.week.eyebrow')}</span>
+              <Icon name="spark" size="md" style={{ color: 'var(--accent)' }} />
+            </div>
+            <div className="who">{reassurance(child.label, counts)}</div>
+            <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
               {t('parent.week.threeNote', { child: child.label })}
             </p>
+          </div>
+
+          <Matrix columns={4} className="reveal reveal-1">
+            <ParentStat label="Wins this week" value={counts.celebrate} tone="up" delta="drawn from their own work" />
+            <ParentStat label="Places to support" value={counts.support} tone="flat" delta="next small steps, not problems" />
+            <ParentStat label="On track" value={counts.steady} tone="flat" delta="steady and reliable" />
+            <ParentStat label="Home time" value={counts.minutes} unit=" min" tone="flat" delta="suggested this week" />
+          </Matrix>
+
+          <section className="stack">
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                {t('parent.week.three')}
+              </h3>
+              <span className="overline">this week, ranked by where you help most</span>
+            </div>
             {data.briefings.map((b) => (
-              <ParentBriefingCard key={b.id} briefing={b} childId={childId} childLabel={child.label} tx={tx} />
+              <ParentBriefingCard
+                key={b.id}
+                briefing={b}
+                childId={childId}
+                childLabel={child.label}
+                tx={tx}
+              />
             ))}
           </section>
 
@@ -144,6 +231,130 @@ export default function ParentTodayPage() {
   );
 }
 
+/** Plain-language counts for the week, derived from the consented bundle. */
+function countParentWeek(data: ParentChildData | null): {
+  celebrate: number;
+  support: number;
+  steady: number;
+  minutes: number;
+} {
+  if (!data) return { celebrate: 0, support: 0, steady: 0, minutes: 0 };
+  const celebrate = data.briefings.filter((b) => b.tone === 'celebrate').length;
+  const support = data.briefings.filter((b) => b.tone === 'support').length;
+  const steady = data.briefings.filter((b) => b.tone === 'steady').length;
+  const minutes = data.learnAlongside.reduce((s, a) => s + a.minutes, 0);
+  return { celebrate, support, steady, minutes };
+}
+
+/** A calm, honest reassurance line — confidence without a number. */
+function reassurance(
+  childLabel: string,
+  counts: { celebrate: number; support: number },
+): string {
+  if (counts.celebrate > 0 && counts.support === 0) {
+    return `A bright week for ${childLabel} — only wins to enjoy.`;
+  }
+  if (counts.celebrate > 0) {
+    return `${childLabel} is doing well — a win to enjoy, and one small place to help.`;
+  }
+  if (counts.support > 0) {
+    return `A steady week for ${childLabel} — one gentle place a little home time helps.`;
+  }
+  return `A calm, steady week for ${childLabel}. Nothing needs your attention right now.`;
+}
+
+/**
+ * One stat in the parent week matrix — a plain-language count, never a score.
+ * The big value counts up on view (the sample-page signature), but begins at its
+ * final value so it never reads a stale "0" before the count starts: these are
+ * small, calm numbers, and an honest readout matters more than the animation.
+ */
+function ParentStat({
+  label,
+  value,
+  unit,
+  delta,
+  tone = 'flat',
+}: {
+  label: string;
+  value: number;
+  unit?: string;
+  delta?: string;
+  tone?: 'up' | 'down' | 'flat';
+}) {
+  return (
+    <Cell>
+      <div className="cell-label">{label}</div>
+      <div className="cell-value">
+        <span>{value}</span>
+        {unit ?? null}
+      </div>
+      {delta ? <div className={`cell-delta ${tone}`}>{delta}</div> : null}
+    </Cell>
+  );
+}
+
+/** A subject-card snapshot for the aside — the hit of cool/brand colour. */
+function SubjectSnapshotPanel({ data }: { data: ParentChildData }) {
+  // Build a per-subject snapshot from this child's strengths + support areas:
+  // one card per subject, with a plain phrase and a calm progress mood.
+  const bySubject = new Map<
+    SubjectAccent,
+    { topic: string; note: string; independent: boolean; mood: number }
+  >();
+  const consider = (p: PlainPoint, independent: boolean, mood: number) => {
+    if (bySubject.has(p.subject)) return;
+    bySubject.set(p.subject, { topic: p.topic, note: p.note, independent, mood });
+  };
+  data.strengths.forEach((p) => consider(p, p.independent ?? true, 0.9));
+  data.supportAreas.forEach((p) => consider(p, false, 0.55));
+  const cards = Array.from(bySubject.entries()).slice(0, 4);
+  if (cards.length === 0) return null;
+
+  return (
+    <div className="panel reveal reveal-3">
+      <div className="sec-head" style={{ marginBottom: 'var(--space-3)' }}>
+        <h4 className="h4" style={{ margin: 0 }}>
+          By subject
+        </h4>
+        <span className="overline">a calm snapshot</span>
+      </div>
+      <div className="stack" style={{ gap: 'var(--space-3)' }}>
+        {cards.map(([accent, c], i) => (
+          <div
+            key={accent}
+            className={`subject-card reveal reveal-${Math.min(i + 1, 4)}`}
+            style={
+              {
+                '--subject': `var(--${accent})`,
+                '--subject-ink': `var(--${accent}-ink)`,
+                '--subject-fill': `var(--${accent})`,
+              } as React.CSSProperties
+            }
+          >
+            <div className="band">
+              <span className="name">{c.topic}</span>
+              <span className="code">{c.independent ? 'OWN' : 'GROW'}</span>
+            </div>
+            <div className="body" style={{ padding: '14px 16px 16px' }}>
+              <p className="caption" style={{ margin: 0 }}>
+                {c.note}
+              </p>
+              <div
+                className="progress animate subject-progress"
+                style={{ '--val': `${Math.round(c.mood * 100)}%`, margin: '12px 0 8px' } as React.CSSProperties}
+              >
+                <span />
+              </div>
+              <div className="data">{c.independent ? 'doing this on their own' : 'a little support helps'}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 /** A single Today item, in the parent's language. Supportive, never an order. */
 function ParentBriefingCard({
   briefing,
@@ -160,11 +371,6 @@ function ParentBriefingCard({
   const [deferred, setDeferred] = useState(false);
   const { emit } = useEmit();
   const { t } = useT();
-  // GAP#11 — the one action triggers a REAL outcome, not just navigation. Taking
-  // it on a support item routes the concern into an owned, tracked task through
-  // the wall (communication.make_tasks -> hub.route_to_task, a persisted
-  // communication.task_created event) AND emits an attributed parent event. A
-  // celebration/on-track item has no task to route; it emits the action taken.
   const [acting, setActing] = useState(false);
   const [taken, setTaken] = useState(false);
 
@@ -186,7 +392,12 @@ function ParentBriefingCard({
     await emit({
       type: 'parent.action_taken',
       purpose: EVENT_PURPOSE.learning,
-      payload: { surface: 'parent.this-week', child: childId, briefing: briefing.id, tone: briefing.tone },
+      payload: {
+        surface: 'parent.this-week',
+        child: childId,
+        briefing: briefing.id,
+        tone: briefing.tone,
+      },
       canonicalUuid: childId,
     });
     setActing(false);
@@ -197,7 +408,9 @@ function ParentBriefingCard({
     return (
       <SpotlightCard>
         <div className="row-between">
-          <span className="muted body-sm">{t('parent.week.setAside')} — {tx(briefing.title)}</span>
+          <span className="muted body-sm">
+            {t('parent.week.setAside')} — {tx(briefing.title)}
+          </span>
           <Button variant="ghost" size="sm" onClick={() => setDeferred(false)}>
             {t('parent.week.bringBack')}
           </Button>
@@ -281,7 +494,11 @@ function ParentBriefingCard({
             {acting ? t('parent.week.acting') : tx(briefing.nextAction)}
             <Icon name="arrow-right" size="sm" />
           </Button>
-          <Link href={briefing.target} className="btn btn-ghost btn-sm row" style={{ gap: 'var(--space-2)' }}>
+          <Link
+            href={briefing.target}
+            className="btn btn-ghost btn-sm row"
+            style={{ gap: 'var(--space-2)' }}
+          >
             {t('parent.week.open')}
           </Link>
           <Button variant="ghost" size="sm" onClick={() => setDeferred(true)}>

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Button, Icon, Input, SpotlightCard, Tag } from '@classess/design-system';
+import Link from 'next/link';
+import { Button, Icon, Input, Matrix, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { StatCell } from '../../_components/StatCell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SETUP_STEPS } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
@@ -113,6 +115,8 @@ export default function AdminSetupPage() {
   const step = SETUP_STEPS[index]!;
   const isLast = index === SETUP_STEPS.length - 1;
   const counts = countStructure(structure);
+  const teacherCount = roster.filter((m) => m.kind === 'teacher').length;
+  const studentCount = roster.filter((m) => m.kind === 'student').length;
 
   function suggestStructure() {
     const s = draftStructure();
@@ -157,13 +161,91 @@ export default function AdminSetupPage() {
     <SurfaceShell
       eyebrow="Setup and hierarchy"
       title="Build your school blueprint"
+      breadcrumb={[{ label: 'School', href: '/' }, { label: 'Setup' }]}
+      meta={[
+        { value: `${index + 1}/${SETUP_STEPS.length}`, label: 'step' },
+        { value: counts.grades, label: 'grades drafted' },
+        { value: counts.sections, label: 'sections' },
+        { label: 'nothing commits until you confirm' },
+      ]}
+      tabs={[
+        { label: 'Blueprint', active: true },
+        { label: 'Curriculum', href: '/admin/curriculum' },
+        { label: 'Governance', href: '/admin/governance' },
+        { label: 'Briefing', href: '/admin' },
+      ]}
+      actions={
+        <Link href="/admin/curriculum" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
+          <Icon name="book" size="sm" />
+          Curriculum graph
+        </Link>
+      }
       dockIntro="I can suggest a structure and draft a starter roster for you to approve. Nothing is created until you confirm — I only prepare, you decide."
       dockChips={['Suggest a structure', 'Draft a starter roster', 'What does each role see']}
+      aside={
+        readPhase === 'loading' || readPhase === 'error' || readPhase === 'permission-denied' ? null : (
+          <>
+            <div className="ignite-card reveal reveal-2">
+              <div className="row-between" style={{ marginBottom: 14 }}>
+                <span className="overline">{school?.confirmed ? 'Set up' : 'Prepare, then confirm'}</span>
+                <Icon name="flame" size="md" style={{ color: 'var(--accent)' }} />
+              </div>
+              <div className="who">
+                {school?.confirmed
+                  ? `${name || 'Your school'} is live`
+                  : 'I prepare; you decide'}
+              </div>
+              <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
+                {school?.confirmed
+                  ? 'The blueprint is saved and persists across reloads. Your briefing now reflects the real school.'
+                  : 'Vidya can suggest a structure and draft a roster — board-agnostic, generic labels. Nothing is created until you confirm.'}
+              </p>
+            </div>
+
+            <div className="panel">
+              <div className="sec-head" style={{ marginBottom: 8 }}>
+                <h4 className="h4" style={{ margin: 0 }}>
+                  Blueprint so far
+                </h4>
+                <Tag tone={school?.confirmed ? 'success' : 'info'} dot>
+                  {school?.confirmed ? 'Confirmed' : 'Draft'}
+                </Tag>
+              </div>
+              {[
+                { t: 'School', note: name || 'Not named yet' },
+                { t: 'Board', note: board },
+                { t: 'Structure', note: `${counts.groups} campus · ${counts.grades} grades · ${counts.sections} sections` },
+                { t: 'Roster', note: `${teacherCount} teachers · ${studentCount} students` },
+              ].map((s) => (
+                <div className="sched" key={s.t}>
+                  <span className="t">{s.t}</span>
+                  <div>
+                    <p className="caption">{s.note}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="panel" style={{ padding: '18px 20px' }}>
+              <p className="handnote" style={{ fontSize: 22 }}>
+                the board is a field, never a lock-in — name your own levels
+              </p>
+            </div>
+          </>
+        )
+      }
     >
       {readPhase === 'loading' || readPhase === 'error' || readPhase === 'permission-denied' ? (
         <ReadStates phase={readPhase} onRetry={refresh} />
       ) : (
       <>
+      <Matrix columns={4} className="reveal reveal-1">
+        <StatCell label="Campuses" value={counts.groups} delta="in the blueprint" tone="flat" />
+        <StatCell label="Grades" value={counts.grades} delta="drafted" tone="flat" />
+        <StatCell label="Sections" value={counts.sections} delta="across grades" tone="flat" />
+        <StatCell label="On the roster" value={roster.length} delta={`${teacherCount} teachers · ${studentCount} students`} tone="up" />
+      </Matrix>
+
       <ol className="loop-steps" aria-label="Setup steps">
         {SETUP_STEPS.map((s, i) => (
           <li key={s.id} className={`loop-step${i === index ? ' active' : ''}${i < index ? ' done' : ''}`}>

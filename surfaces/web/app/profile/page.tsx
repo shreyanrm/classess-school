@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Avatar, Cell, Icon, Matrix, Stat, Tag } from '@classess/design-system';
+import { Avatar, Icon, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
+import { StatMatrix, Panel, FlagRow, HandnotePanel, SecHead } from '../_components/StudentComposed';
 import { useRole } from '@/lib/RoleContext';
 import { useStore } from '@/lib/useStore';
 import { useT } from '@/lib/i18n/LocaleContext';
@@ -11,13 +12,16 @@ import { tierAllowsBehavioural } from '@/lib/store';
 import { ROLE_LABELS } from '@/lib/mock';
 
 /**
- * Profile — a calm, plain view of who you are in Classess and what Vidya knows.
+ * Profile — recomposed to the bar. A calm identity hero opens it, a count-up
+ * stat matrix carries the at-a-glance facts, a structured "what is kept" frame
+ * sits on the left, and a right aside holds a privacy ignite-card + the
+ * consent/transparency flags + a handnote.
+ *
  * The role, workspace, language, and consent tier are read LIVE from the session
- * store (the real source captured at onboarding) and the active locale provider —
- * not a static placeholder. ROLE_LABELS stays a label dictionary (static display
- * copy, never live data). Generic labels only: no real personal names, no PII.
- * Identity is opaque; the surface shows a role and a plain summary, never raw
- * behavioural data. v4 throughout — no shadows, sharp corners, one accent.
+ * store (the real source captured at onboarding) and the active locale provider.
+ * Generic labels only: no real personal names, no PII. Identity is opaque; the
+ * surface shows a role and a plain summary, never raw behavioural data. v4
+ * throughout — no shadows, sharp corners, one accent.
  */
 export default function ProfilePage() {
   const { role } = useRole();
@@ -25,92 +29,144 @@ export default function ProfilePage() {
   const { locale } = useT();
   const label = ROLE_LABELS[role];
 
-  // Live workspace: the institution the human set up (when present), else the
-  // role workspace. Never a baked-in class name.
   const workspace = school?.institution.name ?? `${label} workspace`;
-  // Live language: the active locale's own-script label.
   const language = LOCALES.find((l) => l.code === locale)?.label ?? 'English';
-  // Live consent: the tier captured at onboarding and whether profiling is on.
   const tierLabel = consent?.tierLabel ?? 'Consent not yet set';
   const personalizationOn = Boolean(consent?.personalization);
   const behaviouralAllowed = consent ? tierAllowsBehavioural(consent.ageTier) : false;
+
+  const aside = (
+    <>
+      <div className="ignite-card reveal reveal-3">
+        <div className="row-between" style={{ marginBottom: 14 }}>
+          <span className="overline">Your privacy</span>
+          <Icon name="check" size="sm" style={{ color: 'var(--accent)' }} />
+        </div>
+        <div className="who">Plain-language reads, never raw scores</div>
+        <p className="body-sm" style={{ opacity: 0.82, marginTop: 8 }}>
+          Classess keeps what you can do in plain language. You never see a raw composite or formula,
+          and neither does anyone else. Your identity stays opaque.
+        </p>
+      </div>
+
+      <Panel title="What is shared" meta={<span className="overline">consent</span>}>
+        <FlagRow flag={{ icon: 'check', title: tierLabel, caption: 'The consent tier you set — transparent and revocable any time.' }} />
+        <FlagRow
+          flag={{
+            icon: personalizationOn ? 'spark' : 'info',
+            title: personalizationOn ? 'Personalization on' : 'Personalization off',
+            caption: personalizationOn
+              ? 'Vidya may shape help around how you work, within your tier.'
+              : 'Vidya keeps help general — nothing is inferred about you.',
+          }}
+        />
+        <FlagRow flag={{ icon: 'info', title: 'No personal data in reads', caption: 'Reads carry what you can do, never who you are.' }} />
+      </Panel>
+
+      <HandnotePanel>your reads stay yours — opaque, plain-language, revocable</HandnotePanel>
+    </>
+  );
 
   return (
     <SurfaceShell
       eyebrow="Your account"
       title="Profile"
+      meta={[
+        { value: label, label: 'role' },
+        { label: workspace.toLowerCase() },
+        { label: language.toLowerCase() },
+      ]}
+      tabs={[
+        { label: 'Profile', active: true },
+        { label: 'Settings', href: '/settings' },
+      ]}
+      aside={aside}
       dockIntro="This is your profile in Classess. Ask me to change a preference or explain what is kept."
       dockChips={['What does Classess keep', 'What is kept private', 'Explain my consent tier']}
     >
-      <section className="stack">
-        <div className="row" style={{ gap: 'var(--space-4)', alignItems: 'center' }}>
+      <section className="reveal reveal-2">
+        <div
+          className="panel"
+          style={{ display: 'flex', gap: 'var(--space-5)', alignItems: 'center', flexWrap: 'wrap' }}
+        >
           <Avatar initials={label.slice(0, 1)} size="lg" />
-          <div>
-            <h2 className="body-lg" style={{ margin: 0 }}>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h2 className="display-sm" style={{ fontSize: 26, margin: 0 }}>
               {label}
             </h2>
-            <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
+            <p className="caption muted" style={{ marginTop: 'var(--space-2)', maxWidth: 56 + 'ch' }}>
               You are signed in to the {label.toLowerCase()} workspace. Your identity is opaque —
               tied to an account, never to behavioural data.
+              {account?.demo ? ' This is a demo identity — not a verified account.' : ''}
             </p>
+          </div>
+          <Tag tone={account ? 'success' : 'warning'} dot>
+            {account ? 'Signed in' : 'Signed out'}
+          </Tag>
+        </div>
+      </section>
+
+      <div style={{ marginTop: 'var(--space-6)' }}>
+        <StatMatrix
+          columns={3}
+          stats={[
+            { label: 'Role', value: label, delta: 'your seat in Classess', deltaDir: 'flat' },
+            { label: 'Workspace', value: workspace, delta: 'where you work', deltaDir: 'flat' },
+            { label: 'Language', value: language, delta: 'your reading language', deltaDir: 'flat' },
+          ]}
+        />
+      </div>
+
+      <section className="stack reveal reveal-4" style={{ marginTop: 'var(--space-6)' }}>
+        <SecHead title="What is kept" meta={<span className="overline">transparency</span>} />
+        <div className="set-frame">
+          <div className="set-row">
+            <div className="set-row-lead">
+              <div className="t">Plain-language reads, not raw scores</div>
+              <div className="d">
+                Classess keeps what you can do in plain language. You never see a raw composite or
+                formula, and neither does anyone else.
+              </div>
+            </div>
+            <Tag tone="success" dot>Always</Tag>
+          </div>
+          <div className="set-row">
+            <div className="set-row-lead">
+              <div className="t">Consent tier</div>
+              <div className="d">
+                {consent
+                  ? behaviouralAllowed
+                    ? 'Your tier permits inferred personalization; it stays within what you consented to and is revocable any time.'
+                    : 'Your tier keeps personalization minimal and non-behavioural — the narrowest, by design.'
+                  : 'Set your consent in onboarding to choose what Classess may personalise. Nothing is profiled until you do.'}
+              </div>
+            </div>
+            <Tag tone="info" dot>{tierLabel}</Tag>
+          </div>
+          <div className="set-row">
+            <div className="set-row-lead">
+              <div className="t">Personalization</div>
+              <div className="d">
+                Off by default. When on, Vidya shapes help around how you work — within your tier,
+                never beyond it.
+              </div>
+            </div>
+            <Tag tone={personalizationOn ? 'success' : 'neutral'} dot>
+              {personalizationOn ? 'On' : 'Off'}
+            </Tag>
           </div>
         </div>
       </section>
 
-      <section className="stack">
-        <p className="overline">At a glance</p>
-        <Matrix columns={3}>
-          <Cell>
-            <Stat label="Role" value={label} />
-          </Cell>
-          <Cell>
-            <Stat label="Workspace" value={workspace} />
-          </Cell>
-          <Cell>
-            <Stat label="Language" value={language} />
-          </Cell>
-        </Matrix>
-      </section>
-
-      <section className="stack">
-        <p className="overline">What is kept</p>
-        <Matrix columns={1}>
-          <Cell>
-            <h3 className="body-lg" style={{ margin: 0 }}>
-              Plain-language reads, not raw scores
-            </h3>
-            <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
-              Classess keeps what you can do in plain language. You never see a raw composite or
-              formula, and neither does anyone else.
-            </p>
-          </Cell>
-        </Matrix>
-        <div className="row" style={{ gap: 'var(--space-2)', flexWrap: 'wrap' }}>
-          <Tag tone="success">{tierLabel}</Tag>
-          <Tag tone={personalizationOn ? 'success' : 'neutral'}>
-            {personalizationOn ? 'Personalization on' : 'Personalization off'}
-          </Tag>
-          <Tag tone="neutral">No personal data in reads</Tag>
-        </div>
-        <p className="caption quiet">
-          {consent
-            ? behaviouralAllowed
-              ? 'Your tier permits inferred personalization; it stays within what you consented to and is revocable any time.'
-              : 'Your tier keeps personalization minimal and non-behavioural — the narrowest, by design.'
-            : 'Set your consent in onboarding to choose what Classess may personalise. Nothing is profiled until you do.'}
-        </p>
-      </section>
-
-      <section className="stack">
-        <p className="overline">Account and settings</p>
+      <section className="stack reveal reveal-5" style={{ marginTop: 'var(--space-6)' }}>
+        <SecHead title="Account and settings" meta={<span className="overline">manage</span>} />
         <p className="caption muted">
           Change how Vidya helps you, your language, or your role from settings. Switching role
           re-shapes the whole workspace from the rail.
-          {account?.demo ? ' This is a demo identity — not a verified account.' : ''}
         </p>
         <div className="rec-actions">
-          <Link href="/settings" className="btn btn-secondary btn-sm">
-            <Icon name="arrow-right" size="sm" />
+          <Link href="/settings" className="btn btn-secondary btn-sm row" style={{ gap: 'var(--space-2)' }}>
+            <Icon name="settings" size="sm" />
             Open settings
           </Link>
         </div>

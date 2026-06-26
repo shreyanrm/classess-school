@@ -447,6 +447,20 @@ a {
   align-self: flex-end;
   background: var(--bg-sunken);
   border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+  max-width: 80%;
+}
+
+/* Incoming message bubble (from the other party). Left-aligned, on the calm
+   surface with a hairline — distinct from the user's sunken bubble. Used by the
+   threaded /messages pane. The .vidya-text path (the orb conversation) keeps its
+   own no-bubble treatment above. */
+.msg-vidya .bubble {
+  align-self: flex-start;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
   padding: var(--space-3) var(--space-4);
   max-width: 80%;
 }
@@ -917,19 +931,43 @@ a {
   gap: var(--space-3);
 }
 
-.next-step .why-grid {
+/* The composed next-step hero card — a calm surface with a single hairline-tinted
+   accent edge on the left, the one quiet hit of the surface hue on the page. */
+.next-step-hero {
+  position: relative;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-6);
+  overflow: hidden;
+}
+.next-step-hero::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  pointer-events: none;
+}
+
+.next-step .why-grid,
+.why-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: var(--space-4);
   margin-top: var(--space-3);
 }
 
-.next-step .why-grid .k {
+.next-step .why-grid .k,
+.why-grid .k {
   font-size: var(--text-caption);
   color: var(--text-tertiary);
 }
 
-.next-step .why-grid .v {
+.next-step .why-grid .v,
+.why-grid .v {
   font-size: var(--text-body-sm);
   color: var(--text-primary);
   margin-top: 2px;
@@ -1460,6 +1498,23 @@ a {
 /* The Proof artifact — a proud, shareable moment. */
 .proof-artifact .proof-headline {
   line-height: 1.2;
+}
+
+/* A report's subject chip — a small cool-hued code tile, the hit of colour on
+   each report card. Never coral; the subject's own brand hue. */
+.report-subject-chip {
+  display: inline-grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: var(--radius-xs);
+  background: var(--subject);
+  color: var(--subject-ink);
+  font-family: var(--font-mono);
+  font-size: var(--text-overline);
+  font-weight: var(--fw-medium);
+  letter-spacing: 0.04em;
 }
 
 /* ============================================================================
@@ -3460,3 +3515,662 @@ body {
   .cmdk { animation: none; }
 }
 
+
+/* ============================================================================
+   STAGE: ShellDrawers — the shared chrome every page rides on, composed to the
+   sample-page bar. Sticky topbar · breadcrumb · page-head (48px / weight-300 +
+   mono meta) · tabs · cols (1fr + 320px aside). Plus the layered drawers: the
+   right slide-in EvidenceDrawer and the BottomSheet. Depth is hairline + tonal
+   step + frost only — NEVER a shadow. One accent per surface (--accent). The
+   ultramarine signature stays reserved for the brand mark + ignite. Motion is
+   GPU-only (transform/opacity), the kit ease; reduced-motion holds end-states.
+   ============================================================================ */
+
+/* ── The sticky topbar (lives inside .surface, above the scrolling body) ───── */
+.surface > .topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 clamp(var(--space-5), 4vw, var(--space-8, 64px));
+  /* Frosted so the body glides under it — depth without a shadow. */
+  background: var(--frost-bg, var(--bg-surface));
+  -webkit-backdrop-filter: var(--frost-blur, none);
+  backdrop-filter: var(--frost-blur, none);
+  border-bottom: var(--border-width) solid var(--border);
+}
+
+.surface > .topbar .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-sans);
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+.surface > .topbar .brand .mark {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--signature);
+}
+
+.topbar-surface {
+  color: var(--text-tertiary);
+  white-space: nowrap;
+}
+
+/* The search opens the command palette — a real, calm input-looking control. */
+.topbar-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 340px;
+  max-width: 34vw;
+  height: 36px;
+  padding: 0 10px 0 34px;
+  margin-left: var(--space-2);
+  border: var(--border-width) solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  cursor: pointer;
+  text-align: left;
+  transition: border-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.topbar-search:hover {
+  border-color: var(--text-tertiary);
+  color: var(--text-secondary);
+}
+.topbar-search:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.topbar-search > .icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-tertiary);
+}
+.topbar-search-text {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-body-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.topbar-kbd {
+  flex: none;
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+@media (max-width: 860px) {
+  .topbar-search-text { display: none; }
+  .topbar-search { width: 36px; max-width: 36px; padding: 0; }
+  .topbar-search > .icon { left: 50%; transform: translate(-50%, -50%); }
+  .topbar-kbd { display: none; }
+  .topbar-surface { display: none; }
+  .topbar-command-text { display: none; }
+}
+
+/* ── The page column — breadcrumb + head + tabs + body, on a calm measure ──── */
+.surface-page {
+  width: 100%;
+  max-width: var(--surface-measure, clamp(1000px, 74vw, 1280px));
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* The page-head — the signature opener: big weight-300 title + mono meta line. */
+.page-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  margin: var(--space-2) 0 var(--space-3);
+}
+.page-head-lead { min-width: 0; }
+.page-title {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-variation-settings: var(--sans-axes);
+  font-weight: 300;
+  font-size: clamp(34px, 4.4vw, 48px);
+  line-height: 1;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+.page-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-3);
+}
+.page-meta .m {
+  font-family: var(--font-mono);
+  font-size: var(--text-code-sm);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.page-meta .m b {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.page-head-actions {
+  flex: none;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+}
+
+/* The two-column composition the sample page rides on (main + a 320px aside). */
+.cols {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: var(--space-6);
+  align-items: start;
+}
+.cols-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+.cols-aside {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  position: sticky;
+  top: calc(var(--topbar-h) + var(--space-5));
+}
+
+@media (max-width: 980px) {
+  .cols {
+    grid-template-columns: 1fr;
+  }
+  .cols-aside {
+    position: static;
+  }
+}
+
+/* The dark ignite-card (the Crystallize / independent-mastery moment) — a tonal
+   inverse panel, the one dark surface, never a shadow. */
+.ignite-card {
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+.ignite-card .who {
+  font-family: var(--font-sans);
+  font-variation-settings: var(--sans-axes);
+  font-weight: 300;
+  font-size: 24px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+}
+.ignite-card .overline { color: var(--accent); }
+
+/* The subject-card progress fill paints in the subject's own cool hue (the hit
+   of pigment on the card), set per-card via --subject-fill. Never coral. */
+.subject-progress > span { background: var(--subject-fill, var(--text-primary)); }
+
+/* A flag row (gaps detected, ranked by impact) — icon chip + claim + caption. */
+.flag {
+  display: flex;
+  gap: var(--space-3);
+  padding: 13px 0;
+  border-bottom: var(--border-width) solid var(--border);
+}
+.flag:last-child { border-bottom: 0; padding-bottom: 0; }
+.flag .flag-ic {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-xs);
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+}
+.flag .flag-ic .icon { width: 16px; height: 16px; }
+
+/* A timetable row. */
+.sched {
+  display: flex;
+  gap: var(--space-3);
+  padding: 12px 0;
+  border-bottom: var(--border-width) solid var(--border);
+}
+.sched:last-child { border-bottom: 0; }
+.sched .t {
+  font-family: var(--font-mono);
+  font-size: var(--text-code-sm);
+  color: var(--text-tertiary);
+  width: 52px;
+  flex: none;
+  padding-top: 1px;
+}
+
+/* The stat grid (matrix cells with count-up) reuses .matrix/.cell from the kit;
+   the value reads in sans tabular, the delta in mono with a state hue. */
+.cell .cell-label {
+  font-size: var(--text-body-sm);
+  color: var(--text-secondary);
+  margin-bottom: var(--space-2);
+}
+.cell .cell-value {
+  font-family: var(--font-sans);
+  font-variation-settings: var(--sans-axes);
+  font-weight: 500;
+  font-size: 30px;
+  line-height: 1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.cell .cell-delta {
+  font-family: var(--font-mono);
+  font-size: var(--text-overline);
+  margin-top: var(--space-2);
+}
+.cell .cell-delta.up { color: var(--success); }
+.cell .cell-delta.down { color: var(--danger); }
+.cell .cell-delta.flat { color: var(--text-tertiary); }
+
+/* A section head — a kit pattern reused at page scale. */
+.sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+
+/* A panel — the calm surface block the aside is built from. Hairline, no shadow. */
+.panel {
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+
+/* A flag row that is a link into a detail page — the whole row is tappable. */
+.flag.flag-link {
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--radius-xs);
+  margin: 0 calc(var(--space-3) * -1);
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+  transition: background var(--dur-fast) var(--ease);
+}
+.flag.flag-link:hover { background: var(--bg-sunken); }
+.flag.flag-link:hover .flag-ic { color: var(--accent); }
+
+/* The roster table — a learner name cell that is a link, with a quiet subline. */
+.roster-name { text-decoration: none; color: inherit; align-items: center; }
+.roster-name:hover { color: var(--accent); }
+.roster-sub { display: block; margin-top: 1px; font-weight: var(--fw-regular); }
+td.muted .roster-sub { color: var(--text-tertiary); }
+
+/* ============================================================================
+   THE RIGHT SLIDE-IN EVIDENCE DRAWER (~420px). Frosted scrim + hairline panel;
+   slides from the right on transform + opacity. No shadow.
+   ============================================================================ */
+.ev-drawer-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+}
+.ev-drawer-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  -webkit-backdrop-filter: var(--frost-blur);
+  backdrop-filter: var(--frost-blur);
+  animation: ev-scrim-in var(--dur) var(--ease) both;
+}
+@keyframes ev-scrim-in { from { opacity: 0; } to { opacity: 1; } }
+.ev-drawer {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: min(420px, calc(100vw - var(--space-5)));
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border-left: var(--border-width) solid var(--border-strong);
+  outline: none;
+  transform-origin: right center;
+  animation: ev-drawer-in var(--dur-slow) var(--ease) both;
+  will-change: transform, opacity;
+}
+@keyframes ev-drawer-in {
+  from { opacity: 0; transform: translateX(24px); }
+  to { opacity: 1; transform: none; }
+}
+.ev-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border-bottom: var(--border-width) solid var(--border);
+}
+.ev-drawer-close { width: 32px; flex: none; justify-content: center; }
+.ev-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.ev-drawer-claim { margin: 0; line-height: var(--lh-snug); }
+.ev-drawer-confidence { margin-top: calc(-1 * var(--space-2)); }
+.ev-drawer-section {
+  margin: var(--space-2) 0 0;
+}
+.ev-drawer-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.ev-drawer-item {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  padding-bottom: var(--space-3);
+  border-bottom: var(--border-width) solid var(--border);
+}
+.ev-drawer-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.ev-drawer-item .dot {
+  width: 6px;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  flex: 0 0 6px;
+}
+.ev-drawer-when {
+  display: inline-block;
+  margin-top: 2px;
+  color: var(--text-tertiary);
+}
+.ev-drawer-why {
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.ev-drawer-foot {
+  padding: var(--space-4) var(--space-5);
+  border-top: var(--border-width) solid var(--border);
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .ev-drawer, .ev-drawer-scrim { animation: none; }
+}
+
+/* ============================================================================
+   THE BOTTOM SHEET — actions / approvals / voice. Rises from the bottom over a
+   frosted scrim; no shadow. Buttery; reduced-motion holds the end-state.
+   ============================================================================ */
+.sheet-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  background: var(--scrim);
+  -webkit-backdrop-filter: var(--frost-blur);
+  backdrop-filter: var(--frost-blur);
+  animation: ev-scrim-in var(--dur) var(--ease) both;
+}
+.sheet {
+  position: relative;
+  width: 100%;
+  max-width: 680px;
+  margin: 0 auto;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border-strong);
+  border-bottom: 0;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  outline: none;
+  transform-origin: bottom center;
+  animation: sheet-in var(--dur-slow) var(--ease) both;
+  will-change: transform, opacity;
+}
+@keyframes sheet-in {
+  from { opacity: 0; transform: translateY(32px); }
+  to { opacity: 1; transform: none; }
+}
+.sheet-grip {
+  width: 40px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  margin: var(--space-3) auto 0;
+  flex: none;
+}
+.sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6) var(--space-3);
+}
+.sheet-close { width: 32px; flex: none; justify-content: center; }
+.sheet-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 var(--space-6) var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.sheet-foot {
+  padding: var(--space-4) var(--space-6);
+  border-top: var(--border-width) solid var(--border);
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet, .sheet-scrim { animation: none; }
+}
+
+/* ── The rail search/history drawer: lift it onto the surface measure + frost ─ */
+.rail-drawer {
+  background: var(--frost-bg, var(--bg-surface));
+  -webkit-backdrop-filter: var(--frost-blur, none);
+  backdrop-filter: var(--frost-blur, none);
+}
+
+/* ============================================================================
+   STAGE SHARED — recompose to the bar. Dense, composed, cool/brand only.
+   Depth via hairline + tonal step + subject tint. NO shadow, NO coral/warm.
+   ============================================================================ */
+
+/* A subject-tinted card: a 3px colour rail down the left edge + a faint wash
+   header. The hit of pigment on an otherwise calm surface card. Cool hues only
+   (the accent comes from data-subject -> --subject). Never the signature. */
+.subject-tinted {
+  position: relative;
+  overflow: hidden;
+  border-color: var(--border);
+}
+.subject-tinted::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--subject, var(--accent));
+}
+.subject-tinted[data-subject='cobalt']   { --subject: var(--cobalt); }
+.subject-tinted[data-subject='cyan']     { --subject: var(--cyan); }
+.subject-tinted[data-subject='emerald']  { --subject: var(--emerald); }
+.subject-tinted[data-subject='violet']   { --subject: var(--violet); }
+.subject-tinted[data-subject='indigo']   { --subject: var(--indigo); }
+.subject-tinted[data-subject='grape']    { --subject: var(--grape); }
+.subject-tinted[data-subject='magenta']  { --subject: var(--magenta); }
+.subject-tinted[data-subject='tiffany']  { --subject: var(--tiffany); }
+.subject-tinted[data-subject='rose']     { --subject: var(--rose); }
+
+/* A small subject swatch — a 8px rounded square in the subject hue. */
+.subject-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  flex: none;
+  display: inline-block;
+}
+
+/* The content / resource dense grid — two columns of subject-tinted cards,
+   sharing the page measure. Falls to one column on narrow widths. */
+.resource-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-4);
+}
+@media (max-width: 900px) {
+  .resource-grid { grid-template-columns: 1fr; }
+}
+
+/* ── Messages — a proper threaded messaging layout ────────────────────────── */
+/* A three-zone shell: a channel list rail, the thread column, a context aside.
+   The list rail + thread share a hairline frame so it reads as one surface. */
+.msg-shell {
+  display: grid;
+  grid-template-columns: 264px 1fr;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-surface);
+  min-height: 560px;
+}
+@media (max-width: 860px) {
+  .msg-shell { grid-template-columns: 1fr; }
+  .msg-list { border-right: 0 !important; border-bottom: var(--border-width) solid var(--border); }
+}
+.msg-list {
+  border-right: var(--border-width) solid var(--border);
+  background: var(--bg-canvas);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.msg-list-head {
+  padding: 14px 16px 10px;
+  border-bottom: var(--border-width) solid var(--border);
+}
+.msg-list-scroll { overflow-y: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.msg-chan {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease);
+  position: relative;
+}
+.msg-chan:hover { background: var(--bg-sunken); }
+.msg-chan.active { background: var(--bg-sunken); }
+.msg-chan.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 9px;
+  bottom: 9px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--accent, var(--signature));
+}
+.msg-chan-top { display: flex; align-items: center; gap: 8px; }
+.msg-chan-name { font-size: var(--text-body-sm); font-weight: var(--fw-medium); color: var(--text-primary); }
+.msg-chan-preview { font-size: var(--text-caption); color: var(--text-tertiary); margin: 4px 0 0; line-height: 1.35; }
+.msg-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  min-width: 0;
+}
+.msg-pane-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 14px 20px;
+  border-bottom: var(--border-width) solid var(--border);
+  flex-wrap: wrap;
+}
+.msg-pane-thread {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 20px;
+}
+.msg-pane-foot {
+  border-top: var(--border-width) solid var(--border);
+  padding: 16px 20px;
+  background: var(--bg-canvas);
+}
+
+/* ── Settings — a structured settings area ───────────────────────────────── */
+/* A labelled settings group: a sticky section title + a hairline-framed list
+   of rows, each a control with a plain label + helper. */
+.set-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-5);
+  padding: 16px 20px;
+  border-bottom: var(--border-width) solid var(--border);
+}
+.set-row:last-child { border-bottom: 0; }
+.set-row-lead { min-width: 0; }
+.set-row-lead .t { font-size: var(--text-body-sm); font-weight: var(--fw-medium); color: var(--text-primary); }
+.set-row-lead .d { font-size: var(--text-caption); color: var(--text-secondary); margin-top: 4px; line-height: 1.4; max-width: 52ch; }
+.set-frame {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-surface);
+}

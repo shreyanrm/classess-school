@@ -30,17 +30,23 @@ export interface LibraryItemProps {
  */
 export function LibraryItem({ resource, onReview }: LibraryItemProps) {
   return (
-    <SpotlightCard padLg data-subject={resource.accent}>
+    <SpotlightCard padLg data-subject={resource.accent} className="subject-tinted">
       <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
         <div>
+          <span className="row" style={{ gap: 'var(--space-2)', marginBottom: 6 }}>
+            <span className="subject-dot" style={{ background: `var(--${resource.accent})` }} aria-hidden="true" />
+            <span className="overline" style={{ margin: 0 }}>
+              {resource.subjectName} · {RESOURCE_TYPE_LABEL[resource.type]}
+            </span>
+          </span>
           <h3 className="body-lg" style={{ margin: 0 }}>
             {resource.title}
           </h3>
           <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
-            {resource.subjectName} · {resource.topicName} · {RESOURCE_TYPE_LABEL[resource.type]}
+            {resource.topicName}
           </p>
         </div>
-        <Tag tone={VERIFICATION_TONE[resource.verification]}>
+        <Tag tone={VERIFICATION_TONE[resource.verification]} dot>
           {VERIFICATION_LABEL[resource.verification]}
         </Tag>
       </div>

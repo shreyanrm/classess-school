@@ -5,6 +5,7 @@ import { LocaleProvider } from '@/lib/i18n';
 import { AuthGate } from './_components/AuthGate';
 import { VidyaOrb } from './_components/VidyaOrb';
 import { CommandPalette } from './_components/CommandPalette';
+import { EvidenceDrawerHost } from './_components/EvidenceDrawer';
 import '@classess/design-system/styles.css';
 import './globals.css';
 
@@ -27,7 +28,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ThemeProvider defaultTheme="light">
           <LocaleProvider>
             <RoleProvider>
-              <AuthGate>{children}</AuthGate>
+              {/* The shared right-slide EvidenceDrawer host — any "Why this"
+                  across any stage can open the lineage panel imperatively. */}
+              <EvidenceDrawerHost>
+                <AuthGate>{children}</AuthGate>
+              </EvidenceDrawerHost>
               {/* Vidya floats on every route, persisting across navigation. */}
               <VidyaOrb />
               {/* The universal Cmd/Ctrl-K command palette — the keyboard twin of

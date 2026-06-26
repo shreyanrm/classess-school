@@ -309,24 +309,177 @@ export default function MessagesPage() {
     setPrepared(true);
   }
 
+  const channelIcon = (kind: Channel['kind']) =>
+    kind === 'dm' ? 'user' : kind === 'broadcast' ? 'send' : 'grid';
+
+  const aside = (
+    <>
+      {crisisSupport ? (
+        <SpotlightCard padLg data-testid="crisis-support">
+          <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'flex-start' }}>
+            <Icon name="info" size="md" />
+            <div>
+              <p className="overline" style={{ margin: 0 }}>
+                You are not alone
+              </p>
+              <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
+                {crisisSupport}
+              </p>
+              <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
+                This was routed to a responsible adult, never to an unmonitored channel.
+              </p>
+            </div>
+          </div>
+        </SpotlightCard>
+      ) : null}
+
+      <SpotlightCard>
+        <div className="row-between" style={{ alignItems: 'flex-start' }}>
+          <div>
+            <p className="overline" style={{ margin: 0 }}>
+              Conversation to task
+            </p>
+            <p className="body-sm" style={{ marginTop: 4 }}>
+              A concern should not stay a stray message. Route it to an owner with a due date.
+            </p>
+          </div>
+          {routed ? <Tag tone="success" dot>Routed</Tag> : null}
+        </div>
+        <div className="divider" />
+        {routed ? (
+          <div className="stack" style={{ gap: 'var(--space-3)' }}>
+            <p className="caption muted" style={{ margin: 0 }}>
+              Routed to {taskOwner.toLowerCase()} · due {taskDue.toLowerCase()} · status open. It is
+              now tracked, not lost in chat.
+            </p>
+            <Button variant="ghost" size="sm" onClick={() => setRouted(false)}>
+              Undo
+            </Button>
+          </div>
+        ) : (
+          <div className="stack" style={{ gap: 'var(--space-3)' }}>
+            <label className="stack" style={{ gap: 4 }}>
+              <span className="caption muted">Owner</span>
+              <select
+                className="input"
+                aria-label="Task owner"
+                value={taskOwner}
+                onChange={(e) => setTaskOwner(e.target.value)}
+              >
+                <option>Class teacher</option>
+                <option>Subject teacher</option>
+                <option>Year head</option>
+              </select>
+            </label>
+            <label className="stack" style={{ gap: 4 }}>
+              <span className="caption muted">Due</span>
+              <select
+                className="input"
+                aria-label="Task due"
+                value={taskDue}
+                onChange={(e) => setTaskDue(e.target.value)}
+              >
+                <option>Today</option>
+                <option>In two days</option>
+                <option>This week</option>
+              </select>
+            </label>
+            <Button
+              variant="secondary"
+              size="sm"
+              disabled={routing}
+              onClick={async () => {
+                setRouting(true);
+                const ownerRole =
+                  taskOwner === 'Subject teacher'
+                    ? 'subject_teacher'
+                    : taskOwner === 'Year head'
+                      ? 'year_head'
+                      : 'teacher';
+                const concern =
+                  draft.trim() || baseThread.find((m) => !m.mine)?.text || 'A concern raised in this conversation.';
+                await routeToTask({
+                  body: concern,
+                  title: `Follow up — ${active?.name ?? 'conversation'}`,
+                  ownerRole,
+                  why: `Routed from a ${role} conversation; due ${taskDue.toLowerCase()}.`,
+                  dueDate: taskDue,
+                  surface: role,
+                  senderRef: selfRef,
+                });
+                setRouting(false);
+                setRouted(true);
+              }}
+            >
+              <Icon name="arrow-right" size="sm" /> {routing ? 'Routing…' : 'Route to a task'}
+            </Button>
+            <span className="caption muted">Owned, tracked, and closed — not left as a stray chat.</span>
+          </div>
+        )}
+      </SpotlightCard>
+
+      <div className="panel">
+        <div className="sec-head" style={{ marginBottom: 'var(--space-2)' }}>
+          <h4 className="h4">Standing safety</h4>
+          <Tag tone="success" dot>On</Tag>
+        </div>
+        <p className="caption" style={{ marginBottom: 'var(--space-3)' }}>
+          The rails that hold on every free-text surface here.
+        </p>
+        <div className="flag">
+          <div className="flag-ic"><Icon name="info" size="sm" /></div>
+          <div>
+            <div className="body-sm" style={{ fontWeight: 500 }}>Child-safety screening</div>
+            <p className="caption">Every message is screened; a concern is routed to a responsible adult.</p>
+          </div>
+        </div>
+        <div className="flag">
+          <div className="flag-ic"><Icon name="clock" size="sm" /></div>
+          <div>
+            <div className="body-sm" style={{ fontWeight: 500 }}>Quiet hours</div>
+            <p className="caption">{quietHours ? 'Active now — delivery holds until the window passes.' : 'Within hours — delivery is immediate on approve.'}</p>
+          </div>
+        </div>
+        <div className="flag">
+          <div className="flag-ic"><Icon name="check" size="sm" /></div>
+          <div>
+            <div className="body-sm" style={{ fontWeight: 500 }}>Approval gate</div>
+            <p className="caption">Nothing sends on its own — a message waits for your explicit send.</p>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+
   return (
     <SurfaceShell
       eyebrow="Communication hub"
       title="Messages"
+      meta={[
+        { value: channels.length, label: 'conversations' },
+        { value: present.length, label: 'here now' },
+        { label: quietHours ? 'quiet hours active' : 'within communication hours' },
+      ]}
+      aside={aside}
       dockIntro="I can draft a reply, translate for a family, or turn a concern into a tracked task with an owner. I never send for you — a message waits at the approval gate, with child-safety and quiet hours respected."
       dockChips={['Draft a calm reply', 'Turn this into a task', 'Translate for the family']}
     >
-      <div className="cols-2" style={{ alignItems: 'start' }}>
-        <section className="stack">
-          <p className="overline">Channels and direct messages</p>
-          <div className="stack" style={{ gap: 'var(--space-2)' }}>
+      <div className="msg-shell reveal reveal-3">
+        {/* The channel / DM list rail. */}
+        <div className="msg-list">
+          <div className="msg-list-head">
+            <p className="overline" style={{ margin: 0 }}>
+              Channels and DMs
+            </p>
+          </div>
+          <div className="msg-list-scroll">
             {channels.map((c) => {
               const on = c.id === activeId;
               return (
                 <button
                   key={c.id}
                   type="button"
-                  className="cell"
+                  className={`msg-chan${on ? ' active' : ''}`}
                   onClick={() => {
                     setActiveId(c.id);
                     setPrepared(false);
@@ -334,43 +487,38 @@ export default function MessagesPage() {
                     setCrisisSupport(null);
                   }}
                   aria-pressed={on}
-                  style={{ textAlign: 'left', cursor: 'pointer', borderColor: on ? 'var(--accent)' : undefined }}
                 >
-                  <div className="row-between">
-                    <span className="row" style={{ gap: 'var(--space-2)' }}>
-                      <Icon name={c.kind === 'dm' ? 'user' : c.kind === 'broadcast' ? 'send' : 'grid'} size="sm" />
-                      <span className="body-sm">{c.name}</span>
-                    </span>
-                    {c.gated ? <Tag tone="warning">Consent</Tag> : null}
+                  <div className="msg-chan-top">
+                    <Icon name={channelIcon(c.kind)} size="sm" />
+                    <span className="msg-chan-name">{c.name}</span>
+                    {c.gated ? <Tag tone="warning" style={{ marginLeft: 'auto' }}>Consent</Tag> : null}
                   </div>
-                  <p className="caption muted" style={{ marginTop: 4 }}>
-                    {c.preview}
-                  </p>
+                  <p className="msg-chan-preview">{c.preview}</p>
                 </button>
               );
             })}
           </div>
-        </section>
+        </div>
 
-        <section className="stack">
+        {/* The thread pane. */}
+        <div className="msg-pane">
           {active?.gated ? (
-            <SpotlightCard>
-              <div className="empty">
-                <Icon name="info" size="lg" className="glyph" />
-                <h4 className="body">This conversation is consent-gated</h4>
-                <p>
-                  It opens only when the relevant consent stands. Reads here are gated; nothing is
-                  shown until sharing is turned on.
-                </p>
-              </div>
-            </SpotlightCard>
+            <div className="empty" style={{ margin: 'auto', maxWidth: 380 }}>
+              <Icon name="info" size="lg" className="glyph" />
+              <h4 className="body">This conversation is consent-gated</h4>
+              <p>
+                It opens only when the relevant consent stands. Reads here are gated; nothing is
+                shown until sharing is turned on.
+              </p>
+            </div>
           ) : (
             <>
-              <div className="row-between">
+              <div className="msg-pane-head">
                 <span className="row" style={{ gap: 'var(--space-3)', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <p className="overline" style={{ margin: 0 }}>
+                  <Icon name={channelIcon(active?.kind ?? 'channel')} size="sm" />
+                  <span className="body-lg" style={{ fontWeight: 500 }}>
                     {active?.name}
-                  </p>
+                  </span>
                   <LanguageBadge locale={locale} rendered={Object.keys(renderedBodies).length > 0} />
                 </span>
                 <span className="row" style={{ gap: 'var(--space-2)' }}>
@@ -397,26 +545,7 @@ export default function MessagesPage() {
                 </div>
               ) : null}
 
-              {crisisSupport ? (
-                <SpotlightCard padLg data-testid="crisis-support">
-                  <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'flex-start' }}>
-                    <Icon name="info" size="md" />
-                    <div>
-                      <p className="overline" style={{ margin: 0 }}>
-                        You are not alone
-                      </p>
-                      <p className="body-sm" style={{ marginTop: 'var(--space-2)' }}>
-                        {crisisSupport}
-                      </p>
-                      <p className="caption muted" style={{ marginTop: 'var(--space-2)' }}>
-                        This was routed to a responsible adult, never to an unmonitored channel.
-                      </p>
-                    </div>
-                  </div>
-                </SpotlightCard>
-              ) : null}
-
-              <div className="thread" aria-live="polite" style={{ minHeight: 120 }}>
+              <div className="msg-pane-thread thread" aria-live="polite">
                 {baseThread.length === 0 && liveMsgs.length === 0 ? (
                   <div className="empty">
                     <Icon name="send" size="lg" className="glyph" />
@@ -434,7 +563,7 @@ export default function MessagesPage() {
                           {renderedBodies[m.id] ?? m.text}
                           {m.flagged ? (
                             <div style={{ marginTop: 6 }}>
-                              <Tag tone="danger">Flagged for a responsible adult</Tag>
+                              <Tag tone="danger" dot>Flagged for a responsible adult</Tag>
                             </div>
                           ) : null}
                         </div>
@@ -446,7 +575,7 @@ export default function MessagesPage() {
                           {renderedBodies[m.id] ?? m.body}
                           {m.flagged ? (
                             <div style={{ marginTop: 6 }}>
-                              <Tag tone="danger">Flagged for a responsible adult</Tag>
+                              <Tag tone="danger" dot>Flagged for a responsible adult</Tag>
                             </div>
                           ) : null}
                         </div>
@@ -456,7 +585,7 @@ export default function MessagesPage() {
                 )}
               </div>
 
-              <div className="stack" style={{ gap: 'var(--space-2)' }}>
+              <div className="msg-pane-foot stack" style={{ gap: 'var(--space-2)' }}>
                 <Composer
                   value={draft}
                   onValueChange={setDraft}
@@ -468,10 +597,9 @@ export default function MessagesPage() {
                   <Icon name="info" size="sm" /> Child-safety runs on this free-text surface. Anything
                   concerning is routed to a responsible adult; there are no unmonitored channels.
                 </p>
-              </div>
 
-              {prepared ? (
-                <SpotlightCard padLg>
+                {prepared ? (
+                  <SpotlightCard padLg style={{ marginTop: 'var(--space-2)' }}>
                   <div className="row-between" style={{ alignItems: 'flex-start' }}>
                     <div>
                       <p className="overline" style={{ margin: 0 }}>
@@ -514,109 +642,14 @@ export default function MessagesPage() {
                       Keep editing
                     </Button>
                   </div>
-                </SpotlightCard>
-              ) : null}
+                  </SpotlightCard>
+                ) : null}
 
-              <SpotlightCard>
-                <div className="row-between" style={{ alignItems: 'flex-start' }}>
-                  <div>
-                    <p className="overline" style={{ margin: 0 }}>
-                      Conversation to task
-                    </p>
-                    <p className="body-sm" style={{ marginTop: 4, maxWidth: 460 }}>
-                      A concern should not stay a stray message. Route it to an owner with a due date
-                      and a resolution track.
-                    </p>
-                  </div>
-                  {routed ? <Tag tone="success">Routed</Tag> : null}
-                </div>
-                <div className="divider" />
-                {routed ? (
-                  <div className="row-between" style={{ alignItems: 'center' }}>
-                    <p className="caption muted" style={{ margin: 0 }}>
-                      Routed to {taskOwner.toLowerCase()} · due {taskDue.toLowerCase()} · status open.
-                      It is now tracked, not lost in chat.
-                    </p>
-                    <Button variant="ghost" size="sm" onClick={() => setRouted(false)}>
-                      Undo
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="stack" style={{ gap: 'var(--space-3)' }}>
-                    <div className="row" style={{ gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-                      <label className="stack" style={{ gap: 4 }}>
-                        <span className="caption muted">Owner</span>
-                        <select
-                          className="input"
-                          aria-label="Task owner"
-                          value={taskOwner}
-                          onChange={(e) => setTaskOwner(e.target.value)}
-                        >
-                          <option>Class teacher</option>
-                          <option>Subject teacher</option>
-                          <option>Year head</option>
-                        </select>
-                      </label>
-                      <label className="stack" style={{ gap: 4 }}>
-                        <span className="caption muted">Due</span>
-                        <select
-                          className="input"
-                          aria-label="Task due"
-                          value={taskDue}
-                          onChange={(e) => setTaskDue(e.target.value)}
-                        >
-                          <option>Today</option>
-                          <option>In two days</option>
-                          <option>This week</option>
-                        </select>
-                      </label>
-                    </div>
-                    <div className="rec-actions">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        disabled={routing}
-                        onClick={async () => {
-                          // GAP#9 — Route to a task is a REAL outcome now: the wall
-                          // screens the concern then routes it (hub.route_to_task)
-                          // and a clean attributed communication.task_created event
-                          // is persisted. The local "Routed" state flips on the
-                          // wall's result; on a degrade it still routes locally so
-                          // the surface never breaks.
-                          setRouting(true);
-                          const ownerRole =
-                            taskOwner === 'Subject teacher'
-                              ? 'subject_teacher'
-                              : taskOwner === 'Year head'
-                                ? 'year_head'
-                                : 'teacher';
-                          const concern =
-                            draft.trim() || baseThread.find((m) => !m.mine)?.text || 'A concern raised in this conversation.';
-                          await routeToTask({
-                            body: concern,
-                            title: `Follow up — ${active?.name ?? 'conversation'}`,
-                            ownerRole,
-                            why: `Routed from a ${role} conversation; due ${taskDue.toLowerCase()}.`,
-                            dueDate: taskDue,
-                            surface: role,
-                            senderRef: selfRef,
-                          });
-                          setRouting(false);
-                          setRouted(true);
-                        }}
-                      >
-                        <Icon name="arrow-right" size="sm" /> {routing ? 'Routing…' : 'Route to a task'}
-                      </Button>
-                      <span className="caption muted">Owned, tracked, and closed — not left as a stray chat.</span>
-                    </div>
-                  </div>
-                )}
-              </SpotlightCard>
-
-              <SourceNote source={source} />
+                <SourceNote source={source} />
+              </div>
             </>
           )}
-        </section>
+        </div>
       </div>
     </SurfaceShell>
   );

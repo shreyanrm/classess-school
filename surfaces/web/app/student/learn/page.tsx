@@ -1,24 +1,25 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Button, Icon, Textarea } from '@classess/design-system';
+import Link from 'next/link';
+import { Button, Icon, Tag, Textarea } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { masteryEvidence } from '../../_components/MasteryConclusion';
+import { IgniteCard, Panel, FlagRow, HandnotePanel } from '../../_components/StudentComposed';
 import { useDeepReads } from '@/lib/useDeepReads';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
-import { topicInfo, LOOP_TOPIC_ID } from '@/lib/loopData';
+import { BAND_SHORT } from '@/lib/engine';
+import { topicInfo, LOOP_TOPIC_ID, LOOP_DEPENDENT_TOPIC_ID } from '@/lib/loopData';
 
 /**
- * Learn — POSE -> STRUGGLE -> REVEAL. Never explain-first: the learner meets the
- * problem, attempts it, and only then is the idea revealed. The assistance
- * ladder is visible and FADES with mastery: its default rung is seeded from the
- * live read (gateway-first, engine fallback) — a stronger learner starts nearer
- * Independent. The lesson itself works offline (a pre-synced pack), so a degrade
- * shows the lesson with a quiet notice rather than blocking. Reveal is locked
- * until a prediction is committed (the generation effect); on reveal the attempt
- * is emitted with the independent-vs-supported flag and its evidence opens.
+ * Learn — a single topic, taught POSE -> STRUGGLE -> REVEAL. Never explain-first:
+ * the learner meets the problem, attempts it, and only then is the idea revealed.
+ * The assistance ladder is visible and FADES with mastery — its default rung is
+ * seeded from the live read (gateway-first, engine fallback). The lesson works
+ * offline (a pre-synced pack). Composed dense: the lesson is the main column, an
+ * aside carries the live read, the prerequisite, and what this unlocks.
  */
 
 const LADDER = ['Learn', 'Coach', 'Hint', 'Work-with-me', 'Check-my-work', 'Independent'] as const;
@@ -36,6 +37,7 @@ const RUNG_HELP: Record<Rung, string> = {
 type Phase = 'pose' | 'struggle' | 'reveal';
 
 const TOPIC = topicInfo(LOOP_TOPIC_ID);
+const DEPENDENT = topicInfo(LOOP_DEPENDENT_TOPIC_ID);
 
 /** Support fades as mastery grows: seed the default rung from the live reading. */
 function seedRung(composite: number): Rung {
@@ -68,13 +70,20 @@ export default function LearnPage() {
     }
   }, [readPhase, seeded, seededRung]);
 
+  // The surface viewed event — attributed, consent-stamped.
+  useEffect(() => {
+    if (readPhase === 'ready')
+      emit({ type: 'surface.viewed', purpose: EVENT_PURPOSE.learning, payload: { surface: 'student.learn', source } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [readPhase]);
+
   const evaluating = rung === 'Independent';
   // Degrade is not a blocker for the lesson — it ships offline as a synced pack.
-  const degraded = readPhase === 'offline' || readPhase === 'error' || readPhase === 'permission-denied' || source === 'fallback';
+  const degraded =
+    readPhase === 'offline' || readPhase === 'error' || readPhase === 'permission-denied' || source === 'fallback';
 
   function reveal() {
     setPhase('reveal');
-    // The attempt event carries the independent-vs-supported flag + the rung.
     emit({
       type: 'attempt',
       purpose: EVENT_PURPOSE.learning,
@@ -89,10 +98,69 @@ export default function LearnPage() {
 
   return (
     <SurfaceShell
+      breadcrumb={[
+        { label: 'Learning', href: '/student' },
+        { label: TOPIC.subjectName },
+        { label: 'Learn' },
+      ]}
       eyebrow={`${TOPIC.subjectName} · ${TOPIC.chapterName}`}
-      title="Learn it by trying first"
+      title={TOPIC.name}
+      meta={[
+        { label: 'taught by trying first' },
+        { value: rung, label: 'help level' },
+        { label: evaluating ? 'this attempt counts' : 'a supported attempt' },
+      ]}
       dockIntro="We never explain first. You meet the problem, give it a go, and then the idea is revealed — it sticks far better that way. Slide the support down as you get stronger."
       dockChips={['I do not know where to start', 'Give me a smaller hint', 'Show me a worked example']}
+      aside={
+        readPhase !== 'loading' ? (
+          <>
+            {reading ? (
+              reading.mastery.reading.independent ? (
+                <IgniteCard
+                  when="The spark"
+                  who="You can do this on your own"
+                  detail="A real, unaided demonstration — verified across attempts. This is the line that matters."
+                />
+              ) : (
+                <Panel title="Where you are" meta={<Tag tone="info">live read</Tag>}>
+                  <p className="body-sm" style={{ margin: '0 0 var(--space-2)' }}>
+                    {capitalise(reading.mastery.plainLanguage)}.
+                  </p>
+                  <p className="caption muted" style={{ margin: '0 0 var(--space-3)' }}>
+                    {BAND_SHORT[reading.mastery.reading.band]} · your help level starts from here.
+                  </p>
+                  <EvidenceDrawer
+                    evidence={masteryEvidence(reading.mastery, reading.gaps)}
+                    whySeeing="Your help level starts from your latest reading — more help when it is newer to you, less as you show you can do it alone."
+                  />
+                </Panel>
+              )
+            ) : null}
+
+            <Panel title="What this builds" meta={<span className="overline">unlocks next</span>}>
+              <FlagRow
+                flag={{
+                  icon: 'target',
+                  title: DEPENDENT.name,
+                  caption: 'Built on these ratios — doing them unaided opens it next.',
+                  href: `/student/topic/${LOOP_DEPENDENT_TOPIC_ID}`,
+                }}
+              />
+              <FlagRow
+                flag={{
+                  icon: 'chart',
+                  title: 'See where you are',
+                  caption: 'The full evidence behind this topic, in plain language.',
+                  href: `/student/topic/${LOOP_TOPIC_ID}`,
+                }}
+              />
+            </Panel>
+
+            <HandnotePanel>try before you peek — the struggle is where it sticks</HandnotePanel>
+          </>
+        ) : undefined
+      }
     >
       {readPhase === 'loading' ? (
         <section className="stack" aria-busy="true" aria-label="Preparing your lesson">
@@ -137,12 +205,6 @@ export default function LearnPage() {
               {RUNG_HELP[rung]} The support fades left-to-right as you grow
               {reading ? ' — your start point is set from where you are now.' : '.'}
             </p>
-            {reading ? (
-              <EvidenceDrawer
-                evidence={masteryEvidence(reading.mastery, reading.gaps)}
-                whySeeing="Your help level starts from your latest reading — more help when it is newer to you, less as you show you can do it alone."
-              />
-            ) : null}
           </section>
 
           <section>
@@ -185,7 +247,6 @@ export default function LearnPage() {
                     placeholder="Write your working here"
                     rows={4}
                   />
-                  {/* Reveal is locked until a prediction is committed (generation effect). */}
                   <div className="rec-actions">
                     <Button variant="accent" size="sm" disabled={attempt.trim().length === 0} onClick={reveal}>
                       {evaluating ? 'Submit my unaided answer' : 'I have tried — reveal the idea'}
@@ -228,6 +289,10 @@ export default function LearnPage() {
                     >
                       Try another, with less help
                     </Button>
+                    <Link href="/student/practice" className="btn btn-ghost btn-sm">
+                      Practise this on my own
+                      <Icon name="arrow-right" size="sm" />
+                    </Link>
                   </div>
                 </div>
               ) : null}
@@ -237,4 +302,8 @@ export default function LearnPage() {
       )}
     </SurfaceShell>
   );
+}
+
+function capitalise(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

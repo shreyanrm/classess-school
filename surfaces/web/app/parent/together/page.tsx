@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Button, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { ChildSwitcher } from '../../_components/ChildSwitcher';
@@ -22,23 +22,26 @@ import {
 } from '@/lib/parentData';
 
 /**
- * Learn-alongside and PTM prep. Activities you can do together at home, in
- * plain language, each tied to a real next step for the child; and a calm
- * preparation list for the parent-teacher meeting. Partnership and pride.
+ * Learn-alongside and PTM prep — recomposed to the sample-page bar. A stat
+ * matrix (activities, minutes together, prep points, PTM status), then a .cols
+ * layout:
+ *   · main — the at-home activities as designed, subject-coloured cards (each a
+ *     real next step), and the PTM card with a real booking REQUEST + an ICS add.
+ *   · aside — a partnership ignite-card, a "your time together this week"
+ *     timetable-style panel, and a Caveat handnote.
+ *
+ * Gateway-first read; mock bundle on degrade; SourceNote degrades honestly.
+ * Activity copy renders into the parent's language through tx(). A PTM is never
+ * auto-booked (the teacher confirms). All five designed states ship.
  */
 export default function ParentTogetherPage() {
   const [childId, setChildId] = useState(DEFAULT_CHILD_ID);
   const child = findChild(childId);
-  // Gateway-first governed read; the mock bundle answers on degrade. Switching
-  // child re-reads. Five designed states via the hook.
   const { phase, data, source } = useParentRead(childId);
   const { emit } = useEmit();
   const { t } = useT();
 
-  // The learn-alongside activities are composed in English by the read; render
-  // their generated free-text into the parent's language through the TRANSLATE
-  // capability (subject terms preserved). English readers skip the network.
-  const activities = data?.learnAlongside ?? [];
+  const activities = useMemo(() => data?.learnAlongside ?? [], [data]);
   const { tx, rendering, rendered, locale } = useReaderText(
     activities.flatMap((a) => [a.title, a.how, a.why]),
   );
@@ -54,16 +57,92 @@ export default function ParentTogetherPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, childId]);
 
+  const counts = useMemo(() => {
+    if (!data) return { activities: 0, minutes: 0, prep: 0, scheduled: 0 };
+    return {
+      activities: data.learnAlongside.length,
+      minutes: data.learnAlongside.reduce((s, a) => s + a.minutes, 0),
+      prep: data.ptm.prep.length,
+      scheduled: data.ptm.scheduled ? 1 : 0,
+    };
+  }, [data]);
+
   return (
     <SurfaceShell
       eyebrow={child ? child.section : t('parent.together.eyebrow')}
       title={child ? t('parent.together.titleChild', { child: child.label }) : t('parent.together.title')}
+      breadcrumb={[
+        { label: 'Family', href: '/parent' },
+        { label: t('parent.together.eyebrow') },
+      ]}
+      meta={[
+        { value: counts.activities || '—', label: 'activities for home' },
+        { value: counts.minutes || '—', label: 'minutes together' },
+        { label: 'partnership and pride' },
+      ]}
+      tabs={[
+        { label: 'This week', href: '/parent' },
+        { label: 'The child', href: '/parent/child' },
+        { label: 'Reports', href: '/parent/reports' },
+        { label: 'Together', active: true },
+      ]}
       dockIntro={t('parent.together.dockIntro')}
       dockChips={[t('parent.together.chip1'), t('parent.together.chip2'), t('parent.together.chip3')]}
+      aside={
+        phase !== 'ready' || !child || !data ? null : (
+          <>
+            <div className="ignite-card reveal reveal-2">
+              <div className="row-between" style={{ marginBottom: 14 }}>
+                <span className="overline">Together</span>
+                <Icon name="spark" size="md" style={{ color: 'var(--accent)' }} />
+              </div>
+              <div className="who">
+                {counts.minutes} minutes, this week
+              </div>
+              <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
+                Short, warm time at home — each tied to where {child.label} is growing right now.
+              </p>
+            </div>
+
+            {data.learnAlongside.length > 0 ? (
+              <div className="panel reveal reveal-3">
+                <div className="sec-head" style={{ marginBottom: 8 }}>
+                  <h4 className="h4" style={{ margin: 0 }}>
+                    Your time together
+                  </h4>
+                  <span className="overline">this week</span>
+                </div>
+                {data.learnAlongside.map((a) => (
+                  <div className="sched" key={a.id}>
+                    <span className="t">{a.minutes}m</span>
+                    <div>
+                      <div className="body-sm" style={{ fontWeight: 500 }}>
+                        {tx(a.title)}
+                      </div>
+                      <p className="caption">{tx(a.why)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="panel reveal reveal-4" style={{ padding: '18px 20px' }}>
+              <p className="handnote" style={{ fontSize: 22 }}>
+                no pressure — ten warm minutes beats an hour of pushing
+              </p>
+            </div>
+          </>
+        )
+      }
     >
       <section className="stack">
-        <div className="row-between" style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}>
-          <p className="overline" style={{ margin: 0 }}>{t('parent.together.choose')}</p>
+        <div
+          className="row-between"
+          style={{ alignItems: 'flex-end', gap: 'var(--space-3)', flexWrap: 'wrap' }}
+        >
+          <p className="overline" style={{ margin: 0 }}>
+            {t('parent.together.choose')}
+          </p>
           <LanguageBadge locale={locale} rendering={rendering} rendered={rendered} />
         </div>
         <ChildSwitcher selectedId={childId} onSelect={setChildId} />
@@ -77,11 +156,16 @@ export default function ParentTogetherPage() {
         <ConsentGated label={child?.label} />
       ) : (
         <>
+          <TogetherMatrix counts={counts} />
+
           <section className="stack">
-            <p className="overline">{t('parent.together.atHome')}</p>
-            <p className="caption quiet">
-              {t('parent.together.atHomeNote', { child: child.label })}
-            </p>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                {t('parent.together.atHome')}
+              </h3>
+              <span className="overline">each tied to a real next step</span>
+            </div>
+            <p className="caption quiet">{t('parent.together.atHomeNote', { child: child.label })}</p>
             {data.learnAlongside.length === 0 ? (
               <p className="body-sm muted">{t('parent.together.noActivities')}</p>
             ) : (
@@ -94,7 +178,12 @@ export default function ParentTogetherPage() {
           </section>
 
           <section className="stack">
-            <p className="overline">{t('parent.together.ptm')}</p>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                {t('parent.together.ptm')}
+              </h3>
+              <span className="overline">your choice, never required</span>
+            </div>
             <PtmCard ptm={data.ptm} childLabel={child.label} childId={childId} />
           </section>
 
@@ -109,6 +198,38 @@ export default function ParentTogetherPage() {
   );
 }
 
+/** The plain-language count matrix for Together. */
+function TogetherMatrix({
+  counts,
+}: {
+  counts: { activities: number; minutes: number; prep: number; scheduled: number };
+}) {
+  const cells: Array<{ label: string; value: string; delta: string; tone: 'up' | 'flat' }> = [
+    { label: 'Activities for home', value: String(counts.activities), delta: 'short and warm', tone: 'flat' },
+    { label: 'Minutes together', value: String(counts.minutes), delta: 'suggested this week', tone: 'flat' },
+    { label: 'Meeting prep', value: String(counts.prep), delta: 'points ready for you', tone: 'flat' },
+    {
+      label: 'Meeting',
+      value: counts.scheduled ? 'Set' : 'Open',
+      delta: counts.scheduled ? 'a time is held' : 'request whenever it suits',
+      tone: counts.scheduled ? 'up' : 'flat',
+    },
+  ];
+  return (
+    <div className="matrix reveal reveal-1" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+      {cells.map((c) => (
+        <div className="cell" key={c.label}>
+          <div className="cell-label">{c.label}</div>
+          <div className="cell-value">
+            <span>{c.value}</span>
+          </div>
+          <div className={`cell-delta ${c.tone}`}>{c.delta}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function LearnAlongsideCard({
   activity,
   tx,
@@ -119,15 +240,28 @@ function LearnAlongsideCard({
 }) {
   const { t } = useT();
   return (
-    <SpotlightCard padLg>
-      <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-4)' }}>
-        <h3 className="body-lg" style={{ margin: 0 }}>
-          {tx(activity.title)}
-        </h3>
-        <span className="row caption muted" style={{ gap: 'var(--space-2)' }}>
-          <Icon name="clock" size="sm" />
-          {t('parent.together.about', { minutes: activity.minutes })}
+    <SpotlightCard padLg data-subject={activity.subject}>
+      <div className="row" style={{ gap: 'var(--space-3)', alignItems: 'center' }}>
+        <span
+          className="report-subject-chip"
+          style={
+            {
+              '--subject': `var(--${activity.subject})`,
+              '--subject-ink': `var(--${activity.subject}-ink)`,
+            } as React.CSSProperties
+          }
+        >
+          {activity.subject.slice(0, 3).toUpperCase()}
         </span>
+        <div className="row-between" style={{ flex: 1, alignItems: 'flex-start', gap: 'var(--space-4)' }}>
+          <h3 className="body-lg" style={{ margin: 0 }}>
+            {tx(activity.title)}
+          </h3>
+          <span className="row caption muted" style={{ gap: 'var(--space-2)' }}>
+            <Icon name="clock" size="sm" />
+            {t('parent.together.about', { minutes: activity.minutes })}
+          </span>
+        </div>
       </div>
       <p className="body-sm" style={{ marginTop: 'var(--space-3)' }}>
         <span className="quiet">{t('parent.together.togetherLabel')} </span>
@@ -173,12 +307,6 @@ function PtmCard({ ptm, childLabel, childId }: { ptm: PtmMeeting; childLabel: st
   const { emit } = useEmit();
   const { t } = useT();
 
-  // GAP#12 — booking/requesting a PTM is a REAL write now. It prepares a booking
-  // through the wall (communication.ptm -> ptm.PtmService.request_booking, a
-  // PROPOSED booking awaiting a human confirm — the permission ladder) and a
-  // clean attributed ptm.requested event is persisted; the surface also emits an
-  // attributed parent event. On a degrade the request still records locally so
-  // the surface never breaks.
   async function request(starts?: string, windowLabel?: string) {
     setRequesting(true);
     await requestPtm({
@@ -256,11 +384,7 @@ function PtmCard({ ptm, childLabel, childId }: { ptm: PtmMeeting; childLabel: st
       </ul>
 
       <div className="rec-actions" style={{ marginTop: 'var(--space-5)' }}>
-        <Button
-          variant="primary"
-          size="sm"
-          onClick={() => downloadMeetingIcs(ptm, childLabel)}
-        >
+        <Button variant="primary" size="sm" onClick={() => downloadMeetingIcs(ptm, childLabel)}>
           {t('parent.together.ptmCalendar')}
           <Icon name="arrow-right" size="sm" />
         </Button>
@@ -269,9 +393,6 @@ function PtmCard({ ptm, childLabel, childId }: { ptm: PtmMeeting; childLabel: st
           size="sm"
           disabled={requesting}
           onClick={() => {
-            // A reschedule is a fresh booking REQUEST through the wall (it never
-            // auto-rebooks — the teacher confirms). Real write + emit, then the
-            // local note confirms it was recorded.
             void request(undefined, ptm.when ?? undefined).then(() => setRescheduling(true));
           }}
         >

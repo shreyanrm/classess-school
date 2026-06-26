@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { Button, ConfidenceBand, Icon, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
+import { Button, ConfidenceBand, Icon, Matrix, ProgressBar, SpotlightCard, Tag } from '@classess/design-system';
 import { SEED_ONTOLOGY } from '@classess/contracts';
 import { SurfaceShell } from '../../_components/SurfaceShell';
+import { StatCell } from '../../_components/StatCell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
@@ -101,13 +102,56 @@ export default function PlanPage() {
 
   const focusTopic = topics[0];
 
+  const pacing = useMemo(() => {
+    const list = Object.values(UNIT_DELIVERY);
+    const planned = list.reduce((s, u) => s + u.planned, 0);
+    const delivered = list.reduce((s, u) => s + u.delivered, 0);
+    const behind = list.filter((u) => u.delivered / u.planned < 0.7).length;
+    const pct = planned > 0 ? Math.round((delivered / planned) * 100) : 0;
+    return { planned, delivered, behind, pct };
+  }, []);
+
   return (
     <SurfaceShell
       eyebrow={CLASS_LABEL}
       title="Class diary and plan"
+      breadcrumb={[
+        { label: 'School', href: '/' },
+        { label: 'Grade 10', href: '/teacher' },
+        { label: 'Plan' },
+      ]}
+      meta={[
+        { value: HORIZONS.length, label: 'horizons' },
+        { value: `${pacing.delivered}/${pacing.planned}`, label: 'sessions delivered' },
+        { label: 'mapped to outcomes, not a board' },
+      ]}
+      tabs={[
+        { label: 'Overview', href: '/teacher' },
+        { label: 'Plan', active: true },
+        { label: 'Assign', href: '/teacher/assign' },
+        { label: 'Class insights', href: '/teacher/insights' },
+      ]}
       dockIntro="This is the living plan, mapped to the ontology outcomes. Ask me to draft a day, rebalance after a slow week, or differentiate by band. Delivering a day is your act — I prepare, you teach."
       dockChips={['Draft tomorrow on trig ratios', 'We are behind on this unit', 'Differentiate by band']}
     >
+      <Matrix columns={4} className="reveal reveal-1">
+        <StatCell label="Sessions planned" value={pacing.planned} delta="to date, this term" tone="flat" />
+        <StatCell label="Delivered" value={pacing.delivered} delta="logged after class" tone="up" />
+        <StatCell
+          label="Pacing"
+          value={pacing.pct}
+          unit="%"
+          delta="delivered of planned"
+          tone={pacing.pct < 70 ? 'down' : 'flat'}
+        />
+        <StatCell
+          label="Units behind"
+          value={pacing.behind}
+          delta="the plan rebalances around these"
+          tone={pacing.behind > 0 ? 'down' : 'flat'}
+        />
+      </Matrix>
+
       <section className="stack">
         <p className="overline">Subject</p>
         <div className="ladder" role="group" aria-label="Subject" style={{ maxWidth: 360 }}>
