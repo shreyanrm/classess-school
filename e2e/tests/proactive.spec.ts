@@ -59,9 +59,10 @@ test.describe('proactive loop — recommend → approve → execute → outcome'
     await page.goto('/proactive');
     await expect(page.getByTestId('rail')).toBeVisible();
 
-    // The queue renders its at-a-glance triage and at least one real action.
-    await expect(page.getByText(/the queue, at a glance/i)).toBeVisible();
-    await expect(page.getByText(/triaged by confidence/i)).toBeVisible();
+    // The queue renders its at-a-glance count-up triage (the stat matrix) and the
+    // confidence-grouped sections, with at least one real action.
+    await expect(page.getByText(/awaiting your decision/i).first()).toBeVisible();
+    await expect(page.getByText(/ready to act/i).first()).toBeVisible();
     await expect(page.getByRole('button', { name: /prepare the reset|assign the task/i }).first()).toBeVisible();
 
     expect(gate.errors, gate.errors.join('\n')).toEqual([]);
