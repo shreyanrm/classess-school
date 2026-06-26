@@ -6,10 +6,10 @@ _Last updated: 2026-06-26._
 ---
 
 ## 0. TL;DR — where we are right now
-- **Branch:** `v3-design-revamp` (NOT yet merged/deployed). The LIVE site `3.classess.com` is still the OLD pre-revamp build (`main` @ `3845e4b`). Nothing in this revamp is live until the final merge+deploy.
-- **Latest commit:** `c242ff1`. Done + committed: hero · premium revamp · flow build · flow gaps · visual pass (I reviewed shots myself — premium) · final features (report-card export, peer DMs+safety, Vidya handwritten annotations, admin demo-seed) · **home is now PURE Gemini-spare (chips removed, sub-line gone, hint bar trimmed — greeting + composer + cool glow only)**. CI green (typecheck + 387 vitest + pytest + build).
-- **NOW: E2E green** (`ws2xduebl`). Full E2E re-run after the overhaul = 227 pass / ~37 fail (mix of REAL bugs — console errors, rail 404s, missing SourceNote, clickability — and STALE specs — onboarding changed, home chips removed, flaky vidya-paths). Workflow is fixing real bugs + refreshing stale specs in parallel, then a clean prod-build verify. NOT shipping red.
-- **THEN go live (§4 Step E):** merge `v3-design-revamp`→main → `vercel --prod` (web-only; backend unchanged) → prod smoke + my live click-through → DONE.
+- **🚀 SHIPPED & LIVE (2026-06-26).** `main` @ `fc8cc50` is deployed to production and **aliased to `3.classess.com`** (Vercel deploy `dpl_HMGVyPchkC7ZCW9Rn5sahpdjWww9`, readyState READY). The full v3 revamp is now the live build. Backend untouched (Railway healthy). Prod smoke green (`/` + `/welcome` → 200). **Remaining: your live click-through visual sign-off** (per §1 done-definition the human-eyes pass is yours).
+- **Latest commit:** `fc8cc50` (merged `v3-design-revamp`→`main`, fast-forward). Prior `c242ff1`: hero · premium revamp · flow build · flow gaps · visual pass · final features (report-card export, peer DMs+safety, Vidya handwritten annotations, admin demo-seed) · pure-Gemini home. `fc8cc50`: refreshed the stale proactive-queue spec copy + dropped a tracked probe.
+- **✅ E2E green:** full Playwright suite across all 4 viewports = **264 passed / 4 skipped (the documented vidya navigate `fixme`) / 0 failed**. The old "227/~37-fail" was almost entirely the proactive copy-drift (×4 viewports) + a stuck dev server; the flagged "real bugs" (console errors, rail 404s, missing SourceNote, clickability) all passed clean — no app fix was needed.
+- **✅ CI green:** typecheck · vitest 387/387 · pytest · prod build — CI GATE PASSED.
 - **Dev server:** `npm run dev -w @classess/web -- --port 3210` (used for screenshots; recipe in §6).
 - **Residual minor/by-design gaps** (close in the visual pass, except the design-decisions which need the user): StudyQuadrant→teacher wire, perf bubble chart, sectioned mock paper, notifications drawer, Help/FAQ, fuller admin role catalogue. Design-decisions to confirm with user: raw-marks report-card export, peer-to-peer student chat.
 
