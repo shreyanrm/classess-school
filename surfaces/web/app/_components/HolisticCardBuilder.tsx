@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { Button, Icon, Input, Tag } from '@classess/design-system';
 import { HolisticProgressCard } from './HolisticProgressCard';
+import { FormalReportCard } from './FormalReportCard';
 import { ApprovalControl } from './ApprovalControl';
-import type { HolisticProgress, ObservationLine, ReadSource } from '@/lib/vizData';
+import type { FormalReportCard as FormalReportCardData, HolisticProgress, ObservationLine, ReadSource } from '@/lib/vizData';
 
 /* ============================================================================
    HolisticCardBuilder — the teacher COMPOSES the holistic progress card, then
@@ -31,15 +32,23 @@ const KIND_OPTIONS: { kind: ObservationLine['kind']; label: string }[] = [
 
 export interface HolisticCardBuilderProps {
   data: HolisticProgress;
+  /** The formal marks/grade report card for the same learner — offered as an
+   *  explicit export alongside the plain-language card (never replacing it). */
+  formalReport?: FormalReportCardData;
   source?: ReadSource;
+  /** The source behind the formal-report read (for its own SourceNote). */
+  formalSource?: ReadSource;
 }
 
-export function HolisticCardBuilder({ data, source = 'fallback' }: HolisticCardBuilderProps) {
+export function HolisticCardBuilder({ data, formalReport, source = 'fallback', formalSource = 'fallback' }: HolisticCardBuilderProps) {
   const [observations, setObservations] = useState<ObservationLine[]>(data.observations);
   const [draftText, setDraftText] = useState('');
   const [draftKind, setDraftKind] = useState<ObservationLine['kind']>('strength');
   const [composing, setComposing] = useState(false);
   const [shared, setShared] = useState(false);
+  // The plain-language holistic card is the default preview; the formal
+  // marks/grade card is an explicit toggle alongside it (never replacing it).
+  const [previewView, setPreviewView] = useState<'holistic' | 'formal'>('holistic');
 
   const card: HolisticProgress = { ...data, observations };
 
@@ -124,8 +133,40 @@ export function HolisticCardBuilder({ data, source = 'fallback' }: HolisticCardB
 
       {/* ── Live preview of the card as the FAMILY will read it ── */}
       <div className="stack" style={{ gap: 'var(--space-2)' }}>
-        <p className="overline">Preview · as the family will read it</p>
-        <HolisticProgressCard data={card} source={source} audience="parent" />
+        <div className="row-between" style={{ alignItems: 'center', flexWrap: 'wrap', gap: 'var(--space-3)' }}>
+          <p className="overline" style={{ margin: 0 }}>Preview · as the family will read it</p>
+          {formalReport ? (
+            <div className="ladder" role="group" aria-label="Report card view">
+              <button
+                type="button"
+                className={`ladder-rung${previewView === 'holistic' ? ' active' : ''}`}
+                onClick={() => setPreviewView('holistic')}
+                aria-pressed={previewView === 'holistic'}
+              >
+                Plain language
+              </button>
+              <button
+                type="button"
+                className={`ladder-rung${previewView === 'formal' ? ' active' : ''}`}
+                onClick={() => setPreviewView('formal')}
+                aria-pressed={previewView === 'formal'}
+              >
+                Formal report card
+              </button>
+            </div>
+          ) : null}
+        </div>
+        {formalReport && previewView === 'formal' ? (
+          <FormalReportCard data={formalReport} source={formalSource} audience="parent" />
+        ) : (
+          <HolisticProgressCard data={card} source={source} audience="parent" />
+        )}
+        {formalReport ? (
+          <p className="caption quiet" style={{ margin: 0 }}>
+            The plain-language card is the default the family sees. The formal marks/grade card is an
+            explicit export they can print — it sits alongside, it never replaces the plain card.
+          </p>
+        ) : null}
       </div>
 
       {/* ── Share through the permission ladder ── */}

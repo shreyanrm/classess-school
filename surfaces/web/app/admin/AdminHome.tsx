@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import Link from 'next/link';
 import { ConfidenceBand, Icon, Matrix, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
@@ -15,6 +16,7 @@ import {
   SCHOOL_STATS,
 } from '@/lib/mock';
 import { useStore } from '@/lib/useStore';
+import { ensureDemoSchool } from '@/lib/store';
 import { useProactive } from '@/lib/useProactive';
 import { useGatewaySource } from '@/lib/useGatewaySource';
 import { countStructure } from '@/lib/setupDraft';
@@ -34,6 +36,16 @@ export function AdminHome() {
   const { school } = useStore();
   const { actioned } = useProactive();
   const { source } = useGatewaySource('intelligence-views', { view: 'class-insights' });
+
+  // Demo convenience: a fresh DEMO admin (account.demo, onboarding done, no
+  // school) is auto-loaded a representative sample school so it lands on the
+  // populated briefing rather than the sparse cold-start. A real brand-new admin
+  // never trips this — ensureDemoSchool no-ops unless the account is demo — so
+  // the genuine cold-start path below stays intact. Runs once after mount, on
+  // the client only (the server snapshot is always the empty state).
+  useEffect(() => {
+    ensureDemoSchool();
+  }, []);
 
   if (!school?.confirmed) {
     return (

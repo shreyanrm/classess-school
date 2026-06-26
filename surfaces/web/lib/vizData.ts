@@ -207,6 +207,87 @@ export const HOLISTIC_FALLBACK: HolisticProgress = {
 };
 
 /* ---------------------------------------------------------------------------
+   2b) FORMAL REPORT CARD — the marks/grade DOCUMENT that sits ALONGSIDE the
+   plain-language holistic card (never replacing it). A proper report-card
+   shape: a student/class header, a subject × {marks, max, grade, grade-points}
+   table, term/overall totals + GPA, an attendance summary, and a teacher
+   remark. It is an EXPLICIT export — the holistic plain-language card stays the
+   default read; the formal card is offered as a "Formal report card" toggle.
+
+   PII-FREE: the header carries only generic, fictional tokens (Student A, an
+   opaque roll, a section, a term). No real personal names, no board lock-in
+   (the grading scale is a generic A1..E2 / GPA shape, attached as data — not a
+   named board's scheme), no real fees. Marks here describe an ASSESSMENT
+   structure on a generic record, never a real child's identity.
+   --------------------------------------------------------------------------- */
+
+/** A letter grade on a generic scale — never a named board's scheme. */
+export type ReportGrade = 'A1' | 'A2' | 'B1' | 'B2' | 'C1' | 'C2' | 'D' | 'E';
+
+/** One subject row in the formal marks table. PII-free, generic labels. */
+export interface ReportSubjectRow {
+  /** The subject name — "Mathematics", "Science". Generic, no PII. */
+  subject: string;
+  /** The subject's cool/brand hue (never warm-orange) for the row accent. */
+  accent: SubjectAccent;
+  /** Marks obtained this term. */
+  marks: number;
+  /** Maximum marks for the subject. */
+  max: number;
+  /** The letter grade on the generic scale. */
+  grade: ReportGrade;
+  /** Grade points (0..10 generic scale) earned for the subject. */
+  gradePoints: number;
+}
+
+/** The attendance summary line on the formal card — plain counts, a %, a band. */
+export interface ReportAttendanceSummary {
+  present: number;
+  schoolDays: number;
+}
+
+export interface FormalReportCard {
+  /** Generic, fictional — "Student A". Never a real name. */
+  studentLabel: string;
+  /** An opaque roll token — "10B-014". Not a real identifier. */
+  rollLabel: string;
+  /** The class / section — "Section 10-B". Generic. */
+  classLabel: string;
+  /** The term / assessment period — "Term 1 · 2025". */
+  term: string;
+  /** The generic scale name — "Generic 8-point scale". No board lock-in. */
+  scaleLabel: string;
+  subjects: ReportSubjectRow[];
+  attendance: ReportAttendanceSummary;
+  /** A short, plain-language teacher remark — calm, never a label on a child. */
+  remark: string;
+  /** Who issued the card — a generic role token, never a real name. */
+  issuedBy: string;
+  /** The verification confidence behind the marks read — a band, never a score. */
+  confidence: Confidence;
+}
+
+export const FORMAL_REPORT_FALLBACK: FormalReportCard = {
+  studentLabel: 'Student A',
+  rollLabel: '10B-014',
+  classLabel: 'Section 10-B',
+  term: 'Term 1 · 2025',
+  scaleLabel: 'Generic 8-point scale',
+  subjects: [
+    { subject: 'Mathematics', accent: 'cobalt', marks: 88, max: 100, grade: 'A1', gradePoints: 10 },
+    { subject: 'Science', accent: 'emerald', marks: 79, max: 100, grade: 'A2', gradePoints: 9 },
+    { subject: 'English', accent: 'violet', marks: 82, max: 100, grade: 'A1', gradePoints: 10 },
+    { subject: 'Social Studies', accent: 'indigo', marks: 71, max: 100, grade: 'B1', gradePoints: 8 },
+    { subject: 'Second Language', accent: 'cyan', marks: 68, max: 100, grade: 'B1', gradePoints: 8 },
+  ],
+  attendance: { present: 58, schoolDays: 68 },
+  remark:
+    'A steady, self-directed term. Strongest in Mathematics and English, working reliably with light guidance in the languages. The clear next step is moving multi-step reasoning to fully independent.',
+  issuedBy: 'Class teacher',
+  confidence: 'high',
+};
+
+/* ---------------------------------------------------------------------------
    3) PROJECT RUBRIC — the six-dimension criteria x Level 1-4 grid + submission
    tracking. Teacher-only diagnostic lens (the six dimensions); never shown raw
    to a student/parent.
@@ -1015,6 +1096,7 @@ export const TEACHER_PTM_FALLBACK: TeacherPtm = {
 export interface VizBundle {
   attendance: AttendanceRecord;
   holistic: HolisticProgress;
+  formalReport: FormalReportCard;
   rubric: ProjectRubric;
   paper: PaperAnalysis;
   bloom: BloomDistribution;
@@ -1035,6 +1117,7 @@ export interface VizBundle {
 export const VIZ_FALLBACK: VizBundle = {
   attendance: ATTENDANCE_FALLBACK,
   holistic: HOLISTIC_FALLBACK,
+  formalReport: FORMAL_REPORT_FALLBACK,
   rubric: RUBRIC_FALLBACK,
   paper: PAPER_FALLBACK,
   bloom: BLOOM_FALLBACK,

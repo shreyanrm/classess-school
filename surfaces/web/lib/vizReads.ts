@@ -98,6 +98,8 @@ function isVizShape(kind: VizKind, v: unknown): v is VizBundle[VizKind] {
       return Array.isArray(v.months) && isObj(v.counts);
     case 'holistic':
       return Array.isArray(v.competencies) && Array.isArray(v.foundational);
+    case 'formalReport':
+      return Array.isArray(v.subjects) && isObj(v.attendance);
     case 'rubric':
       return Array.isArray(v.criteria) && Array.isArray(v.submissions);
     case 'paper':

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Button, Composer, Icon, SpotlightCard, Tag } from '@classess/design-system';
+import { Avatar, Button, Composer, Icon, SpotlightCard, Tag } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { LanguageBadge } from '../_components/LanguageBadge';
@@ -35,6 +35,15 @@ interface Channel {
   preview: string;
   /** Whether this conversation is consent-gated for the viewer. */
   gated?: boolean;
+  /**
+   * A student-to-student direct message. Peer chats run through the SAME
+   * child-safety screening on every send (flagged content is blocked +
+   * escalated per the crisis path), carry a visible 'report message'
+   * affordance, and show a calm note that they are safety-screened.
+   */
+  peer?: boolean;
+  /** Two-letter initials for the classmate avatar (a generic handle, no PII). */
+  initials?: string;
 }
 
 interface Msg {
@@ -57,6 +66,11 @@ const CHANNELS: Record<Role, Channel[]> = {
   student: [
     { id: 'c1', name: 'Your class teacher', kind: 'dm', preview: 'A note about your last check' },
     { id: 'c2', name: 'Class 10-B', kind: 'channel', preview: 'Reminder: mock on Friday' },
+    // Student-to-student direct messages — classmates by generic study handle,
+    // never a real personal name. Each peer chat is safety-screened on send.
+    { id: 'p1', name: 'Study partner — Maths', kind: 'dm', preview: 'Want to compare trig answers?', peer: true, initials: 'MP' },
+    { id: 'p2', name: 'Lab buddy — Physics', kind: 'dm', preview: 'Did you finish the kinematics set?', peer: true, initials: 'LB' },
+    { id: 'p3', name: 'Revision group — 10-B', kind: 'dm', preview: 'Let’s share notes before Friday', peer: true, initials: 'RG' },
   ],
   admin: [
     { id: 'c1', name: 'School-wide broadcast', kind: 'broadcast', preview: 'Exam week logistics' },
@@ -79,6 +93,17 @@ const THREADS: Record<string, Msg[]> = {
   c3: [
     { id: 'm1', from: 'Guardian', text: 'I am worried about the missed days.', flagged: false },
   ],
+  // Peer DM seed threads — ordinary classmate study chat. Generic handles only.
+  p1: [
+    { id: 'm1', from: 'Study partner', text: 'Hey! Want to compare answers on the trig set?' },
+    { id: 'm2', from: 'You', text: 'Yes — I got stuck on question 4. Can you explain it?', mine: true },
+  ],
+  p2: [
+    { id: 'm1', from: 'Lab buddy', text: 'Did you finish the kinematics worksheet?' },
+  ],
+  p3: [
+    { id: 'm1', from: 'Revision group', text: 'Let’s pool notes before Friday’s mock.' },
+  ],
 };
 
 export default function MessagesPage() {
@@ -98,6 +123,28 @@ export default function MessagesPage() {
   const [routing, setRouting] = useState(false);
   const [taskOwner, setTaskOwner] = useState('Class teacher');
   const [taskDue, setTaskDue] = useState('In two days');
+
+  // Moderation affordance for peer chats — a viewer can report any message to a
+  // responsible adult. Reported message ids are held in a set so the bubble
+  // shows it was routed; a calm confirmation line is surfaced. This is the
+  // SAME escalation destination as the safety gate: a human, never a peer.
+  const [reportedIds, setReportedIds] = useState<Set<string>>(() => new Set());
+  const [reportNote, setReportNote] = useState<string | null>(null);
+  const reportMessage = useCallback((id: string) => {
+    setReportedIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setReportNote('Reported to a responsible adult. They will review this conversation — thank you for speaking up.');
+    window.setTimeout(() => setReportNote(null), 6000);
+  }, []);
+
+  // Split the conversation list so student-to-student DMs read as their own
+  // 'Classmates' group, distinct from the teacher / class channels above.
+  const peerChannels = useMemo(() => channels.filter((c) => c.peer), [channels]);
+  const coreChannels = useMemo(() => channels.filter((c) => !c.peer), [channels]);
 
   // GAP#8 — message bodies rendered into the reader's language. A message id maps
   // to its rendered (reader-language) body; the original is shown until/unless a
@@ -312,6 +359,65 @@ export default function MessagesPage() {
   const channelIcon = (kind: Channel['kind']) =>
     kind === 'dm' ? 'user' : kind === 'broadcast' ? 'send' : 'grid';
 
+  // One conversation row in the rail. Peer DMs show a classmate avatar (generic
+  // initials, never PII); teacher/class channels keep the kind glyph.
+  const renderChan = (c: Channel) => {
+    const on = c.id === activeId;
+    return (
+      <button
+        key={c.id}
+        type="button"
+        className={`msg-chan${on ? ' active' : ''}`}
+        onClick={() => {
+          setActiveId(c.id);
+          setPrepared(false);
+          setRouted(false);
+          setCrisisSupport(null);
+          setReportNote(null);
+        }}
+        aria-pressed={on}
+      >
+        <div className="msg-chan-top">
+          {c.peer ? (
+            <Avatar size="sm" initials={c.initials ?? 'CL'} />
+          ) : (
+            <Icon name={channelIcon(c.kind)} size="sm" />
+          )}
+          <span className="msg-chan-name">{c.name}</span>
+          {c.gated ? <Tag tone="warning" style={{ marginLeft: 'auto' }}>Consent</Tag> : null}
+        </div>
+        <p className="msg-chan-preview">{c.preview}</p>
+      </button>
+    );
+  };
+
+  // The 'report message' moderation affordance, shown under an incoming peer
+  // message. It routes the message to a responsible adult (the same human the
+  // safety gate escalates to) — never to another student. Own messages and
+  // non-peer channels carry no report control.
+  const renderReportAffordance = (id: string, mine: boolean) => {
+    if (!active?.peer || mine) return null;
+    const reported = reportedIds.has(id);
+    return (
+      <div className="msg-report">
+        {reported ? (
+          <span className="caption muted" data-testid="message-reported">
+            <Icon name="check" size="sm" /> Reported to a responsible adult
+          </span>
+        ) : (
+          <button
+            type="button"
+            className="msg-report-btn"
+            onClick={() => reportMessage(id)}
+            data-testid="report-message"
+          >
+            <Icon name="info" size="sm" /> Report message
+          </button>
+        )}
+      </div>
+    );
+  };
+
   const aside = (
     <>
       {crisisSupport ? (
@@ -433,6 +539,15 @@ export default function MessagesPage() {
             <p className="caption">Every message is screened; a concern is routed to a responsible adult.</p>
           </div>
         </div>
+        {active?.peer ? (
+          <div className="flag" data-testid="peer-safety-rail">
+            <div className="flag-ic"><Icon name="user" size="sm" /></div>
+            <div>
+              <div className="body-sm" style={{ fontWeight: 500 }}>Peer chats screened</div>
+              <p className="caption">Classmate DMs run the same screening on send, and you can report any message.</p>
+            </div>
+          </div>
+        ) : null}
         <div className="flag">
           <div className="flag-ic"><Icon name="clock" size="sm" /></div>
           <div>
@@ -465,7 +580,8 @@ export default function MessagesPage() {
       dockChips={['Draft a calm reply', 'Turn this into a task', 'Translate for the family']}
     >
       <div className="msg-shell reveal reveal-3">
-        {/* The channel / DM list rail. */}
+        {/* The channel / DM list rail — teacher/class channels, then a distinct
+            'Classmates' group for student-to-student direct messages. */}
         <div className="msg-list">
           <div className="msg-list-head">
             <p className="overline" style={{ margin: 0 }}>
@@ -473,30 +589,18 @@ export default function MessagesPage() {
             </p>
           </div>
           <div className="msg-list-scroll">
-            {channels.map((c) => {
-              const on = c.id === activeId;
-              return (
-                <button
-                  key={c.id}
-                  type="button"
-                  className={`msg-chan${on ? ' active' : ''}`}
-                  onClick={() => {
-                    setActiveId(c.id);
-                    setPrepared(false);
-                    setRouted(false);
-                    setCrisisSupport(null);
-                  }}
-                  aria-pressed={on}
-                >
-                  <div className="msg-chan-top">
-                    <Icon name={channelIcon(c.kind)} size="sm" />
-                    <span className="msg-chan-name">{c.name}</span>
-                    {c.gated ? <Tag tone="warning" style={{ marginLeft: 'auto' }}>Consent</Tag> : null}
-                  </div>
-                  <p className="msg-chan-preview">{c.preview}</p>
-                </button>
-              );
-            })}
+            {coreChannels.map(renderChan)}
+            {peerChannels.length > 0 ? (
+              <>
+                <div className="msg-list-group">
+                  <span className="overline">Classmates</span>
+                  <Tag tone="info" dot data-testid="peer-screened-tag">
+                    Safety-screened
+                  </Tag>
+                </div>
+                {peerChannels.map(renderChan)}
+              </>
+            ) : null}
           </div>
         </div>
 
@@ -545,6 +649,22 @@ export default function MessagesPage() {
                 </div>
               ) : null}
 
+              {active?.peer ? (
+                <div className="msg-peer-note" role="note" data-testid="peer-safety-note">
+                  <Icon name="info" size="sm" />
+                  <span>
+                    This is a direct chat with a classmate. Peer chats are safety-screened on every
+                    message — you can report anything that feels wrong, and a responsible adult will see it.
+                  </span>
+                </div>
+              ) : null}
+
+              {reportNote ? (
+                <div className="offline-banner" role="status" data-testid="report-note">
+                  {reportNote}
+                </div>
+              ) : null}
+
               <div className="msg-pane-thread thread" aria-live="polite">
                 {baseThread.length === 0 && liveMsgs.length === 0 ? (
                   <div className="empty">
@@ -567,6 +687,7 @@ export default function MessagesPage() {
                             </div>
                           ) : null}
                         </div>
+                        {renderReportAffordance(m.id, Boolean(m.mine))}
                       </div>
                     ))}
                     {liveMsgs.map((m) => (
@@ -579,6 +700,7 @@ export default function MessagesPage() {
                             </div>
                           ) : null}
                         </div>
+                        {renderReportAffordance(m.id, m.senderRef === selfRef)}
                       </div>
                     ))}
                   </>
@@ -594,8 +716,10 @@ export default function MessagesPage() {
                   sendLabel="Prepare message"
                 />
                 <p className="caption quiet">
-                  <Icon name="info" size="sm" /> Child-safety runs on this free-text surface. Anything
-                  concerning is routed to a responsible adult; there are no unmonitored channels.
+                  <Icon name="info" size="sm" />{' '}
+                  {active?.peer
+                    ? 'Peer chats are safety-screened on every message. Anything concerning is blocked and routed to a responsible adult — there are no unmonitored channels.'
+                    : 'Child-safety runs on this free-text surface. Anything concerning is routed to a responsible adult; there are no unmonitored channels.'}
                 </p>
 
                 {prepared ? (

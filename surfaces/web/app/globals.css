@@ -2167,12 +2167,13 @@ a {
   aspect-ratio: 1 / 1;
 }
 
-/* Every stroke is drawn BY HAND: a slightly-rough molten ink, run through the
-   #vc-sketch roughen filter (feTurbulence + feDisplacementMap, defined once in
-   the canvas SVG) so a line/arc/shape reads as sketched, not plotted. */
+/* Every stroke is drawn BY HAND: a slightly-rough ultramarine ink, run through
+   the #vc-sketch roughen filter (feTurbulence + feDisplacementMap, defined once
+   in the canvas SVG) so a line/arc/shape reads as sketched, not plotted. Cool
+   brand only — ultramarine (the signature); never coral/molten. */
 .vc-stroke {
   fill: none;
-  stroke: var(--molten);
+  stroke: var(--signature);
   stroke-width: 1.3;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -2188,16 +2189,16 @@ a {
 @keyframes vc-draw { to { stroke-dashoffset: 0; } }
 
 .vc-label {
-  fill: var(--molten-ink);
+  fill: var(--signature-ink, var(--ultra-ink));
   font-size: 3.6px;
   text-anchor: middle;
   font-family: var(--font-script, 'Caveat', cursive);
 }
 .vc-label-free { text-anchor: start; }
 
-/* The human-style annotation — script (Caveat), in molten ink. */
+/* The human-style annotation — script (Caveat), in cool ultramarine ink. */
 .vc-annotation {
-  fill: var(--molten-ink);
+  fill: var(--signature-ink, var(--ultra-ink));
   font-size: 4.6px;
   text-anchor: start;
   font-family: var(--font-script, 'Caveat', cursive);
@@ -2524,14 +2525,22 @@ a {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--molten-ink);
+  color: var(--signature-ink, var(--ultra-ink));
   margin-bottom: var(--space-2);
 }
-/* The title is written in the script hand (Caveat), not the UI sans. */
+/* The title is written in the script hand (Caveat), not the UI sans — and laid
+   over a soft ACID highlighter wash, like a marker swiped under a heading by
+   hand (cool brand; never coral). */
 .vidya-steps-title {
   font-size: 1.18rem;
   line-height: 1.1;
-  color: var(--molten-ink);
+  color: var(--signature-ink, var(--ultra-ink));
+  background: linear-gradient(
+    180deg,
+    transparent 58%,
+    color-mix(in srgb, var(--acid) 42%, transparent) 58%
+  );
+  padding: 0 0.12em;
 }
 .vidya-steps-list {
   list-style: none;
@@ -2554,7 +2563,7 @@ a {
   flex: 0 0 auto;
   width: 22px;
   height: 22px;
-  color: var(--molten-ink);
+  color: var(--signature-ink, var(--ultra-ink));
   font-size: 0.72rem;
   line-height: 22px;
   text-align: center;
@@ -2568,7 +2577,7 @@ a {
 }
 .vidya-step-loop path {
   fill: none;
-  stroke: var(--molten);
+  stroke: var(--signature);
   stroke-width: 1.4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -2581,7 +2590,7 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  color: var(--molten-ink);
+  color: var(--signature-ink, var(--ultra-ink));
   font-size: 0.72rem;
 }
 @keyframes vidya-step-in {
@@ -2598,8 +2607,10 @@ a {
    rough sketched LOOP that draws itself in live, the way a person circles a
    thing on screen with a pen. The whole layer is SVG (the .vidya-spotlight-ring
    <rect> stays as an invisible geometry anchor; the visible mark is the loop
-   path). Stroke + caption are MOLTEN only. pathLength=100 normalises the path so
-   one dash/offset of 100 draws the full loop regardless of size. */
+   path). Stroke + caption are COOL brand only — ultramarine (the signature),
+   with an acid highlighter wash behind the note; never coral/molten.
+   pathLength=100 normalises the path so one dash/offset of 100 draws the full
+   loop regardless of size. */
 .vidya-spotlight-layer {
   position: fixed;
   inset: 0;
@@ -2619,7 +2630,7 @@ a {
    (opacity only, GPU-cheap — never the stroke geometry). */
 .vidya-spotlight-sketch {
   fill: none;
-  stroke: var(--molten);
+  stroke: var(--signature);
   stroke-width: 2.4;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -2635,21 +2646,27 @@ a {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.62; }
 }
-/* The handwritten caption + margin note — script (Caveat), molten ink, no box
-   chrome (a person's note, not a tooltip). A hairline left tick on the note ties
-   it to the thing it annotates without a shadow. */
+/* The handwritten caption + margin note — script (Caveat), cool ultramarine ink,
+   no box chrome (a person's note, not a tooltip). The note carries a soft acid
+   highlighter wash (a marker swipe) and a hairline ultramarine left tick that
+   ties it to the thing it annotates — no shadow. */
 .vidya-spotlight-label,
 .vidya-spotlight-note {
   position: fixed;
   max-width: 220px;
-  color: var(--molten-ink);
+  color: var(--signature-ink, var(--ultra-ink));
   font-size: 1.18rem;
   line-height: 1.2;
   animation: vidya-spotlight-write var(--dur-slow, 260ms) var(--ease) 0.2s both;
 }
 .vidya-spotlight-note {
   padding-left: var(--space-2);
-  border-left: var(--border-width) solid var(--molten);
+  border-left: var(--border-width) solid var(--signature);
+  background: linear-gradient(
+    180deg,
+    transparent 56%,
+    color-mix(in srgb, var(--acid) 38%, transparent) 56%
+  );
 }
 @keyframes vidya-spotlight-write {
   from { opacity: 0; transform: translateY(3px); }
@@ -2657,7 +2674,7 @@ a {
 }
 /* The hand-drawn guide arrow — a rough stroke + a sketched (two-stroke) head
    that DRAW themselves from the caption to the spotlit control, then hold.
-   Molten, non-blocking, no shadow. */
+   Ultramarine (cool brand), non-blocking, no shadow. */
 .vidya-spotlight-arrow {
   overflow: visible;
   pointer-events: none;
@@ -2665,7 +2682,7 @@ a {
 .vidya-spotlight-arrow-line,
 .vidya-spotlight-arrow-head {
   fill: none;
-  stroke: var(--molten);
+  stroke: var(--signature);
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -4356,6 +4373,60 @@ td.muted .roster-sub { color: var(--text-tertiary); }
   background: var(--bg-canvas);
 }
 
+/* ── Peer (student-to-student) DM affordances ─────────────────────────────── */
+/* A rail group label that sets the 'Classmates' DMs apart from the teacher /
+   class channels above. Mono-caps overline + a calm safety-screened tag. */
+.msg-list-group {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 14px 12px 6px;
+  margin-top: 6px;
+  border-top: var(--border-width) solid var(--border);
+}
+.msg-list-group:first-child { border-top: 0; margin-top: 0; }
+
+/* A calm, tonal note under the thread head: peer chats are safety-screened.
+   Frost-tonal on the sunken surface, a hairline, the signature glyph — NO
+   shadow, one accent. Reads as reassurance, not a warning. */
+.msg-peer-note {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin: 14px 20px 0;
+  padding: 10px 12px;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+  line-height: 1.4;
+}
+.msg-peer-note .icon { color: var(--accent, var(--signature)); flex: none; margin-top: 1px; }
+
+/* The 'report message' moderation affordance under an incoming peer bubble.
+   Quiet by default; the signature accent on hover. Aligned to the bubble. */
+.msg-report { margin-top: 4px; padding-left: 2px; }
+.msg-report-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: transparent;
+  border: 0;
+  padding: 2px 0;
+  cursor: pointer;
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+  transition: color var(--dur-fast) var(--ease);
+}
+.msg-report-btn:hover { color: var(--accent, var(--signature)); }
+.msg-report-btn .icon { width: 13px; height: 13px; }
+.msg-report .caption { display: inline-flex; align-items: center; gap: 5px; }
+@media (prefers-reduced-motion: reduce) {
+  .msg-report-btn { transition: none; }
+}
+
 /* ── Settings — a structured settings area ───────────────────────────────── */
 /* A labelled settings group: a sticky section title + a hairline-framed list
    of rows, each a control with a plain label + helper. */
@@ -4621,6 +4692,67 @@ td.muted .roster-sub { color: var(--text-tertiary); }
   grid-template-columns: auto 1fr;
   gap: var(--space-3);
   align-items: start;
+}
+
+/* ── FormalReportCard (the marks/grade DOCUMENT, alongside the holistic card) ──
+   A proper report-card document: a mono-caps masthead, a dense subject × marks
+   table with a cool subject-hue rail per row, mono-tabular figures, and a calm
+   teacher remark. Depth = hairline + tonal; NEVER a shadow. ONE cool accent;
+   the subject hues carry the marks table, the ultramarine signature stays
+   reserved. Prints clean via the shared .report-print scope below. */
+.formal-report-head { align-items: flex-start; }
+.formal-report-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-3);
+}
+.formal-report-meta .m {
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.formal-report-meta .m .k {
+  text-transform: uppercase;
+  letter-spacing: var(--ls-wide);
+}
+.formal-report-meta .m b { color: var(--text-secondary); font-weight: var(--fw-medium); }
+
+.formal-marks-table { width: 100%; }
+.formal-marks-table thead th {
+  font-size: var(--text-overline);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: var(--fw-medium);
+}
+.formal-marks-table td,
+.formal-marks-table th { vertical-align: middle; }
+.formal-marks-table .data { font-variant-numeric: tabular-nums; }
+
+/* Each subject row carries a thin cool hue rail at its leading edge — the only
+   colour on the row, set from data-subject via --subject. */
+.formal-subject { display: inline-flex; align-items: center; gap: var(--space-3); font-weight: var(--fw-medium); }
+.formal-subject-rail {
+  width: 3px;
+  align-self: stretch;
+  min-height: 16px;
+  border-radius: 2px;
+  background: var(--subject, var(--accent));
+}
+.formal-marks-row td:first-child { padding-left: var(--space-2); }
+
+.formal-marks-total td {
+  border-top: var(--border-width) solid var(--border);
+  padding-top: var(--space-3);
+}
+.formal-marks-total .data { font-variant-numeric: tabular-nums; }
+
+.formal-remark {
+  background: var(--bg-sunken);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4) var(--space-5);
 }
 
 /* ── ProjectRubric ──────────────────────────────────────────────────────── */

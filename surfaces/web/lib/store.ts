@@ -864,6 +864,111 @@ export function saveSchool(school: SchoolSetup): void {
   updateStore((s) => ({ ...s, school }));
 }
 
+/**
+ * Build a representative DEMO school blueprint — already confirmed — so a fresh
+ * demo admin lands on the POPULATED briefing instead of the cold-start path. It
+ * is structure + a couple of grades + sections + roster COUNTS only: every label
+ * is generic (no real personal name, no board lock-in, no real pricing). The
+ * section names match the references the briefing's flagged sections drill into
+ * (10-B, 10-A, 9-A, 8-C) so the populated read is internally consistent.
+ *
+ * Ids are deterministic (channelRef of a stable seed) so the seeded school is
+ * idempotent across reloads — a demo never accrues duplicate schools. This is a
+ * DEMO convenience, never minted for a real account.
+ */
+export function buildDemoSchool(): SchoolSetup {
+  const now = new Date().toISOString();
+  const sec = (name: string, teacherLabel: string): SectionNode => ({
+    id: channelRef(`demo:section:${name}`),
+    name,
+    teacherLabel,
+  });
+  const structure: GroupNode[] = [
+    {
+      id: channelRef('demo:group:campus-north'),
+      name: 'Campus North',
+      grades: [
+        {
+          id: channelRef('demo:grade:10'),
+          name: 'Grade 10',
+          sections: [sec('10-A', 'Teacher 1'), sec('10-B', 'Teacher 2')],
+        },
+        {
+          id: channelRef('demo:grade:9'),
+          name: 'Grade 9',
+          sections: [sec('9-A', 'Teacher 3'), sec('9-C', 'Teacher 4')],
+        },
+        {
+          id: channelRef('demo:grade:8'),
+          name: 'Grade 8',
+          sections: [sec('8-C', 'Teacher 5')],
+        },
+      ],
+    },
+  ];
+
+  // Roster COUNTS only — generic labels, a handful of students + a teacher per
+  // section, enough for the meta line to read as a populated school. PII-free.
+  const roster: RosterMember[] = [];
+  const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  let teacherIndex = 0;
+  let studentIndex = 0;
+  for (const group of structure) {
+    for (const grade of group.grades) {
+      for (const section of grade.sections) {
+        teacherIndex += 1;
+        roster.push({
+          id: channelRef(`demo:teacher:${section.name}`),
+          label: `Teacher ${teacherIndex}`,
+          kind: 'teacher',
+          sectionId: section.id,
+        });
+        for (let i = 0; i < 6; i += 1) {
+          const label = `Student ${letters[studentIndex % letters.length]}`;
+          studentIndex += 1;
+          roster.push({
+            id: channelRef(`demo:student:${section.name}:${i}`),
+            label,
+            kind: 'student',
+            sectionId: section.id,
+          });
+        }
+      }
+    }
+  }
+
+  return {
+    institution: {
+      id: channelRef('demo:institution'),
+      name: 'Campus North',
+      board: 'Example State Board',
+      pacing: 'Standard, by section',
+      createdAt: now,
+    },
+    structure,
+    roster,
+    confirmed: true,
+  };
+}
+
+/**
+ * Auto-load the representative DEMO school IF — and only if — the account is a
+ * demo identity that has finished onboarding and has no school yet. This is what
+ * lets a fresh demo admin land on the populated briefing while a real brand-new
+ * admin still gets the genuine cold-start path (a real account never trips this
+ * gate, so saveSchool stays the only way a real school is created). Idempotent:
+ * once a confirmed school exists it is left untouched. Returns true if it seeded.
+ */
+export function ensureDemoSchool(): boolean {
+  const state = readStore();
+  // Only a finished demo account with no confirmed school gets the sample school.
+  if (!state.account?.demo) return false;
+  if (!state.onboarding.completed) return false;
+  if (state.school?.confirmed) return false;
+  saveSchool(buildDemoSchool());
+  return true;
+}
+
 /** Remove the school setup (start the blueprint over). */
 export function clearSchool(): void {
   updateStore((s) => ({ ...s, school: null }));

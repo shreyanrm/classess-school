@@ -18,6 +18,7 @@ import {
 import { Trajectory } from '../../_components/Trajectory';
 import { AttendanceHeatmap } from '../../_components/AttendanceHeatmap';
 import { HolisticProgressCard } from '../../_components/HolisticProgressCard';
+import { FormalReportCard } from '../../_components/FormalReportCard';
 import {
   StatMatrix,
   SubjectGrid,
@@ -77,11 +78,14 @@ export default function ProgressPage() {
   const { phase, reads, source } = useDeepReads(PROFILE_TOPICS);
   // The analytics tabs read gateway-first (seed fallback): the thinking-level
   // mix, the performance trend, the honest likelihood, and the attendance grid.
-  const viz = useVizData(['bloom', 'trend', 'success', 'attendance', 'holistic']);
+  const viz = useVizData(['bloom', 'trend', 'success', 'attendance', 'holistic', 'formalReport']);
   const { emit } = useEmit();
   const drawer = useEvidenceDrawer();
   const [query, setQuery] = useState<Query>(null);
   const [tab, setTab] = useState<Tab>('profile');
+  // The plain-language holistic card is the DEFAULT; the formal marks/grade card
+  // is an explicit toggle alongside it (it never replaces the plain card).
+  const [reportView, setReportView] = useState<'holistic' | 'formal'>('holistic');
 
   // Only show topics we have evidence on (the spine omits the rest too).
   const rows = useMemo(() => reads.filter((r) => r.mastery.observationCount > 0), [reads]);
@@ -405,20 +409,51 @@ export default function ProgressPage() {
               </section>
 
               <section className="stack">
-                <SecHead title="Your progress card" meta={<span className="overline">the whole picture · print or save as PDF</span>} />
+                <SecHead
+                  title="Your progress card"
+                  meta={<span className="overline">the whole picture · print or save as PDF</span>}
+                />
+                {/* Plain-language card is the default; the formal marks/grade card
+                    is an explicit toggle alongside it — it never replaces it. */}
+                <div className="ladder" role="group" aria-label="Progress card view">
+                  <button
+                    type="button"
+                    className={`ladder-rung${reportView === 'holistic' ? ' active' : ''}`}
+                    onClick={() => setReportView('holistic')}
+                    aria-pressed={reportView === 'holistic'}
+                  >
+                    Plain language
+                  </button>
+                  <button
+                    type="button"
+                    className={`ladder-rung${reportView === 'formal' ? ' active' : ''}`}
+                    onClick={() => setReportView('formal')}
+                    aria-pressed={reportView === 'formal'}
+                  >
+                    Formal report card
+                  </button>
+                </div>
                 <p className="body-sm muted" style={{ maxWidth: 580 }}>
-                  One calm summary of where you are — your competency mix, your foundations, where you
-                  are heading, and your attendance. Plain language, never a mark; print it or save it
-                  as a PDF whenever you want.
+                  {reportView === 'holistic'
+                    ? 'One calm summary of where you are — your competency mix, your foundations, where you are heading, and your attendance. Plain language, never a mark; print it or save it as a PDF whenever you want.'
+                    : 'The formal marks-and-grades version — your subjects with marks, grades, grade points and a GPA, laid out as a printable document. The plain-language card above carries the fuller picture.'}
                 </p>
                 <div className="viz-card">
-                  {/* The student audience: plain bands, no teacher-only reasoning,
-                      no "prepared step waits for approval" note. */}
-                  <HolisticProgressCard
-                    data={{ ...viz.data.holistic, subjectLabel: 'Your progress', classLabel: 'This term' }}
-                    source={viz.sourceByKind.holistic}
-                    audience="student"
-                  />
+                  {reportView === 'holistic' ? (
+                    /* The student audience: plain bands, no teacher-only reasoning,
+                       no "prepared step waits for approval" note. */
+                    <HolisticProgressCard
+                      data={{ ...viz.data.holistic, subjectLabel: 'Your progress', classLabel: 'This term' }}
+                      source={viz.sourceByKind.holistic}
+                      audience="student"
+                    />
+                  ) : (
+                    <FormalReportCard
+                      data={{ ...viz.data.formalReport, studentLabel: 'Your report card' }}
+                      source={viz.sourceByKind.formalReport}
+                      audience="student"
+                    />
+                  )}
                 </div>
               </section>
             </>

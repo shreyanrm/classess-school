@@ -9,6 +9,7 @@ import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { LanguageBadge } from '../../_components/LanguageBadge';
 import { HolisticProgressCard } from '../../_components/HolisticProgressCard';
+import { FormalReportCard } from '../../_components/FormalReportCard';
 import { useParentRead } from '@/lib/useParentRead';
 import { useVizData } from '@/lib/useVizData';
 import { useReaderText } from '@/lib/useReaderText';
@@ -37,13 +38,16 @@ import { useT } from '@/lib/i18n';
  */
 export default function ParentReportsPage() {
   const [childId, setChildId] = useState(DEFAULT_CHILD_ID);
+  // The plain-language holistic card stays the default; the formal marks/grade
+  // report card is an explicit export alongside it (it never replaces it).
+  const [reportView, setReportView] = useState<'holistic' | 'formal'>('holistic');
   const child = findChild(childId);
   const { phase, data, source } = useParentRead(childId);
   // The holistic progress card the school shared — read GATEWAY-FIRST keyed to
   // this child, seed-fallback on degrade, with its own SourceNote. Rendered as
   // the PARENT audience (plain bands; the six-dimension lens stays teacher-only)
   // with a Print / PDF path.
-  const viz = useVizData(['holistic'], childId);
+  const viz = useVizData(['holistic', 'formalReport'], childId);
   const { emit } = useEmit();
   const { t } = useT();
 
@@ -184,25 +188,57 @@ export default function ParentReportsPage() {
           <section className="stack">
             <div className="sec-head">
               <h3 className="h3" style={{ margin: 0 }}>
-                Holistic progress card
+                Progress card
               </h3>
               <span className="overline">the whole picture · print or save as PDF</span>
             </div>
+            {/* The plain-language holistic card is the default read; the formal
+                marks/grade report card is an explicit export alongside it. */}
+            <div className="ladder" role="group" aria-label="Progress card view">
+              <button
+                type="button"
+                className={`ladder-rung${reportView === 'holistic' ? ' active' : ''}`}
+                onClick={() => setReportView('holistic')}
+                aria-pressed={reportView === 'holistic'}
+              >
+                Holistic (plain language)
+              </button>
+              <button
+                type="button"
+                className={`ladder-rung${reportView === 'formal' ? ' active' : ''}`}
+                onClick={() => setReportView('formal')}
+                aria-pressed={reportView === 'formal'}
+              >
+                Formal report card
+              </button>
+            </div>
             <p className="caption quiet">
-              One calm report gathering {child.label}&apos;s competency mix, foundations, the direction
-              of travel, attendance, and the teacher&apos;s notes. Plain-language bands throughout —
-              never a raw mark — and printable for a meeting or the record.
+              {reportView === 'holistic'
+                ? `One calm report gathering ${child.label}'s competency mix, foundations, the direction of travel, attendance, and the teacher's notes. Plain-language bands throughout — never a raw mark — and printable for a meeting or the record.`
+                : `The formal marks-and-grades report for ${child.label} — each subject with its marks, grade, grade points and the term GPA, laid out as a printable document. The plain-language card above carries the fuller picture.`}
             </p>
             <div className="viz-card">
-              <HolisticProgressCard
-                data={{
-                  ...viz.data.holistic,
-                  subjectLabel: child.label,
-                  classLabel: child.section,
-                }}
-                source={viz.sourceByKind.holistic}
-                audience="parent"
-              />
+              {reportView === 'holistic' ? (
+                <HolisticProgressCard
+                  data={{
+                    ...viz.data.holistic,
+                    subjectLabel: child.label,
+                    classLabel: child.section,
+                  }}
+                  source={viz.sourceByKind.holistic}
+                  audience="parent"
+                />
+              ) : (
+                <FormalReportCard
+                  data={{
+                    ...viz.data.formalReport,
+                    studentLabel: child.label,
+                    classLabel: child.section,
+                  }}
+                  source={viz.sourceByKind.formalReport}
+                  audience="parent"
+                />
+              )}
             </div>
           </section>
 

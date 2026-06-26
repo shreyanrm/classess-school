@@ -9,7 +9,8 @@
    a pen — never a clean geometric ring) and, optionally, pins one short margin
    note in the script hand beside it — so "look at your trigonometry mastery"
    visibly highlights the right card while Vidya speaks. Stroke + highlight are
-   molten/acid only. Visual only: it never mutates the page, so it is safe on the
+   COOL brand only — ultramarine (the signature) with an acid highlighter wash;
+   never coral/molten. Visual only: it never mutates the page, so it is safe on the
    voice path too. With prefers-reduced-motion it renders the resolved end-state
    (the loop fully drawn, no live reveal, no pulse).
 
@@ -63,7 +64,7 @@ interface Rect {
    is deterministic (seeded) so a given target draws the same loop every time
    (no flicker on re-measure), and a tiny overshoot at the end gives it the lived
    feel of a real pen lifting off. Pure path data; the live "drawn" reveal and
-   the molten/acid colour live in globals.css. */
+   the cool ultramarine/acid colour live in globals.css. */
 function seeded(seed: number): () => number {
   let s = (seed % 2147483647) || 1;
   return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
@@ -182,7 +183,7 @@ export function VidyaSpotlight({
   // screen with a pen. We keep an invisible <rect class="vidya-spotlight-ring">
   // as the geometry anchor (the SVG-conversion contract) and overlay the organic
   // loop as the visible stroke. It honours prefers-reduced-motion (draw-in off →
-  // resolved end-state), is molten/acid only, and never mutates the page. A 4px
+  // resolved end-state), is cool ultramarine/acid only, and never mutates the page. A 4px
   // inset viewport keeps the wobble + overshoot from clipping.
   const w = rect.width + pad * 2;
   const h = rect.height + pad * 2;
@@ -212,8 +213,8 @@ export function VidyaSpotlight({
         <>
           {/* A hand-drawn guide: a slightly-rough stroke + a sketched arrowhead,
               drawn live from the caption down to the spotlit control, so the eye
-              is led by HAND to the exact target. Molten/acid; reduced-motion drops
-              the draw-in (globals.css). */}
+              is led by HAND to the exact target. Cool ultramarine/acid; reduced-motion
+              drops the draw-in (globals.css). */}
           <svg
             className="vidya-spotlight-arrow"
             width={30}

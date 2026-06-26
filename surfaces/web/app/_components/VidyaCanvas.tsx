@@ -11,8 +11,9 @@
    dismiss it.
 
    v4 brand only: SVG visuals drawn BY HAND — every stroke runs through a subtle
-   roughen filter (feTurbulence + feDisplacementMap) and a molten/acid ink so a
-   line, arc or shape reads as sketched by a person, not plotted. The stroke
+   roughen filter (feTurbulence + feDisplacementMap) and a cool ultramarine ink
+   (the signature; never coral/molten) so a line, arc or shape reads as sketched
+   by a person, not plotted. The stroke
    draws itself in live (stroke-dashoffset, like the design system's .c-draw /
    spark), Caveat (script) carries the human-style annotation, no shadows, sharp
    corners, generous space, plain language, no emoji, no exclamation.

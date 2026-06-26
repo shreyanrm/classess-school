@@ -10,9 +10,10 @@
    any step whose deterministic check fails), so nothing unverified is shown.
 
    Hand-drawn spec: the index is a slightly-rough hand-circled number (an organic
-   sketched loop, not a clean ring), the title is a script (Caveat) caption, and a
-   verified step gets a hand-drawn underline drawn live beneath it — molten/acid
-   only. prefers-reduced-motion renders the resolved end-state.
+   sketched loop, not a clean ring), the title is a script (Caveat) caption over
+   an acid highlighter wash, and the loop draws itself live beneath it — COOL
+   brand only (ultramarine + acid; never coral/molten).
+   prefers-reduced-motion renders the resolved end-state.
    ============================================================================ */
 
 import { useEffect, useState } from 'react';

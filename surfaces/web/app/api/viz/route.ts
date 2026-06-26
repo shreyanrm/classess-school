@@ -29,6 +29,7 @@ export const dynamic = 'force-dynamic';
 const ALL_KINDS: VizKind[] = [
   'attendance',
   'holistic',
+  'formalReport',
   'rubric',
   'paper',
   'bloom',

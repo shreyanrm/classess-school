@@ -108,7 +108,7 @@ export default function StudentDetailPage() {
   // The holistic-card composite + the attendance history read gateway-first
   // (seed fallback), keyed to this learner so the card + heatmap render real-
   // shaped data with an observable SourceNote.
-  const viz = useVizData(['holistic', 'attendance'], ref);
+  const viz = useVizData(['holistic', 'attendance', 'formalReport'], ref);
   const allReads = useMemo(() => insights?.reads ?? [], [insights]);
   const reads = useMemo(
     () => allReads.filter((r) => r.studentRef === ref),
@@ -409,6 +409,8 @@ export default function StudentDetailPage() {
             <HolisticCardBuilder
               data={{ ...viz.data.holistic, subjectLabel: label, classLabel: CLASS_LABEL }}
               source={viz.sourceByKind.holistic}
+              formalReport={{ ...viz.data.formalReport, studentLabel: label, classLabel: CLASS_LABEL }}
+              formalSource={viz.sourceByKind.formalReport}
             />
           </section>
 
