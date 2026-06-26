@@ -25,6 +25,7 @@
    ============================================================================ */
 
 import type { Role } from './mock';
+import type { SubjectAccent, Theme } from '@classess/design-system';
 
 /** Bump when the persisted shape changes incompatibly; old blobs are dropped. */
 export const STORE_VERSION = 1 as const;
@@ -254,6 +255,116 @@ export interface StoreState {
    * Survives reload — admin config is real configuration, not session state.
    */
   adminConfig?: AdminConfig;
+  /**
+   * A teacher's instructional-style choices — how Vidya should PREPARE drafts
+   * (homework, structured plans, oral checks, worksheets, test papers, lesson
+   * plans, substitution notes) and which calm persona it writes in. These shape
+   * what is prepared; they never auto-send and never alter a learner's record.
+   * Undefined fields follow their sensible defaults. Persisted across reload.
+   */
+  teaching?: TeachingPreferences;
+  /**
+   * The surface appearance the user chose — a theme palette (light/dark) plus a
+   * subject-accent tint and a visual-accessibility mode. Persisted so the look
+   * survives reload; applied to <html> by the AppearanceApplier. Brand law holds:
+   * the cool ultramarine signature and the cool subject palette only.
+   */
+  appearance?: Appearance;
+  /**
+   * Leave applications this account has SUBMITTED (the requester side). Each one
+   * routes to the admin leave-approval queue via the permission ladder — nothing
+   * here decides anything; it records what the requester asked for, and the
+   * admin board reads it back as a pending request. PII-free.
+   */
+  leaveApplications?: LeaveApplication[];
+}
+
+// ---------------------------------------------------------------------------
+// Teaching preferences — a teacher's instructional-style choices.
+// These shape what Vidya PREPARES; they never auto-send and never grade.
+// ---------------------------------------------------------------------------
+
+/** The instructional surfaces a teacher can set a default style for. */
+export type TeachingStyleKey =
+  | 'homework'
+  | 'structured'
+  | 'oral'
+  | 'worksheet'
+  | 'testPaper'
+  | 'lessonPlan'
+  | 'substitution';
+
+/** A calm voice Vidya can write a teacher's prepared drafts in. */
+export type TeachingPersona = 'warm-mentor' | 'plain-coach' | 'socratic-guide' | 'brisk-examiner';
+
+/**
+ * How each instructional surface should be prepared by default. One calm choice
+ * per surface, plus the persona Vidya writes in. These are preferences over the
+ * SHAPE of a draft (e.g. scaffolded vs exam-style homework), never a command to
+ * send anything — the permission ladder still holds.
+ */
+export interface TeachingPreferences {
+  /** Per-surface style id (e.g. homework -> 'scaffolded'). Absent = the default. */
+  styles?: Partial<Record<TeachingStyleKey, string>>;
+  /** The persona Vidya writes prepared drafts in. Absent = 'warm-mentor'. */
+  persona?: TeachingPersona;
+}
+
+export function defaultTeachingPreferences(): Required<TeachingPreferences> {
+  return { styles: {}, persona: 'warm-mentor' };
+}
+
+// ---------------------------------------------------------------------------
+// Appearance — theme palette + accent + visual-accessibility mode.
+// Brand law: cool ultramarine signature, cool subject palette, no coral.
+// ---------------------------------------------------------------------------
+
+/**
+ * The surface look. `theme` is the light/dark palette mapped 1:1 onto
+ * data-theme; `accent` optionally overrides the per-surface accent with a chosen
+ * cool subject hue (undefined keeps the surface's own hue); `largeText` and
+ * `highContrast` are the visual-accessibility mode toggles; `reduceMotion` lets
+ * a user opt into reduced motion regardless of the OS setting.
+ */
+export interface Appearance {
+  theme: Theme;
+  accent?: SubjectAccent;
+  largeText: boolean;
+  highContrast: boolean;
+  reduceMotion: boolean;
+}
+
+export function defaultAppearance(): Appearance {
+  return { theme: 'light', accent: undefined, largeText: false, highContrast: false, reduceMotion: false };
+}
+
+// ---------------------------------------------------------------------------
+// Leave application (requester side) — routes to the admin approval queue.
+// ---------------------------------------------------------------------------
+
+export type LeaveApplicationKind = 'casual' | 'sick' | 'duty' | 'family';
+
+/**
+ * A leave application the teacher / student SUBMITTED. It is the requester half
+ * of the existing admin leave-approval queue: it carries only what the requester
+ * asked for (kind, span, days, reason) plus an opaque local id and the role that
+ * raised it. No decision lives here — the admin board decides, gated by the
+ * permission ladder. PII-free: the reason is the requester's own words, never a
+ * stored personal id.
+ */
+export interface LeaveApplication {
+  /** Opaque, locally-minted id. */
+  id: string;
+  /** The role that raised it — drives the routing copy on the admin side. */
+  who: 'staff' | 'student';
+  kind: LeaveApplicationKind;
+  /** Plain "from -> to" token; no real dates are required for the read. */
+  span: string;
+  /** Working days the leave covers (the count the decider weighs). */
+  days: number;
+  reason: string;
+  /** ISO timestamp the application was submitted. */
+  submittedAt: string;
 }
 
 /** Admin governance configuration, persisted across reload. */
@@ -306,6 +417,67 @@ export function setPreference(key: keyof Preferences, value: boolean): void {
 /** Persist the chosen UI locale. Survives reload; read by the LocaleProvider. */
 export function setLocale(locale: string): void {
   updateStore((s) => ({ ...s, locale }));
+}
+
+/** Persist a teacher's default style for one instructional surface. */
+export function setTeachingStyle(key: TeachingStyleKey, styleId: string): void {
+  updateStore((s) => ({
+    ...s,
+    teaching: {
+      ...s.teaching,
+      styles: { ...s.teaching?.styles, [key]: styleId },
+    },
+  }));
+}
+
+/** Persist the persona Vidya writes a teacher's prepared drafts in. */
+export function setTeachingPersona(persona: TeachingPersona): void {
+  updateStore((s) => ({ ...s, teaching: { ...s.teaching, persona } }));
+}
+
+/** Persist one appearance field (theme / accent / a11y mode). Survives reload. */
+export function setAppearance<K extends keyof Appearance>(key: K, value: Appearance[K]): void {
+  updateStore((s) => ({
+    ...s,
+    appearance: { ...defaultAppearance(), ...s.appearance, [key]: value },
+  }));
+}
+
+/**
+ * Submit a leave application (requester side). Mints an opaque id, records what
+ * was asked for, and prepends it to the local list — the admin queue reads it
+ * back as a pending request. Returns the persisted application. Nothing is
+ * decided here; the decision is the admin's, gated by the permission ladder.
+ */
+export function submitLeaveApplication(input: {
+  who: 'staff' | 'student';
+  kind: LeaveApplicationKind;
+  span: string;
+  days: number;
+  reason: string;
+}): LeaveApplication {
+  const application: LeaveApplication = {
+    id: mintId(),
+    who: input.who,
+    kind: input.kind,
+    span: input.span,
+    days: input.days,
+    reason: input.reason,
+    submittedAt: new Date().toISOString(),
+  };
+  updateStore((s) => ({
+    ...s,
+    leaveApplications: [application, ...(s.leaveApplications ?? [])],
+  }));
+  return application;
+}
+
+/** Withdraw a submitted leave application before it has been decided. */
+export function withdrawLeaveApplication(id: string): void {
+  updateStore((s) => ({
+    ...s,
+    leaveApplications: (s.leaveApplications ?? []).filter((a) => a.id !== id),
+  }));
 }
 
 /** Persist an agent's enabled state (admin control-centre). Survives reload. */

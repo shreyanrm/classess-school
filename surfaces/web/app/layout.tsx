@@ -3,6 +3,7 @@ import { ThemeProvider } from '@classess/design-system';
 import { RoleProvider } from '@/lib/RoleContext';
 import { LocaleProvider } from '@/lib/i18n';
 import { AuthGate } from './_components/AuthGate';
+import { AppearanceApplier } from './_components/AppearanceApplier';
 import { VidyaOrb } from './_components/VidyaOrb';
 import { CommandPalette } from './_components/CommandPalette';
 import { EvidenceDrawerHost } from './_components/EvidenceDrawer';
@@ -26,6 +27,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" data-theme="light">
       <body>
         <ThemeProvider defaultTheme="light">
+          {/* Applies the persisted theme palette + accent + accessibility mode
+              to <html>; renders nothing. */}
+          <AppearanceApplier />
           <LocaleProvider>
             <RoleProvider>
               {/* The shared right-slide EvidenceDrawer host — any "Why this"

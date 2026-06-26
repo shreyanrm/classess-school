@@ -40,6 +40,9 @@ const ALL_KINDS: VizKind[] = [
   'testPaper',
   'teachingStats',
   'quizResult',
+  'markbook',
+  'paperPreview',
+  'teacherPtm',
 ];
 
 function parseKinds(raw: string | null): VizKind[] {

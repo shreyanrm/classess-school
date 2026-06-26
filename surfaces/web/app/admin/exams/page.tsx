@@ -9,9 +9,11 @@ import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { PaperAnalysis } from '../../_components/PaperAnalysis';
+import { QuestionPaperPreview } from '../../_components/QuestionPaperPreview';
 import { SCAN_ROWS } from '@/lib/examsData';
 import { useAdminConfig } from '@/lib/adminConfig';
 import { SCHOOL_PAPER_FALLBACK } from '@/lib/opsData';
+import { PAPER_PREVIEW_FALLBACK } from '@/lib/vizData';
 
 /**
  * Exam operations (admin) — recomposed to the sample-page bar. Scheduling,
@@ -32,17 +34,21 @@ const STAGES: { id: Stage; label: string }[] = [
   { id: 'intake', label: 'Scan intake' },
 ];
 
-type Mode = 'ops' | 'analysis';
+type Mode = 'ops' | 'analysis' | 'paper';
 
 export default function ExamsPage() {
   const [stage, setStage] = useState<Stage>('schedule');
   const surface = useAdminConfig('exams');
   const savedMode = surface.config.mode;
-  const mode: Mode = savedMode === 'analysis' ? 'analysis' : 'ops';
+  const mode: Mode = savedMode === 'analysis' ? 'analysis' : savedMode === 'paper' ? 'paper' : 'ops';
   const setMode = (m: Mode) => {
     void surface.set('mode', m);
   };
   const paper = SCHOOL_PAPER_FALLBACK;
+  // The prepared paper for the preview tab — approved-state rides the wall config
+  // (the same admin-config seam), so the approval persists and reads back.
+  const paperApproved = surface.config.paperApproved === true;
+  const preview = { ...PAPER_PREVIEW_FALLBACK, approved: paperApproved };
   const approved: Record<Stage, boolean> = {
     schedule: surface.config.schedule === true,
     seating: surface.config.seating === true,
@@ -101,6 +107,7 @@ export default function ExamsPage() {
       ]}
       tabs={[
         { label: 'Operations', active: mode === 'ops', onClick: () => setMode('ops') },
+        { label: 'Question paper', active: mode === 'paper', onClick: () => setMode('paper') },
         { label: 'Paper analysis', active: mode === 'analysis', onClick: () => setMode('analysis') },
         { label: 'Calendar', href: '/admin/calendar' },
         { label: 'Governance', href: '/admin/governance' },
@@ -172,6 +179,57 @@ export default function ExamsPage() {
     >
       {surface.phase !== 'ready' ? (
         <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      ) : mode === 'paper' ? (
+        <>
+          <Matrix columns={4} className="reveal reveal-1">
+            <StatCell label="Sections" value={preview.sections.length} delta="on the paper" tone="flat" />
+            <StatCell
+              label="Questions"
+              value={preview.sections.reduce((n, s) => n + s.questions.length, 0)}
+              delta="prepared"
+              tone="flat"
+            />
+            <StatCell
+              label="Marks"
+              value={preview.sections.reduce((n, s) => n + s.questions.reduce((m, q) => m + q.marks, 0), 0)}
+              delta="paper structure, not a score"
+              tone="flat"
+            />
+            <StatCell
+              label="Status"
+              value={paperApproved ? 1 : 0}
+              unit={paperApproved ? ' approved' : ' awaiting'}
+              delta={paperApproved ? 'approved by your hand' : 'held at the gate'}
+              tone={paperApproved ? 'up' : 'down'}
+            />
+          </Matrix>
+
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>Question paper preview</h3>
+              <span className="overline">section-headed · answer key</span>
+            </div>
+            <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+              The prepared paper, laid out as a document — section headings, numbered questions, and
+              their marks. The Answer-key tab reveals the model answers, which are never shown to a
+              learner. Marks describe the paper&apos;s structure, never a child&apos;s score. Nothing
+              publishes until you approve.
+            </p>
+            <QuestionPaperPreview
+              data={preview}
+              source={surface.source}
+              onApprove={() => surface.set('paperApproved', true)}
+            />
+            {paperApproved ? (
+              <div className="rec-actions" style={{ marginTop: 'var(--space-3)' }}>
+                <Button variant="ghost" size="sm" onClick={() => surface.set('paperApproved', false)}>
+                  Reopen the paper
+                </Button>
+                <span className="caption muted">Reopening returns it to a draft; it stays unpublished to learners.</span>
+              </div>
+            ) : null}
+          </section>
+        </>
       ) : mode === 'analysis' ? (
         <>
           <Matrix columns={4} className="reveal reveal-1">

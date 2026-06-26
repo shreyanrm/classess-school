@@ -36,7 +36,8 @@ export type AdminConfigSurface =
   | 'integrations'
   | 'intelligence'
   | 'network'
-  | 'operations';
+  | 'operations'
+  | 'control-centre';
 
 /** A config value is a plain scalar the surface owns. */
 export type AdminConfigValue = string | number | boolean;

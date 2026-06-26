@@ -719,6 +719,295 @@ export const QUIZ_RESULT_FALLBACK: QuizResult = {
 };
 
 /* ---------------------------------------------------------------------------
+   11) MARKBOOK — the v2 grade-entry grid (students × periods/terms), in v3.
+   Cells are PLAIN-LANGUAGE BANDS, never a raw % shown to a learner: each cell
+   carries a band (below / on / above / exemplary / not-yet) the teacher SETS,
+   with an optional remark. Setup mode lets the teacher set a cell's band;
+   View mode is the calm read. The band is the teacher's recorded judgement
+   against the period target — colour-coded by band, never a number on a child.
+   --------------------------------------------------------------------------- */
+
+/** A plain-language markbook band — the recorded standing, never a raw score. */
+export type MarkBand = 'exemplary' | 'above' | 'on' | 'below' | 'not-yet';
+
+/** One cell in the markbook grid — a band against a period, plus a remark. */
+export interface MarkCell {
+  /** The recorded band, or null when nothing has been entered yet. */
+  band: MarkBand | null;
+  /** An optional short remark the teacher attached (evidence-first, plain). */
+  remark?: string;
+}
+
+/** One row in the markbook — a generic student label + a roll token + cells. */
+export interface MarkRow {
+  /** Generic, fictional — "Student A". Never a real name. */
+  label: string;
+  /** A short roll token — "01", "02". Opaque, not an identifier. */
+  roll: string;
+  /** One cell per period column (same order as `periods`). */
+  cells: MarkCell[];
+}
+
+export interface MarkBook {
+  classLabel: string;
+  subject: SubjectAccent;
+  /** The period / term column headers — "Unit 1", "Term 1", "Periodic 2". */
+  periods: string[];
+  rows: MarkRow[];
+  confidence: Confidence;
+}
+
+export const MARKBOOK_FALLBACK: MarkBook = {
+  classLabel: 'Section 10-B',
+  subject: 'cobalt',
+  periods: ['Unit 1', 'Periodic 1', 'Unit 2', 'Term 1'],
+  rows: [
+    { label: 'Student A', roll: '01', cells: [{ band: 'on' }, { band: 'above' }, { band: 'above', remark: 'Strong on multi-step reasoning.' }, { band: 'exemplary' }] },
+    { label: 'Student B', roll: '02', cells: [{ band: 'below', remark: 'Fractions reset recommended.' }, { band: 'on' }, { band: 'on' }, { band: 'on' }] },
+    { label: 'Student C', roll: '03', cells: [{ band: 'on' }, { band: 'on' }, { band: 'below', remark: 'Stopped one step short on the proof.' }, { band: 'on' }] },
+    { label: 'Student D', roll: '04', cells: [{ band: 'above' }, { band: 'above' }, { band: 'exemplary' }, { band: 'exemplary' }] },
+    { label: 'Student E', roll: '05', cells: [{ band: 'below' }, { band: 'below', remark: 'Same below-target cluster as the prerequisite check.' }, { band: 'on' }, { band: null }] },
+    { label: 'Student F', roll: '06', cells: [{ band: 'on' }, { band: 'on' }, { band: 'above' }, { band: 'above' }] },
+  ],
+  confidence: 'high',
+};
+
+/* ---------------------------------------------------------------------------
+   12) QUESTION-PAPER PREVIEW — the v2 paper preview + answer-key render.
+   The prepared paper laid out as a DOCUMENT: section headings, numbered
+   questions (MCQ options / short / long / assertion-reasoning), point values,
+   then a separate Answer-Key view with model answers. The paper is PREPARED
+   and waits behind the approval ladder; model answers are the teacher's key,
+   never shown to a learner. Marks describe the paper, never a child's score.
+   --------------------------------------------------------------------------- */
+
+export type PaperQuestionType = 'mcq' | 'short' | 'long' | 'assertion-reasoning';
+
+/** One question in the rendered paper — its prompt, type, marks, and key. */
+export interface PaperQuestion {
+  /** Question number within its section — "1", "2". */
+  number: string;
+  type: PaperQuestionType;
+  prompt: string;
+  marks: number;
+  /** A–D options, for MCQ / assertion-reasoning. Empty for short/long. */
+  options?: string[];
+  /** The model answer / answer key for this question (teacher-only). */
+  modelAnswer: string;
+}
+
+/** One section of the rendered paper — a heading, instruction, and questions. */
+export interface PaperPreviewSection {
+  label: string;
+  /** A short instruction line for the section — "Answer all questions." */
+  instruction: string;
+  subject: SubjectAccent;
+  questions: PaperQuestion[];
+}
+
+export interface PaperPreview {
+  title: string;
+  classLabel: string;
+  kind: string;
+  /** Time allowed — "1 hour", "3 hours". A structure, never a learner score. */
+  duration: string;
+  sections: PaperPreviewSection[];
+  /** Whether the prepared paper has been approved (permission ladder). */
+  approved: boolean;
+  confidence: Confidence;
+}
+
+export const PAPER_PREVIEW_FALLBACK: PaperPreview = {
+  title: 'Periodic test — Unit 3',
+  classLabel: 'Section 10-B',
+  kind: 'Periodic test',
+  duration: '1 hour',
+  sections: [
+    {
+      label: 'Section A',
+      instruction: 'Multiple choice. Choose the one best answer. 1 mark each.',
+      subject: 'cobalt',
+      questions: [
+        {
+          number: '1',
+          type: 'mcq',
+          prompt: 'Which fraction is equivalent to 3/4?',
+          marks: 1,
+          options: ['6/9', '9/12', '5/8', '4/6'],
+          modelAnswer: 'B — 9/12. Multiply numerator and denominator by 3.',
+        },
+        {
+          number: '2',
+          type: 'mcq',
+          prompt: 'The value of sin 30° is:',
+          marks: 1,
+          options: ['1', '1/2', '√3/2', '0'],
+          modelAnswer: 'B — 1/2. A standard-angle value to recall.',
+        },
+      ],
+    },
+    {
+      label: 'Section B',
+      instruction: 'Assertion-Reasoning. Mark whether the reason explains the assertion. 2 marks each.',
+      subject: 'emerald',
+      questions: [
+        {
+          number: '3',
+          type: 'assertion-reasoning',
+          prompt:
+            'Assertion: Photosynthesis needs light. Reason: Chlorophyll absorbs light energy to drive the reaction.',
+          marks: 2,
+          options: [
+            'Both true; reason explains assertion',
+            'Both true; reason does not explain',
+            'Assertion true, reason false',
+            'Assertion false, reason true',
+          ],
+          modelAnswer: 'A — both are true and the reason correctly explains the assertion.',
+        },
+      ],
+    },
+    {
+      label: 'Section C',
+      instruction: 'Short answer. Show your working. 3 marks each.',
+      subject: 'violet',
+      questions: [
+        {
+          number: '4',
+          type: 'short',
+          prompt: 'Given sin θ = 3/5 in a right triangle, find cos θ. Show your method.',
+          marks: 3,
+          modelAnswer:
+            'Use the Pythagorean relationship: cos θ = √(1 − sin²θ) = √(1 − 9/25) = 4/5. Award method marks for setting up the relationship even if arithmetic slips.',
+        },
+      ],
+    },
+    {
+      label: 'Section D',
+      instruction: 'Long answer. Answer in full sentences. 5 marks each.',
+      subject: 'indigo',
+      questions: [
+        {
+          number: '5',
+          type: 'long',
+          prompt:
+            'Explain, with one worked example, how to find an equivalent fraction, and why the value does not change.',
+          marks: 5,
+          modelAnswer:
+            'Multiply (or divide) numerator and denominator by the same non-zero number; the ratio — and so the value — is unchanged. Worked example, e.g. 1/2 = 2/4. Award marks for the worked example, the reasoning about the unchanged ratio, and clear communication.',
+        },
+      ],
+    },
+  ],
+  approved: false,
+  confidence: 'middle',
+};
+
+/* ---------------------------------------------------------------------------
+   13) TEACHER PTM — the teacher-side parent-teacher-meeting management read,
+   the counterpart to the parent's /parent/together. The teacher publishes a
+   day's slots with availability, reads incoming parent QUERIES (each carrying
+   a prepared talking point), and records a meeting SUMMARY after a slot. A
+   slot is held only when a request is matched — nothing is auto-booked. All
+   labels are generic + fictional (Parent of Student A); no real names, no PII.
+   --------------------------------------------------------------------------- */
+
+export type PtmSlotStatus = 'open' | 'requested' | 'booked';
+
+/** One time slot the teacher has opened for the PTM day. */
+export interface PtmSlot {
+  id: string;
+  /** A human time token — "09:00", "09:20". */
+  time: string;
+  status: PtmSlotStatus;
+  /** When requested/booked, the generic parent label — "Parent of Student A". */
+  withLabel?: string;
+}
+
+/** An incoming parent query the teacher prepares for, before a meeting. */
+export interface PtmQuery {
+  id: string;
+  /** Generic, fictional — "Parent of Student A". */
+  fromLabel: string;
+  childLabel: string;
+  subject: SubjectAccent;
+  /** The parent's question, in plain language. */
+  question: string;
+  /** A prepared talking point the teacher can bring — evidence-first. */
+  preparedPoint: string;
+  /** Whether the teacher has marked this query as prepared. */
+  prepared: boolean;
+}
+
+/** A recorded summary of a completed meeting — calm, plain, shareable. */
+export interface PtmSummary {
+  id: string;
+  withLabel: string;
+  childLabel: string;
+  when: string;
+  /** The plain-language summary of what was agreed — never a raw score. */
+  note: string;
+  /** Agreed next steps, each a short plain line. */
+  agreed: string[];
+}
+
+export interface TeacherPtm {
+  classLabel: string;
+  /** The PTM day label — "Saturday, 28 June". */
+  day: string;
+  slots: PtmSlot[];
+  queries: PtmQuery[];
+  summaries: PtmSummary[];
+  confidence: Confidence;
+}
+
+export const TEACHER_PTM_FALLBACK: TeacherPtm = {
+  classLabel: 'Section 10-B',
+  day: 'Saturday, 28 June',
+  slots: [
+    { id: 's1', time: '09:00', status: 'booked', withLabel: 'Parent of Student A' },
+    { id: 's2', time: '09:20', status: 'requested', withLabel: 'Parent of Student C' },
+    { id: 's3', time: '09:40', status: 'open' },
+    { id: 's4', time: '10:00', status: 'open' },
+    { id: 's5', time: '10:20', status: 'booked', withLabel: 'Parent of Student E' },
+    { id: 's6', time: '10:40', status: 'open' },
+  ],
+  queries: [
+    {
+      id: 'q1',
+      fromLabel: 'Parent of Student A',
+      childLabel: 'Student A',
+      subject: 'cobalt',
+      question: 'How can we support fractions practice at home without it becoming a battle?',
+      preparedPoint:
+        'Student A is on target on fractions and moving toward independent — suggest 10 warm minutes of equivalent-fractions card games, not drilling.',
+      prepared: true,
+    },
+    {
+      id: 'q2',
+      fromLabel: 'Parent of Student C',
+      childLabel: 'Student C',
+      subject: 'emerald',
+      question: 'Is the science project on track? We are not sure what is expected.',
+      preparedPoint:
+        'Walk through the project rubric — Student C is strong on communication, and the next step is reasoning across sources. Share the level descriptors.',
+      prepared: false,
+    },
+  ],
+  summaries: [
+    {
+      id: 'm1',
+      withLabel: 'Parent of Student E',
+      childLabel: 'Student E',
+      when: 'Last term',
+      note: 'Agreed a calm check-in routine after the two clustered absences in May. Attendance has been steady since.',
+      agreed: ['A short Friday reading routine at home', 'A scaffolded fractions reset before the ratios unit'],
+    },
+  ],
+  confidence: 'high',
+};
+
+/* ---------------------------------------------------------------------------
    The bundle — one read returns every viz shape for a surface, each carrying
    its own source so a surface can degrade observably per-section.
    --------------------------------------------------------------------------- */
@@ -737,6 +1026,9 @@ export interface VizBundle {
   testPaper: TestPaper;
   teachingStats: TeachingStats;
   quizResult: QuizResult;
+  markbook: MarkBook;
+  paperPreview: PaperPreview;
+  teacherPtm: TeacherPtm;
 }
 
 /** The complete fallback bundle — the observable, real-shaped degrade read. */
@@ -754,6 +1046,9 @@ export const VIZ_FALLBACK: VizBundle = {
   testPaper: TEST_PAPER_FALLBACK,
   teachingStats: TEACHING_STATS_FALLBACK,
   quizResult: QUIZ_RESULT_FALLBACK,
+  markbook: MARKBOOK_FALLBACK,
+  paperPreview: PAPER_PREVIEW_FALLBACK,
+  teacherPtm: TEACHER_PTM_FALLBACK,
 };
 
 /** The viz kinds the gateway-first read can request individually. */

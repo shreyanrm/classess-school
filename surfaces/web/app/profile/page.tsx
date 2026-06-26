@@ -8,8 +8,18 @@ import { useRole } from '@/lib/RoleContext';
 import { useStore } from '@/lib/useStore';
 import { useT } from '@/lib/i18n/LocaleContext';
 import { LOCALES } from '@/lib/i18n/dictionary';
-import { tierAllowsBehavioural } from '@/lib/store';
+import { tierAllowsBehavioural, defaultAppearance } from '@/lib/store';
 import { ROLE_LABELS } from '@/lib/mock';
+
+/** A plain-language label for the chosen palette + accent. */
+const ACCENT_LABEL: Record<string, string> = {
+  cobalt: 'Cobalt',
+  tiffany: 'Tiffany',
+  emerald: 'Emerald',
+  violet: 'Violet',
+  indigo: 'Indigo',
+  cyan: 'Cyan',
+};
 
 /**
  * Profile — recomposed to the bar. A calm identity hero opens it, a count-up
@@ -25,9 +35,18 @@ import { ROLE_LABELS } from '@/lib/mock';
  */
 export default function ProfilePage() {
   const { role } = useRole();
-  const { account, consent, school } = useStore();
+  const { account, consent, school, appearance, teaching, leaveApplications } = useStore();
   const { locale } = useT();
   const label = ROLE_LABELS[role];
+
+  const look = { ...defaultAppearance(), ...appearance };
+  const paletteLabel = look.theme === 'dark' ? 'Dark' : 'Light';
+  const accentLabel = look.accent ? ACCENT_LABEL[look.accent] ?? look.accent : 'Role default';
+  const a11yOn = look.largeText || look.highContrast || look.reduceMotion;
+  const isTeacher = role === 'teacher';
+  const canRequestLeave = role === 'teacher' || role === 'student';
+  const pendingLeave = (leaveApplications ?? []).length;
+  const teachingPersonaSet = Boolean(teaching?.persona) || Boolean(teaching?.styles && Object.keys(teaching.styles).length);
 
   const workspace = school?.institution.name ?? `${label} workspace`;
   const language = LOCALES.find((l) => l.code === locale)?.label ?? 'English';
@@ -158,11 +177,52 @@ export default function ProfilePage() {
         </div>
       </section>
 
-      <section className="stack reveal reveal-5" style={{ marginTop: 'var(--space-6)' }}>
+      <section className="stack reveal reveal-5" data-testid="profile-preferences" style={{ marginTop: 'var(--space-6)' }}>
+        <SecHead title="Your preferences" meta={<span className="overline">at a glance</span>} />
+        <p className="caption muted">A quick read of how your surface is set. Change any of these in settings.</p>
+        <div className="set-frame">
+          <div className="set-row">
+            <div className="set-row-lead">
+              <div className="t">Appearance</div>
+              <div className="d">Your palette and accent. The cool subject palette only — never warm.</div>
+            </div>
+            <Tag tone="info" dot>{paletteLabel} · {accentLabel}</Tag>
+          </div>
+          <div className="set-row">
+            <div className="set-row-lead">
+              <div className="t">Visual accessibility</div>
+              <div className="d">Larger text, higher contrast, or reduced motion when you turn them on.</div>
+            </div>
+            <Tag tone={a11yOn ? 'success' : 'neutral'} dot>{a11yOn ? 'On' : 'Off'}</Tag>
+          </div>
+          {isTeacher ? (
+            <div className="set-row">
+              <div className="set-row-lead">
+                <div className="t">Teaching style</div>
+                <div className="d">Your instructional-style defaults and the persona Vidya prepares drafts in.</div>
+              </div>
+              <Tag tone={teachingPersonaSet ? 'success' : 'neutral'} dot>{teachingPersonaSet ? 'Set' : 'Default'}</Tag>
+            </div>
+          ) : null}
+          {canRequestLeave ? (
+            <div className="set-row">
+              <div className="set-row-lead">
+                <div className="t">Leave applications</div>
+                <div className="d">Requests you have sent to the approval queue, awaiting a decision.</div>
+              </div>
+              <Tag tone={pendingLeave > 0 ? 'info' : 'neutral'} dot>
+                {pendingLeave > 0 ? `${pendingLeave} sent` : 'None'}
+              </Tag>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="stack reveal reveal-6" style={{ marginTop: 'var(--space-6)' }}>
         <SecHead title="Account and settings" meta={<span className="overline">manage</span>} />
         <p className="caption muted">
-          Change how Vidya helps you, your language, or your role from settings. Switching role
-          re-shapes the whole workspace from the rail.
+          Change how Vidya helps you, your language, your appearance, your teaching style, or apply
+          for leave from settings. Switching role re-shapes the whole workspace from the rail.
         </p>
         <div className="rec-actions">
           <Link href="/settings" className="btn btn-secondary btn-sm row" style={{ gap: 'var(--space-2)' }}>

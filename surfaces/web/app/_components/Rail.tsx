@@ -33,6 +33,7 @@ const ROLE_ITEMS: Record<Role, RailItem[]> = {
     { href: '/teacher/evaluate', icon: 'check', label: 'Evaluation review' },
     { href: '/teacher/students', icon: 'chart', label: 'Student insights' },
     { href: '/teacher/insights', icon: 'grid', label: 'Class insights' },
+    { href: '/teacher/together', icon: 'calendar', label: 'Parent meetings' },
     { href: '/messages', icon: 'send', label: 'Messages' },
     { href: '/teacher/growth', icon: 'spark', label: 'Your growth' },
     { href: '/loop', icon: 'spark', label: 'The live loop' },

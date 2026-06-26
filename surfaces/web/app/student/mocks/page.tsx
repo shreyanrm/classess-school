@@ -14,6 +14,7 @@ import {
   HandnotePanel,
   SecHead,
 } from '../../_components/StudentComposed';
+import { MockSession } from '../../_components/MockSession';
 import { useSurfaceState } from '@/lib/useSurfaceState';
 import { useGatewaySource } from '@/lib/useGatewaySource';
 import { MOCK_BLUEPRINTS, type MockBlueprint } from '@/lib/mocksData';
@@ -51,9 +52,9 @@ export default function MocksPage() {
       eyebrow="Exam readiness"
       title="Mocks and study plan"
       meta={[
-        { value: mocks.length, label: 'blueprint mocks' },
+        { value: mocks.length, label: 'sittable mocks' },
         { value: revision.length, label: 'to revise' },
-        { label: 'never a marks formula' },
+        { label: 'sectioned paper · timer · plain-language read' },
       ]}
       tabs={[
         { label: 'Mock tests', active: tab === 'mocks', onClick: () => setTab('mocks') },
@@ -114,7 +115,14 @@ export default function MocksPage() {
             ]}
           />
 
-          {tab === 'mocks' ? (
+          {tab === 'mocks' && started ? (
+            <section className="reveal reveal-3">
+              <div className="row-between" style={{ marginBottom: 'var(--space-4)' }}>
+                <SecHead title="Paper in progress" meta={<span className="overline">take your time</span>} />
+              </div>
+              <MockSession blueprintId={started} onExit={() => setStarted(null)} />
+            </section>
+          ) : tab === 'mocks' ? (
             <section className="reveal reveal-3">
               <SecHead title="Blueprint-aligned mocks" meta={<span className="overline">where the weight sits</span>} />
               <p className="caption quiet" style={{ marginBottom: 'var(--space-4)' }}>
@@ -147,24 +155,15 @@ export default function MocksPage() {
                     </div>
 
                     <div className="divider" />
-                    {started === m.id ? (
-                      <div className="rec-actions">
-                        <span className="body-sm">
-                          Mock in progress. Take your time — this is practice, and it feeds your readiness
-                          read, not a record held against you.
-                        </span>
-                        <Button variant="ghost" size="sm" onClick={() => setStarted(null)}>
-                          Pause
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="rec-actions">
-                        <Button variant="accent" size="sm" onClick={() => setStarted(m.id)}>
-                          {m.state === 'taken' ? 'Retake this mock' : 'Begin the mock'}
-                        </Button>
-                        <span className="caption muted">Nothing starts until you choose to begin.</span>
-                      </div>
-                    )}
+                    <div className="rec-actions">
+                      <Button variant="accent" size="sm" onClick={() => setStarted(m.id)}>
+                        {m.state === 'taken' ? 'Retake this mock' : 'Begin the mock'}
+                      </Button>
+                      <span className="caption muted">
+                        Full paper · timer · {m.subject === 'Mathematics' ? '40' : '35'} min. Nothing starts
+                        until you choose to begin.
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>

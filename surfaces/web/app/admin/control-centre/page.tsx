@@ -7,6 +7,8 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { StatCell } from '../../_components/StatCell';
 import { RecommendationItem } from '../../_components/RecommendationItem';
 import { ReadStates } from '../../_components/ReadStates';
+import { KnowledgeBase } from '../../_components/KnowledgeBase';
+import { useAdminConfig } from '@/lib/adminConfig';
 import {
   TRACK_USAGE,
   TRACK_LABEL,
@@ -32,12 +34,21 @@ import { EVENT_PURPOSE } from '@/lib/events';
  * per-agent enable persists, the approval queue is gateway-first through the
  * proactive loop, the emergency disable records to the immutable audit trail.
  */
+type Mode = 'console' | 'knowledge';
+
 export default function AdminControlCentrePage() {
   const totals = useMemo(() => gateTotals(TRACK_USAGE), []);
   const { adminConfig } = useStore();
   const proactive = useProactive();
   const gov = useGovernance();
   const { emit } = useEmit();
+  // The knowledge base persists its governance gate through the admin-config
+  // seam (same wall, same immutable event store); the active lens persists too.
+  const kb = useAdminConfig('control-centre');
+  const mode: Mode = kb.config.mode === 'knowledge' ? 'knowledge' : 'console';
+  const setMode = (m: Mode) => {
+    void kb.set('mode', m);
+  };
 
   const runningAgents = AGENTS.filter((a) => agentEnabled(a, adminConfig?.agents)).length;
 
@@ -61,10 +72,10 @@ export default function AdminControlCentrePage() {
         { value: totals.withheld, label: 'held for a human' },
       ]}
       tabs={[
-        { label: 'Control centre', active: true },
+        { label: 'Control centre', active: mode === 'console', onClick: () => setMode('console') },
+        { label: 'Knowledge base', active: mode === 'knowledge', onClick: () => setMode('knowledge') },
         { label: 'Governance', href: '/admin/governance' },
         { label: 'Integrations', href: '/admin/integrations' },
-        { label: 'Intelligence', href: '/admin/intelligence' },
       ]}
       actions={
         <Link href="/admin/governance" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
@@ -72,9 +83,61 @@ export default function AdminControlCentrePage() {
           Policy and permissions
         </Link>
       }
-      dockIntro="This is where you watch and bound the intelligence. You choose which agents run and their tools; the confidence gate holds back anything uncertain; the approval queue acts only on your say-so. Ask me to explain any number here."
-      dockChips={['What does the gate withhold', 'Which agents are running', 'Show the break-glass log']}
+      dockIntro={
+        mode === 'knowledge'
+          ? 'This is your institution’s knowledge base. Add your own documents — handbook, policies, syllabus — and I can ground my answers in them, but only when you turn the reference gate on. A new document waits at the gate until you make it available. I never read the file’s contents here.'
+          : 'This is where you watch and bound the intelligence. You choose which agents run and their tools; the confidence gate holds back anything uncertain; the approval queue acts only on your say-so. Ask me to explain any number here.'
+      }
+      dockChips={
+        mode === 'knowledge'
+          ? ['Add a reference document', 'What does the reference gate do', 'Is any file content stored']
+          : ['What does the gate withhold', 'Which agents are running', 'Show the break-glass log']
+      }
       aside={
+        mode === 'knowledge' ? (
+          <>
+            <div className="ignite-card reveal reveal-2">
+              <div className="row-between" style={{ marginBottom: 14 }}>
+                <span className="overline">Grounded, not generic</span>
+                <Icon name="flame" size="md" style={{ color: 'var(--accent)' }} />
+              </div>
+              <div className="who">Vidya can reference your own documents</div>
+              <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
+                Your handbook and policies become reference material — but only when you turn the gate
+                on. Off by default; you hold it.
+              </p>
+            </div>
+
+            <div className="panel">
+              <div className="sec-head" style={{ marginBottom: 8 }}>
+                <h4 className="h4" style={{ margin: 0 }}>The reference ladder</h4>
+                <Tag tone="info" dot>prepare → make available</Tag>
+              </div>
+              <p className="caption" style={{ marginBottom: 12 }}>
+                A document is added, then prepared, then made available — and only read when the gate
+                is on. Nothing the assistant can read turns on by itself.
+              </p>
+              {[
+                { t: 'Add', note: 'Title, format, size only — never the file’s contents.' },
+                { t: 'Prepare', note: 'A new document waits at the gate, not yet readable.' },
+                { t: 'Make available', note: 'You release it; with the gate on, Vidya may reference it.' },
+              ].map((s) => (
+                <div className="sched" key={s.t}>
+                  <span className="t">{s.t}</span>
+                  <div>
+                    <p className="caption">{s.note}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="panel" style={{ padding: '18px 20px' }}>
+              <p className="handnote" style={{ fontSize: 22 }}>
+                stored references, never stored contents — and never read until you say so
+              </p>
+            </div>
+          </>
+        ) : (
         <>
           <div className="ignite-card reveal reveal-2">
             <div className="row-between" style={{ marginBottom: 14 }}>
@@ -123,8 +186,17 @@ export default function AdminControlCentrePage() {
             </p>
           </div>
         </>
+        )
       }
     >
+      {mode === 'knowledge' ? (
+        kb.phase !== 'ready' ? (
+          <ReadStates phase={kb.phase} onRetry={kb.refresh} />
+        ) : (
+          <KnowledgeBase config={kb.config} source={kb.source} onSet={kb.set} />
+        )
+      ) : (
+      <>
       <Matrix columns={4} className="reveal reveal-1">
         <StatCell label="Model calls" value={totals.calls} delta="this window" tone="flat" />
         <StatCell label="Passed the gate" value={totals.passed} delta="provisional auto" tone="up" />
@@ -227,6 +299,8 @@ export default function AdminControlCentrePage() {
       </section>
 
       <EmergencyDisable onRecord={recordEmergencyDisable} />
+      </>
+      )}
     </SurfaceShell>
   );
 }

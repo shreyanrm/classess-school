@@ -53,6 +53,7 @@ const SURFACES: ReadonlySet<string> = new Set([
   'intelligence',
   'network',
   'operations',
+  'control-centre',
 ]);
 
 /** A config value is a plain scalar the surface owns — bounded, never a blob. */

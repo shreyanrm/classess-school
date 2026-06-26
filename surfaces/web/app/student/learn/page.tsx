@@ -6,7 +6,9 @@ import { Button, Icon, Tag, Textarea } from '@classess/design-system';
 import { SurfaceShell } from '../../_components/SurfaceShell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { masteryEvidence } from '../../_components/MasteryConclusion';
-import { IgniteCard, Panel, FlagRow, HandnotePanel } from '../../_components/StudentComposed';
+import { IgniteCard, Panel, FlagRow, HandnotePanel, SecHead } from '../../_components/StudentComposed';
+import { CourseBrowser } from '../../_components/CourseBrowser';
+import { FlashcardDeck } from '../../_components/PracticeFormats';
 import { useDeepReads } from '@/lib/useDeepReads';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
@@ -56,6 +58,9 @@ export default function LearnPage() {
   const [rung, setRung] = useState<Rung>('Hint');
   const [attempt, setAttempt] = useState('');
   const [seeded, setSeeded] = useState(false);
+  // Three ways into Learn: the pose→struggle→reveal lesson, a quick flashcard
+  // warm-up, and the full hierarchical course browser (every chapter/topic).
+  const [lens, setLens] = useState<'lesson' | 'flashcards' | 'browse'>('lesson');
 
   const seededRung = useMemo(
     () => seedRung(reading?.mastery.reading.composite ?? 0),
@@ -109,6 +114,11 @@ export default function LearnPage() {
         { label: 'taught by trying first' },
         { value: rung, label: 'help level' },
         { label: evaluating ? 'this attempt counts' : 'a supported attempt' },
+      ]}
+      tabs={[
+        { label: 'The lesson', active: lens === 'lesson', onClick: () => setLens('lesson') },
+        { label: 'Flashcards', active: lens === 'flashcards', onClick: () => setLens('flashcards') },
+        { label: 'Browse all topics', active: lens === 'browse', onClick: () => setLens('browse') },
       ]}
       dockIntro="We never explain first. You meet the problem, give it a go, and then the idea is revealed — it sticks far better that way. Slide the support down as you get stronger."
       dockChips={['I do not know where to start', 'Give me a smaller hint', 'Show me a worked example']}
@@ -166,6 +176,23 @@ export default function LearnPage() {
         <section className="stack" aria-busy="true" aria-label="Preparing your lesson">
           <div className="skeleton" style={{ height: 96 }} />
           <div className="skeleton" style={{ height: 220 }} />
+        </section>
+      ) : lens === 'browse' ? (
+        <section className="stack reveal reveal-2">
+          <SecHead title="Your course" meta={<span className="overline">subject · term · chapter · topic</span>} />
+          <p className="caption quiet" style={{ maxWidth: 560 }}>
+            Every chapter and topic, expandable. Each topic opens three ways in — the shared material, a
+            lesson, or practice. Pick anything to jump straight there.
+          </p>
+          <CourseBrowser defaultOpenSubject={TOPIC.subjectId} />
+        </section>
+      ) : lens === 'flashcards' ? (
+        <section className="stack reveal reveal-2">
+          <SecHead title="Quick recall" meta={<span className="overline">warm up</span>} />
+          <p className="caption quiet" style={{ maxWidth: 560 }}>
+            A fast flip-through to prime the idea before you meet the problem. Rate your own recall — no marks.
+          </p>
+          <FlashcardDeck />
         </section>
       ) : (
         <>

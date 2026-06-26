@@ -17,6 +17,7 @@ import {
   SecHead,
   type SubjectCardModel,
 } from '../_components/StudentComposed';
+import { AchievementBadges, deriveBadges } from '../_components/AchievementBadges';
 import { useDeepReads } from '@/lib/useDeepReads';
 import { gapLabel } from '@/lib/engine';
 import {
@@ -88,6 +89,18 @@ export default function StudentTodayPage() {
     0,
   );
 
+  // Honest recognition, read from real evidence — never a mark or a rank.
+  const badges = useMemo(
+    () =>
+      deriveBadges({
+        independentTopics,
+        streakDays: 3,
+        topicsRevived: 0,
+        evidencePieces: observed,
+      }),
+    [independentTopics, observed],
+  );
+
   return (
     <SurfaceShell
       breadcrumb={[{ label: 'Learning', href: '/student' }, { label: 'Today' }]}
@@ -145,6 +158,8 @@ export default function StudentTodayPage() {
               <SchedRow row={{ t: 'Next', title: 'A short check', caption: 'Five quick items, when you are ready.' }} />
               <SchedRow row={{ t: 'Later', title: 'Review', caption: 'Bring back one topic that is fading.' }} />
             </Panel>
+
+            <AchievementBadges badges={badges} />
 
             <HandnotePanel>one unaided win today — that is all it takes to light the spark</HandnotePanel>
           </>

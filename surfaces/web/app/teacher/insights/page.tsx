@@ -17,6 +17,7 @@ import { Trajectory } from '../../_components/Trajectory';
 import { RecommendationItem } from '../../_components/RecommendationItem';
 import { PaperAnalysis } from '../../_components/PaperAnalysis';
 import { TestPaperCard } from '../../_components/TestPaperCard';
+import { Markbook } from '../../_components/Markbook';
 import { BloomTaxonomy } from '../../_components/Charts';
 import { useClassInsights } from '@/lib/useClassInsights';
 import { useVizData } from '@/lib/useVizData';
@@ -29,7 +30,7 @@ import type { Recommendation } from '@/lib/mock';
 import type { TrajectorySeries } from '@/lib/adminData';
 import { CLASS_LABEL, CLASS_REF } from '@/lib/loopData';
 
-type InsightsTab = 'class' | 'paper' | 'papers';
+type InsightsTab = 'class' | 'paper' | 'papers' | 'markbook';
 
 /**
  * Class insights — recomposed to the beauty bar: a count-up stat matrix, the
@@ -155,7 +156,7 @@ export default function ClassInsightsPage() {
   const { phase, insights, source, refresh } = useClassInsights();
   // The analytics tabs read gateway-first (seed fallback): the paper-analysis
   // target bands + remedial grouping, the prepared test paper, the Bloom mix.
-  const viz = useVizData(['paper', 'testPaper', 'bloom']);
+  const viz = useVizData(['paper', 'testPaper', 'bloom', 'markbook']);
   const [tab, setTab] = useState<InsightsTab>('class');
   const [paperApproved, setPaperApproved] = useState(false);
   const { emit } = useEmit();
@@ -309,6 +310,9 @@ export default function ClassInsightsPage() {
             <button type="button" role="tab" aria-selected={tab === 'papers'} className={tab === 'papers' ? 'active' : ''} onClick={() => setTab('papers')}>
               Test papers
             </button>
+            <button type="button" role="tab" aria-selected={tab === 'markbook'} className={tab === 'markbook' ? 'active' : ''} onClick={() => setTab('markbook')}>
+              Markbook
+            </button>
           </div>
 
           {tab === 'paper' ? (
@@ -344,6 +348,21 @@ export default function ClassInsightsPage() {
               <p className="caption quiet">
                 The paper is prepared with its answer key and waits for your approval — section marks
                 describe the paper&apos;s structure, never a learner&apos;s score.
+              </p>
+            </section>
+          ) : null}
+
+          {tab === 'markbook' ? (
+            <section className="stack">
+              <div className="sec-head">
+                <h3 className="h3" style={{ margin: 0 }}>Markbook</h3>
+                <span className="overline">students × periods · plain bands</span>
+              </div>
+              <Markbook data={viz.data.markbook} source={viz.sourceByKind.markbook} />
+              <p className="caption quiet">
+                The markbook records a standing as a plain-language band against each period target —
+                never a raw percentage on a child. Switch to Setup to record a band; nothing publishes
+                from here.
               </p>
             </section>
           ) : null}

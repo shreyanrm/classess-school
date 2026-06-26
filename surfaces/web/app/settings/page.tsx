@@ -2,13 +2,130 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Icon, Tag } from '@classess/design-system';
+import { Button, Icon, Tag, type SubjectAccent } from '@classess/design-system';
 import { SurfaceShell } from '../_components/SurfaceShell';
 import { Panel, FlagRow, HandnotePanel, SecHead } from '../_components/StudentComposed';
+import { LeaveApplyForm } from '../_components/LeaveApplyForm';
 import { useStore } from '@/lib/useStore';
-import { restartOnboarding, setPreference, defaultPreferences, type Preferences } from '@/lib/store';
+import { useRole } from '@/lib/RoleContext';
+import {
+  restartOnboarding,
+  setPreference,
+  defaultPreferences,
+  defaultTeachingPreferences,
+  defaultAppearance,
+  setTeachingStyle,
+  setTeachingPersona,
+  setAppearance,
+  type Preferences,
+  type TeachingStyleKey,
+  type TeachingPersona,
+} from '@/lib/store';
 import { signOut, deleteAccount, confirmsDeletion } from '@/lib/auth';
 import { useT, LOCALES, type Locale } from '@/lib/i18n';
+
+/* ── Teaching preferences — the instructional-style options, per surface ───── */
+
+interface StyleGroup {
+  key: TeachingStyleKey;
+  title: string;
+  detail: string;
+  /** The style options for this surface — the default is the first one. */
+  options: Array<{ id: string; label: string }>;
+}
+
+const TEACHING_STYLES: StyleGroup[] = [
+  {
+    key: 'homework',
+    title: 'Homework',
+    detail: 'How homework drafts are shaped before you send them.',
+    options: [
+      { id: 'scaffolded', label: 'Scaffolded' },
+      { id: 'practice', label: 'Practice-heavy' },
+      { id: 'exam-style', label: 'Exam-style' },
+      { id: 'project-led', label: 'Project-led' },
+    ],
+  },
+  {
+    key: 'structured',
+    title: 'Structured plans',
+    detail: 'How a structured study plan is laid out.',
+    options: [
+      { id: 'step-by-step', label: 'Step by step' },
+      { id: 'outcome-first', label: 'Outcome-first' },
+      { id: 'spiral', label: 'Spiral revisit' },
+    ],
+  },
+  {
+    key: 'oral',
+    title: 'Oral checks',
+    detail: 'How a quick oral check is prepared.',
+    options: [
+      { id: 'conversational', label: 'Conversational' },
+      { id: 'rapid-recall', label: 'Rapid recall' },
+      { id: 'explain-back', label: 'Explain-it-back' },
+    ],
+  },
+  {
+    key: 'worksheet',
+    title: 'Worksheets',
+    detail: 'The default shape of a generated worksheet.',
+    options: [
+      { id: 'mixed', label: 'Mixed format' },
+      { id: 'mcq', label: 'MCQ-led' },
+      { id: 'short-answer', label: 'Short-answer' },
+      { id: 'application', label: 'Application' },
+    ],
+  },
+  {
+    key: 'testPaper',
+    title: 'Test papers',
+    detail: 'How a prepared test paper is weighted across sections.',
+    options: [
+      { id: 'balanced', label: 'Balanced' },
+      { id: 'concept-heavy', label: 'Concept-heavy' },
+      { id: 'application-heavy', label: 'Application-heavy' },
+    ],
+  },
+  {
+    key: 'lessonPlan',
+    title: 'Lesson plans',
+    detail: 'The default rhythm of a prepared lesson plan.',
+    options: [
+      { id: 'inquiry', label: 'Inquiry-led' },
+      { id: 'direct', label: 'Direct instruction' },
+      { id: 'activity', label: 'Activity-led' },
+    ],
+  },
+  {
+    key: 'substitution',
+    title: 'Substitution notes',
+    detail: 'How a hand-off note for a covering teacher reads.',
+    options: [
+      { id: 'detailed', label: 'Detailed' },
+      { id: 'essentials', label: 'Just essentials' },
+      { id: 'self-run', label: 'Self-running' },
+    ],
+  },
+];
+
+const PERSONA_OPTIONS: Array<{ id: TeachingPersona; label: string; note: string }> = [
+  { id: 'warm-mentor', label: 'Warm mentor', note: 'Encouraging, patient, plain.' },
+  { id: 'plain-coach', label: 'Plain coach', note: 'Direct and to the point.' },
+  { id: 'socratic-guide', label: 'Socratic guide', note: 'Asks before it tells.' },
+  { id: 'brisk-examiner', label: 'Brisk examiner', note: 'Crisp, exam-focused.' },
+];
+
+/* ── Appearance — theme palette + cool subject-accent tints ────────────────── */
+
+const ACCENT_OPTIONS: Array<{ id: SubjectAccent; label: string }> = [
+  { id: 'cobalt', label: 'Cobalt' },
+  { id: 'tiffany', label: 'Tiffany' },
+  { id: 'emerald', label: 'Emerald' },
+  { id: 'violet', label: 'Violet' },
+  { id: 'indigo', label: 'Indigo' },
+  { id: 'cyan', label: 'Cyan' },
+];
 
 interface Toggle {
   key: keyof Preferences;
@@ -30,9 +147,17 @@ interface Toggle {
  */
 export default function SettingsPage() {
   const router = useRouter();
-  const { account, consent, profile, preferences } = useStore();
+  const { account, consent, profile, preferences, teaching, appearance } = useStore();
+  const { role } = useRole();
   const prefs: Preferences = { ...defaultPreferences(), ...preferences };
+  const teach = { ...defaultTeachingPreferences(), ...teaching };
+  const look = { ...defaultAppearance(), ...appearance };
   const { t, locale, setLocale } = useT();
+
+  // Who is leave for: teachers/admins apply as staff, students as students.
+  const leaveWho: 'staff' | 'student' = role === 'student' ? 'student' : 'staff';
+  const canRequestLeave = role === 'teacher' || role === 'student';
+  const isTeacher = role === 'teacher';
 
   function reonboard() {
     restartOnboarding();
@@ -128,8 +253,12 @@ export default function SettingsPage() {
         { label: 'Profile', href: '/profile' },
       ]}
       aside={aside}
-      dockIntro="These settings shape how Vidya helps you. Ask me to explain any of them."
-      dockChips={['What does proactive mean', 'Who can see my reads', 'Turn off voice']}
+      dockIntro="These settings shape how Vidya helps you, how the surface looks, and how to apply for leave. Ask me to explain any of them."
+      dockChips={[
+        isTeacher ? 'Set my homework style' : 'Apply for leave',
+        'Switch to a dark palette',
+        canRequestLeave ? 'Where does my leave go' : 'Who can see my reads',
+      ]}
     >
       <section className="stack reveal reveal-2">
         <SecHead title={t('settings.language')} meta={<span className="overline">reading language</span>} />
@@ -179,8 +308,196 @@ export default function SettingsPage() {
         <p className="caption quiet">{t('settings.behaviouralNote')}</p>
       </section>
 
+      {isTeacher ? (
+        <section className="stack reveal reveal-3" data-testid="teaching-preferences" style={{ marginTop: 'var(--space-6)' }}>
+          <SecHead title="Teaching preferences" meta={<span className="overline">instructional style</span>} />
+          <p className="caption muted">
+            How Vidya shapes the drafts it prepares for you — homework, plans, worksheets, papers, and
+            hand-off notes. These set the shape of a draft; nothing is sent, graded, or applied on its
+            own. The permission ladder still holds.
+          </p>
+
+          <div className="set-frame">
+            {TEACHING_STYLES.map((g) => {
+              const current = teach.styles[g.key] ?? g.options[0]?.id;
+              return (
+                <div className="set-row" key={g.key}>
+                  <div className="set-row-lead">
+                    <div className="t">{g.title}</div>
+                    <div className="d">{g.detail}</div>
+                  </div>
+                  <div
+                    className="row"
+                    style={{ gap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}
+                    role="radiogroup"
+                    aria-label={`${g.title} style`}
+                  >
+                    {g.options.map((o) => (
+                      <Button
+                        key={o.id}
+                        variant={current === o.id ? 'primary' : 'secondary'}
+                        size="sm"
+                        role="radio"
+                        aria-checked={current === o.id}
+                        data-testid="teaching-style-option"
+                        onClick={() => setTeachingStyle(g.key, o.id)}
+                      >
+                        {o.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <SecHead title="Project persona" meta={<span className="overline">voice</span>} />
+          <p className="caption muted">The calm voice Vidya writes your prepared drafts in.</p>
+          <div className="set-frame">
+            {PERSONA_OPTIONS.map((p) => (
+              <div className="set-row" key={p.id}>
+                <div className="set-row-lead">
+                  <div className="t">{p.label}</div>
+                  <div className="d">{p.note}</div>
+                </div>
+                <Button
+                  variant={teach.persona === p.id ? 'primary' : 'secondary'}
+                  size="sm"
+                  aria-pressed={teach.persona === p.id}
+                  data-testid="teaching-persona-option"
+                  onClick={() => setTeachingPersona(p.id)}
+                >
+                  {teach.persona === p.id ? 'Chosen' : 'Choose'}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="stack reveal reveal-4" data-testid="appearance" style={{ marginTop: 'var(--space-6)' }}>
+        <SecHead title="Appearance" meta={<span className="overline">theme · accent · access</span>} />
+        <p className="caption muted">
+          A calm light or dark palette, an optional cool accent, and a visual-accessibility mode. The
+          whole surface re-skins from here and your choice survives a reload.
+        </p>
+
+        <div className="set-frame">
+          <div className="set-row">
+            <div className="set-row-lead">
+              <div className="t">Palette</div>
+              <div className="d">Light or dark. Only the calm token layer flips — the structure never changes.</div>
+            </div>
+            <div className="row" style={{ gap: 'var(--space-2)' }} role="radiogroup" aria-label="Palette">
+              {(['light', 'dark'] as const).map((th) => (
+                <Button
+                  key={th}
+                  variant={look.theme === th ? 'primary' : 'secondary'}
+                  size="sm"
+                  role="radio"
+                  aria-checked={look.theme === th}
+                  data-testid="theme-option"
+                  onClick={() => setAppearance('theme', th)}
+                >
+                  {th === 'light' ? 'Light' : 'Dark'}
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="set-row">
+            <div className="set-row-lead">
+              <div className="t">Accent</div>
+              <div className="d">A cool signature hue for this surface, or keep your role’s own. Cool palette only — never warm.</div>
+            </div>
+            <div
+              className="row"
+              style={{ gap: 'var(--space-2)', flexWrap: 'wrap', justifyContent: 'flex-end' }}
+              role="radiogroup"
+              aria-label="Accent"
+            >
+              <Button
+                variant={!look.accent ? 'primary' : 'secondary'}
+                size="sm"
+                role="radio"
+                aria-checked={!look.accent}
+                data-testid="accent-option"
+                onClick={() => setAppearance('accent', undefined)}
+              >
+                Role default
+              </Button>
+              {ACCENT_OPTIONS.map((a) => (
+                <Button
+                  key={a.id}
+                  variant={look.accent === a.id ? 'primary' : 'secondary'}
+                  size="sm"
+                  role="radio"
+                  aria-checked={look.accent === a.id}
+                  data-testid="accent-option"
+                  onClick={() => setAppearance('accent', a.id)}
+                >
+                  <span
+                    aria-hidden
+                    style={{
+                      display: 'inline-block',
+                      width: 9,
+                      height: 9,
+                      borderRadius: '50%',
+                      background: `var(--${a.id})`,
+                      marginRight: 6,
+                      verticalAlign: 'middle',
+                    }}
+                  />
+                  {a.label}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <SecHead title="Visual accessibility" meta={<span className="overline">comfort</span>} />
+        <div className="set-frame">
+          {([
+            { key: 'largeText' as const, title: 'Larger text', detail: 'Increase the reading size without breaking the layout.' },
+            { key: 'highContrast' as const, title: 'Higher contrast', detail: 'Firmer text and hairlines for easier reading.' },
+            { key: 'reduceMotion' as const, title: 'Reduce motion', detail: 'Turn animation down. Your device setting still applies on its own.' },
+          ]).map((tg) => {
+            const on = look[tg.key];
+            return (
+              <div className="set-row" key={tg.key}>
+                <div className="set-row-lead">
+                  <div className="t">{tg.title}</div>
+                  <div className="d">{tg.detail}</div>
+                </div>
+                <Button
+                  variant={on ? 'primary' : 'secondary'}
+                  size="sm"
+                  aria-pressed={on}
+                  data-testid="a11y-toggle"
+                  onClick={() => setAppearance(tg.key, !on)}
+                >
+                  {on ? 'On' : 'Off'}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {canRequestLeave ? (
+        <section className="stack reveal reveal-5" data-testid="leave-application" style={{ marginTop: 'var(--space-6)' }}>
+          <SecHead title="Leave application" meta={<span className="overline">routes to approval</span>} />
+          <p className="caption muted">
+            Apply for leave here. Your request routes to the approval queue via the permission ladder —
+            a coordinator clears a short leave, the principal holds a longer one. Nothing is approved on
+            its own, and you will see the outcome here.
+          </p>
+          <LeaveApplyForm who={leaveWho} />
+        </section>
+      ) : null}
+
       {consent ? (
-        <section className="stack reveal reveal-4" style={{ marginTop: 'var(--space-6)' }}>
+        <section className="stack reveal reveal-6" style={{ marginTop: 'var(--space-6)' }}>
           <SecHead title={t('settings.learned')} meta={<span className="overline">consent</span>} />
           <p className="caption muted">
             Built from your choices, never from a form. Transparent and revocable — this is the
@@ -216,7 +533,7 @@ export default function SettingsPage() {
         </section>
       ) : null}
 
-      <section className="stack reveal reveal-5" style={{ marginTop: 'var(--space-6)' }}>
+      <section className="stack reveal reveal-7" style={{ marginTop: 'var(--space-6)' }}>
         <SecHead title={t('settings.account')} meta={<span className="overline">session</span>} />
         <div className="set-frame">
           <div className="set-row">
@@ -244,7 +561,7 @@ export default function SettingsPage() {
         </p>
       </section>
 
-      <section className="stack reveal reveal-6" data-testid="delete-account" style={{ marginTop: 'var(--space-6)' }}>
+      <section className="stack reveal reveal-8" data-testid="delete-account" style={{ marginTop: 'var(--space-6)' }}>
         <SecHead title="Delete account" meta={<span className="overline">permanent</span>} />
         <p className="caption muted">
           A quiet, permanent step. When you delete your account, your identity and personal details

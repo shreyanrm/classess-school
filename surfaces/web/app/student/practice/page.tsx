@@ -10,6 +10,8 @@ import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { masteryEvidence } from '../../_components/MasteryConclusion';
 import { BloomTaxonomy } from '../../_components/Charts';
 import { StatMatrix, IgniteCard, Panel, FlagRow, HandnotePanel, SecHead } from '../../_components/StudentComposed';
+import { PRACTICE_FORMATS, type FormatKey } from '../../_components/PracticeFormats';
+import { AchievementBadges, deriveBadges } from '../../_components/AchievementBadges';
 import { useDeepReads } from '@/lib/useDeepReads';
 import { useGenerator } from '@/lib/useGenerator';
 import { useVizData } from '@/lib/useVizData';
@@ -73,6 +75,14 @@ export default function PracticePage() {
   const [done, setDone] = useState(false);
   const [correctCount, setCorrectCount] = useState(0);
   const [unaidedCount, setUnaidedCount] = useState(0);
+
+  // The two ways to practise: the adaptive engine flow, and the varied-format
+  // assessment hub (flashcards, fill-blank, matching, and the four named
+  // interactions). Both feed the same calm, mark-free read.
+  const [tab, setTab] = useState<'adaptive' | 'formats'>('adaptive');
+  const [activeFormat, setActiveFormat] = useState<FormatKey | null>(null);
+  // A calm tally of confident format rounds — recognition, never a score.
+  const [formatWins, setFormatWins] = useState(0);
 
   const startIndex = useMemo(() => {
     const comp = baseline?.mastery.reading.composite ?? 0;
@@ -176,6 +186,19 @@ export default function PracticePage() {
 
   const liveReading = baseline?.mastery ?? mastery;
 
+  // Badges are read from real evidence, never a mark: the live independent read,
+  // this session's unaided wins, and confident format rounds all count honestly.
+  const badges = useMemo(
+    () =>
+      deriveBadges({
+        independentTopics: liveReading.reading.independent ? 1 : 0,
+        streakDays: 3,
+        topicsRevived: 0,
+        evidencePieces: liveReading.observationCount + unaidedCount + formatWins,
+      }),
+    [liveReading, unaidedCount, formatWins],
+  );
+
   return (
     <SurfaceShell
       breadcrumb={[
@@ -187,8 +210,12 @@ export default function PracticePage() {
       title={TOPIC.name}
       meta={[
         { value: ITEMS.length, label: 'items, adaptive' },
-        { value: unaidedCount, label: 'on your own this session' },
+        { value: PRACTICE_FORMATS.length, label: 'practice formats' },
         { label: 'a miss repeats the idea' },
+      ]}
+      tabs={[
+        { label: 'Adaptive', active: tab === 'adaptive', onClick: () => setTab('adaptive') },
+        { label: 'Practice formats', active: tab === 'formats', onClick: () => setTab('formats') },
       ]}
       dockIntro="Short, adaptive practice. A miss repeats the idea; doing one on your own moves you up. Tell me if an item is too easy or too hard and I will adjust."
       dockChips={['Too easy — go harder', 'I keep missing this one', 'Explain my last mistake']}
@@ -227,6 +254,8 @@ export default function PracticePage() {
               />
             </Panel>
 
+            <AchievementBadges badges={badges} />
+
             <HandnotePanel>doing it once, on your own — that is the whole game</HandnotePanel>
           </>
         ) : undefined
@@ -234,6 +263,13 @@ export default function PracticePage() {
     >
       {phase !== 'ready' ? (
         <ReadStates phase={phase} />
+      ) : tab === 'formats' ? (
+        <FormatsHub
+          activeFormat={activeFormat}
+          onPick={setActiveFormat}
+          onConfident={() => setFormatWins((w) => w + 1)}
+          wins={formatWins}
+        />
       ) : (
         <>
           <StatMatrix
@@ -388,6 +424,80 @@ export default function PracticePage() {
     </SurfaceShell>
   );
 }
+
+/* The gamified assessment HUB — a gallery of varied formats. Picking one opens
+   the interaction; finishing a round adds a calm "win" (recognition, not a
+   score). Honest framing throughout: no leaderboards, no raw marks. */
+function FormatsHub({
+  activeFormat,
+  onPick,
+  onConfident,
+  wins,
+}: {
+  activeFormat: FormatKey | null;
+  onPick: (key: FormatKey | null) => void;
+  onConfident: () => void;
+  wins: number;
+}) {
+  const active = PRACTICE_FORMATS.find((f) => f.key === activeFormat);
+
+  if (active) {
+    const Active = active.Component;
+    return (
+      <section className="stack reveal reveal-2">
+        <div className="row-between">
+          <Button variant="ghost" size="sm" onClick={() => onPick(null)}>
+            All formats
+          </Button>
+          <span className="caption muted">{wins} confident rounds this visit</span>
+        </div>
+        <Active
+          onComplete={(signal) => {
+            if (signal.confident) onConfident();
+          }}
+        />
+      </section>
+    );
+  }
+
+  return (
+    <section className="stack reveal reveal-2">
+      <SecHead title="Choose how to practise" meta={<span className="overline">{PRACTICE_FORMATS.length} formats</span>} />
+      <p className="caption quiet" style={{ maxWidth: 560 }}>
+        Different ways to meet the same idea — flip a card, drag words, order a proof, or teach it back.
+        Each one shows what you can do, never a mark.
+      </p>
+      <div className="format-hub-grid">
+        {PRACTICE_FORMATS.map((f, i) => (
+          <button
+            key={f.key}
+            type="button"
+            className={`format-tile reveal reveal-${Math.min(i + 1, 8)}`}
+            onClick={() => onPick(f.key)}
+          >
+            <span className="format-tile-ic" aria-hidden="true">
+              <Icon name={FORMAT_ICON[f.key]} size="md" />
+            </span>
+            <span className="body-sm" style={{ fontWeight: 500 }}>
+              {f.name}
+            </span>
+            <span className="caption muted">{f.blurb}</span>
+          </button>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+const FORMAT_ICON: Record<FormatKey, 'spark' | 'grid' | 'target' | 'check' | 'chart' | 'book'> = {
+  flashcard: 'grid',
+  'fill-blank': 'check',
+  matching: 'grid',
+  predict: 'spark',
+  assemble: 'chart',
+  'missing-step': 'target',
+  'teach-back': 'book',
+};
 
 function difficultyLabel(d: number): string {
   if (d <= 0.4) return 'Warm-up';

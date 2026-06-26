@@ -45,6 +45,9 @@ export function useStore() {
     school: state.school,
     preferences: state.preferences,
     adminConfig: state.adminConfig,
+    teaching: state.teaching,
+    appearance: state.appearance,
+    leaveApplications: state.leaveApplications,
     firstRun: isFirstRun(state),
   };
 }

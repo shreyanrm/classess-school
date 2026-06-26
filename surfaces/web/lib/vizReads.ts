@@ -120,6 +120,12 @@ function isVizShape(kind: VizKind, v: unknown): v is VizBundle[VizKind] {
       return typeof v.classesThisWeek === 'number';
     case 'quizResult':
       return Array.isArray(v.questions) && Array.isArray(v.bloom);
+    case 'markbook':
+      return Array.isArray(v.rows) && Array.isArray(v.periods);
+    case 'paperPreview':
+      return Array.isArray(v.sections) && typeof v.duration === 'string';
+    case 'teacherPtm':
+      return Array.isArray(v.slots) && Array.isArray(v.queries);
     default:
       return false;
   }

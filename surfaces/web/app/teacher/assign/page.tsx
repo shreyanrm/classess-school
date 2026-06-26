@@ -7,6 +7,8 @@ import { StatCell } from '../../_components/StatCell';
 import { ReadStates } from '../../_components/ReadStates';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { SourceNote } from '../../_components/SourceNote';
+import { QuestionPaperPreview } from '../../_components/QuestionPaperPreview';
+import { useVizData } from '@/lib/useVizData';
 import {
   CLASS_LABEL,
   MATH_SUBJECT_ID,
@@ -30,6 +32,7 @@ import type { Worksheet } from '@/lib/generate';
  */
 
 type Phase = 'compose' | 'prepared' | 'sent';
+type Mode = 'check' | 'paper';
 
 const SUBJECTS = [
   { id: MATH_SUBJECT_ID, name: 'Mathematics' },
@@ -41,6 +44,10 @@ export default function AssignPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [count, setCount] = useState(5);
   const [phase, setPhase] = useState<Phase>('compose');
+  const [mode, setMode] = useState<Mode>('check');
+  const [paperApproved, setPaperApproved] = useState(false);
+  // The prepared exam paper + answer key reads gateway-first (seed fallback).
+  const viz = useVizData(['paperPreview']);
 
   // Gateway-first read of the class gaps (engine fallback on degrade) — so the
   // topics that carry confirmed gaps can be badged and mapped against. The same
@@ -104,6 +111,34 @@ export default function AssignPage() {
           loading/error/permission-denied gate the surface. */}
       {readPhase === 'loading' || readPhase === 'error' || readPhase === 'permission-denied' ? (
         <ReadStates phase={readPhase} onRetry={refresh} />
+      ) : (
+      <>
+      <div className="segmented" role="tablist" aria-label="What to prepare">
+        <button type="button" role="tab" aria-selected={mode === 'check'} className={mode === 'check' ? 'active' : ''} onClick={() => setMode('check')}>
+          Quick check
+        </button>
+        <button type="button" role="tab" aria-selected={mode === 'paper'} className={mode === 'paper' ? 'active' : ''} onClick={() => setMode('paper')}>
+          Exam paper
+        </button>
+      </div>
+
+      {mode === 'paper' ? (
+        <section className="stack">
+          <div className="sec-head">
+            <h3 className="h3" style={{ margin: 0 }}>Question paper</h3>
+            <span className="overline">section-headed preview · answer key</span>
+          </div>
+          <p className="caption quiet">
+            The prepared exam paper, laid out as a document with its section headings, numbered
+            questions, and point values. Switch to the Answer key for the model answers — your key,
+            never shown to a learner. The paper waits for your approval before it can be set.
+          </p>
+          <QuestionPaperPreview
+            data={{ ...viz.data.paperPreview, approved: paperApproved || viz.data.paperPreview.approved }}
+            source={viz.sourceByKind.paperPreview}
+            onApprove={() => setPaperApproved(true)}
+          />
+        </section>
       ) : (
       <>
       <Matrix columns={3} className="reveal reveal-1">
@@ -324,6 +359,8 @@ export default function AssignPage() {
           )}
         </SpotlightCard>
       </section>
+      </>
+      )}
       </>
       )}
     </SurfaceShell>

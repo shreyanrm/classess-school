@@ -26,6 +26,10 @@ import {
   ArrowUpRight,
   Plus,
   Minus,
+  FileText,
+  Upload,
+  Trash2,
+  MapPin,
   type LucideIcon,
   type LucideProps,
 } from 'lucide-react';
@@ -63,6 +67,10 @@ const REGISTRY = {
   'arrow-up-right': ArrowUpRight,
   plus: Plus,
   minus: Minus,
+  file: FileText,
+  upload: Upload,
+  trash: Trash2,
+  pin: MapPin,
 } satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof REGISTRY;

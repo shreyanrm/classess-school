@@ -7,13 +7,16 @@ import { ReadStates } from '../../_components/ReadStates';
 import { LeaveBoard } from '../../_components/LeaveBoard';
 import { StaffAttendanceTable } from '../../_components/StaffAttendanceTable';
 import { SupportLog } from '../../_components/SupportLog';
+import { AccessControlConfig } from '../../_components/AccessControlConfig';
 import { useAdminConfig } from '@/lib/adminConfig';
 import { useRole } from '@/lib/RoleContext';
+import { useStore } from '@/lib/useStore';
 import {
   LEAVE_FALLBACK,
   STAFF_ATTENDANCE_FALLBACK,
   SUPPORT_LOG_FALLBACK,
   leaveCounts,
+  mergeSubmittedLeave,
   staffCounts,
   supportCounts,
 } from '@/lib/opsData';
@@ -33,23 +36,29 @@ import {
  * The active lens persists through the wall (admin config); the surface degrades
  * to the PII-free seed with an observable SourceNote on each board.
  */
-type Lens = 'leave' | 'staff' | 'support';
+type Lens = 'leave' | 'staff' | 'support' | 'access';
 
 export default function AdminOperationsPage() {
   const surface = useAdminConfig('operations');
   const { role } = useRole();
+  // Pull in any leave a teacher/student SUBMITTED locally so the requester ->
+  // approver circuit is real: a submitted application appears in this queue as a
+  // fresh pending request. Merged onto the PII-free seed, newest first.
+  const { leaveApplications } = useStore();
+  const leaveBoard = mergeSubmittedLeave(LEAVE_FALLBACK, leaveApplications ?? []);
   const savedLens = surface.config.lens;
   const lens: Lens =
-    savedLens === 'staff' || savedLens === 'support' || savedLens === 'leave'
+    savedLens === 'staff' || savedLens === 'support' || savedLens === 'access' || savedLens === 'leave'
       ? (savedLens as Lens)
       : 'leave';
   const setLens = (l: Lens) => {
     void surface.set('lens', l);
   };
+  const accessOn = surface.config.acEnabled === true;
 
   // Source per board — gateway-first config rehydrate drives the SourceNote.
   const source = surface.source;
-  const leave = leaveCounts(LEAVE_FALLBACK);
+  const leave = leaveCounts(leaveBoard);
   const staff = staffCounts(STAFF_ATTENDANCE_FALLBACK);
   const support = supportCounts(SUPPORT_LOG_FALLBACK);
 
@@ -69,6 +78,11 @@ export default function AdminOperationsPage() {
         'I keep a calm, non-punitive support log: patterns to notice, each with a prepared restorative step that waits for a human. Nothing is a punishment, nothing is applied automatically.',
       chips: ['What needs a look this week', 'Prepare a check-in for 9-A', 'Which patterns have repeated'],
     },
+    access: {
+      intro:
+        'I hold the attendance access rule — where a mark is valid (a campus geofence) and when (a daily window). It is campus geometry, never a tracker of a person. You set it; nothing applies until you save, and a mark outside the rule is held for a human, never rejected.',
+      chips: ['Set the campus geofence', 'What does the time window do', 'Is any location stored about a student'],
+    },
   };
 
   return (
@@ -86,6 +100,7 @@ export default function AdminOperationsPage() {
         { label: 'Leave approval', active: lens === 'leave', onClick: () => setLens('leave') },
         { label: 'Staff attendance', active: lens === 'staff', onClick: () => setLens('staff') },
         { label: 'Support log', active: lens === 'support', onClick: () => setLens('support') },
+        { label: 'Access control', active: lens === 'access', onClick: () => setLens('access') },
       ]}
       actions={
         <Link href="/admin/calendar" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
@@ -108,14 +123,20 @@ export default function AdminOperationsPage() {
                   ? `${leave.pending + leave.flagged} leave requests at the gate`
                   : lens === 'staff'
                     ? `${staff.cover} slots already picked up`
-                    : `${support.needsLook} patterns to look at, calmly`}
+                    : lens === 'access'
+                      ? accessOn
+                        ? 'the access rule is on'
+                        : 'the access rule is advisory'
+                      : `${support.needsLook} patterns to look at, calmly`}
               </div>
               <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
                 {lens === 'leave'
                   ? 'Each request waits for a human; the ladder names who may decide each one.'
                   : lens === 'staff'
                     ? 'Cover is arranged where staff are on leave. A not-marked row queues a quiet check-in, never a flag against the person.'
-                    : 'Behaviour is read to understand and support early — every step is restorative and waits for you.'}
+                    : lens === 'access'
+                      ? 'The geofence and window are campus geometry — a mark outside the rule is held for a person, never rejected, and no individual location is stored.'
+                      : 'Behaviour is read to understand and support early — every step is restorative and waits for you.'}
               </p>
             </div>
 
@@ -144,7 +165,9 @@ export default function AdminOperationsPage() {
               <p className="handnote" style={{ fontSize: 22 }}>
                 {lens === 'support'
                   ? 'a log to understand, never a record of punishments'
-                  : 'you hold the decision — the platform only prepares it'}
+                  : lens === 'access'
+                    ? 'a rule about a mark, never a tracker of a person'
+                    : 'you hold the decision — the platform only prepares it'}
               </p>
             </div>
           </>
@@ -165,9 +188,9 @@ export default function AdminOperationsPage() {
             <section>
               <div className="sec-head">
                 <h3 className="h3" style={{ margin: 0 }}>Leave approval</h3>
-                <span className="overline">{LEAVE_FALLBACK.scopeLabel}</span>
+                <span className="overline">{leaveBoard.scopeLabel}</span>
               </div>
-              <LeaveBoard data={LEAVE_FALLBACK} source={source} role={role} />
+              <LeaveBoard data={leaveBoard} source={source} role={role} />
             </section>
           ) : lens === 'staff' ? (
             <section>
@@ -177,13 +200,21 @@ export default function AdminOperationsPage() {
               </div>
               <StaffAttendanceTable data={STAFF_ATTENDANCE_FALLBACK} source={source} />
             </section>
-          ) : (
+          ) : lens === 'support' ? (
             <section>
               <div className="sec-head">
                 <h3 className="h3" style={{ margin: 0 }}>Support log</h3>
                 <span className="overline">calm and non-punitive</span>
               </div>
               <SupportLog data={SUPPORT_LOG_FALLBACK} source={source} />
+            </section>
+          ) : (
+            <section>
+              <div className="sec-head">
+                <h3 className="h3" style={{ margin: 0 }}>Attendance access control</h3>
+                <span className="overline">geofence · time window</span>
+              </div>
+              <AccessControlConfig config={surface.config} source={source} onSet={surface.set} />
             </section>
           )}
         </>

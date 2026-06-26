@@ -181,6 +181,48 @@ export function leaveCounts(board: LeaveBoard = LEAVE_FALLBACK) {
   return c;
 }
 
+/**
+ * The shape a requester-side leave application carries (mirrors the store's
+ * LeaveApplication without importing it — opsData stays free of the store so it
+ * can seed the admin board independently). The operations page passes its own
+ * submitted applications in this shape to merge them into the queue.
+ */
+export interface SubmittedLeave {
+  id: string;
+  who: 'staff' | 'student';
+  kind: LeaveKind;
+  span: string;
+  days: number;
+  reason: string;
+}
+
+/**
+ * Merge requester-side applications onto a leave board so what a teacher /
+ * student SUBMITTED shows up in the admin approval queue as a fresh pending
+ * request. The tier follows the same rule the ladder names: a short leave is a
+ * coordinator's to clear; a longer one (>= 3 days) is held for the principal.
+ * Submitted requests are prepended so the newest sits at the top of the queue.
+ */
+export function mergeSubmittedLeave(
+  board: LeaveBoard,
+  submitted: SubmittedLeave[],
+): LeaveBoard {
+  if (submitted.length === 0) return board;
+  const mapped: LeaveRequest[] = submitted.map((s) => ({
+    id: s.id,
+    requester: 'You (this account)',
+    who: s.who,
+    kind: s.kind,
+    span: s.span,
+    days: s.days,
+    reason: s.reason,
+    status: 'pending' as LeaveStatus,
+    tier: s.days >= 3 ? 'principal' : 'coordinator',
+    coverArranged: s.who === 'staff' ? false : undefined,
+  }));
+  return { ...board, requests: [...mapped, ...board.requests] };
+}
+
 /* ---------------------------------------------------------------------------
    2) STAFF ATTENDANCE — the v2 Staff Attendance screen. Plain counts per state,
    department grouping, a roster with reason + cover. Never a ranking, never a

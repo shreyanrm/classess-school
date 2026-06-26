@@ -4702,6 +4702,232 @@ td.muted .roster-sub { color: var(--text-tertiary); }
 .paper-weight-seg:last-child { border-right: 0; }
 
 /* ============================================================================
+   Markbook — the students × periods grade-entry grid. Cells are plain-language
+   BANDS on a calm cool ramp (never a raw %, never warm-orange): exemplary +
+   above sit on cool tints, on-target is the accent tint, below-target is a
+   non-alarming sunken hatch, not-yet is the quiet empty. NO shadow.
+   ============================================================================ */
+.markbook-scroll { overflow-x: auto; }
+.markbook-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body-sm);
+  min-width: 560px;
+}
+.markbook-table th,
+.markbook-table td {
+  border: var(--border-width) solid var(--border);
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+}
+.markbook-table thead th {
+  font-size: var(--text-overline);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: var(--fw-medium);
+  background: var(--bg-sunken);
+}
+.markbook-table thead th.num { text-align: center; }
+.markbook-roll-head { width: 52px; }
+.markbook-roll {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-tertiary);
+  background: var(--bg-sunken);
+  font-weight: var(--fw-regular);
+  text-align: center;
+}
+.markbook-student { color: var(--text-primary); font-weight: var(--fw-medium); white-space: nowrap; }
+.markbook-cell-wrap { padding: 4px; text-align: center; }
+.markbook-cell,
+.markbook-cell-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-width: 44px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid var(--border);
+  font-size: var(--text-caption);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.markbook-cell-btn {
+  cursor: pointer;
+  background: var(--bg-surface);
+  transition: border-color var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.markbook-cell-btn:hover { border-color: var(--accent); }
+.markbook-cell-btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.markbook-cell-short { line-height: 1; }
+.markbook-cell.band-exemplary,
+.markbook-cell-btn.band-exemplary { background: var(--cobalt-tint); border-color: var(--cobalt); color: var(--cobalt-ink); }
+.markbook-cell.band-above,
+.markbook-cell-btn.band-above { background: var(--success-tint); border-color: var(--success); color: var(--success-ink); }
+.markbook-cell.band-on,
+.markbook-cell-btn.band-on { background: var(--accent-tint); border-color: var(--accent); color: var(--text-primary); }
+.markbook-cell.band-below,
+.markbook-cell-btn.band-below {
+  color: var(--text-secondary);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent, transparent 3px,
+    color-mix(in srgb, var(--text-tertiary) 28%, transparent) 3px,
+    color-mix(in srgb, var(--text-tertiary) 28%, transparent) 4px
+  );
+}
+.markbook-cell.band-not-yet,
+.markbook-cell.band-empty,
+.markbook-cell-btn.band-empty { background: var(--bg-canvas); color: var(--text-tertiary); }
+.markbook-cell-note {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.markbook-key { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-4); }
+.markbook-key-item { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); color: var(--text-secondary); }
+.markbook-key-swatch {
+  width: 16px; height: 16px;
+  border-radius: var(--radius-xs);
+  border: var(--border-width) solid var(--border);
+  display: inline-block;
+}
+.markbook-key-swatch.band-exemplary { background: var(--cobalt-tint); border-color: var(--cobalt); }
+.markbook-key-swatch.band-above { background: var(--success-tint); border-color: var(--success); }
+.markbook-key-swatch.band-on { background: var(--accent-tint); border-color: var(--accent); }
+.markbook-key-swatch.band-below {
+  background-image: repeating-linear-gradient(-45deg, transparent, transparent 2px, color-mix(in srgb, var(--text-tertiary) 32%, transparent) 2px, color-mix(in srgb, var(--text-tertiary) 32%, transparent) 3px);
+}
+.markbook-key-swatch.band-not-yet { background: var(--bg-canvas); }
+.markbook-key-note { position: static; width: 8px; height: 8px; }
+.markbook-remarks { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.markbook-remark {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border);
+  color: var(--text-secondary);
+}
+.markbook-remark:last-child { border-bottom: 0; }
+.markbook-remark .body-sm strong { color: var(--text-primary); }
+
+/* ============================================================================
+   QuestionPaperPreview — the section-headed paper document + answer-key render.
+   A calm document layout (no shadow): a header, section headings with a subject
+   dot, numbered questions, A–D options, and the model-answer block in the key.
+   ============================================================================ */
+.paper-doc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding: var(--space-5);
+  background: var(--bg-canvas);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+}
+.paper-doc-head { display: flex; flex-direction: column; gap: var(--space-2); padding-bottom: var(--space-4); border-bottom: var(--border-width) solid var(--border); }
+.paper-doc-title { margin: 0; font-size: var(--text-h4); color: var(--text-primary); }
+.paper-doc-meta { margin: 0; font-size: var(--text-caption); color: var(--text-tertiary); }
+.paper-doc-section { display: flex; flex-direction: column; gap: var(--space-3); }
+.paper-doc-section-head { display: flex; align-items: center; gap: var(--space-2); }
+.paper-doc-section-title { margin: 0; font-size: var(--text-body); font-weight: var(--fw-semibold); color: var(--text-primary); flex: 1; }
+.paper-doc-instruction { margin: 0; font-size: var(--text-caption); color: var(--text-secondary); font-style: italic; }
+.paper-doc-questions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.paper-doc-question { display: flex; flex-direction: column; gap: var(--space-2); }
+.paper-doc-q-head { display: flex; align-items: baseline; gap: var(--space-2); }
+.paper-doc-q-num { font-weight: var(--fw-semibold); color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.paper-doc-q-prompt { flex: 1; color: var(--text-primary); font-size: var(--text-body-sm); }
+.paper-doc-q-marks { color: var(--text-tertiary); font-size: var(--text-caption); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.paper-doc-q-type { color: var(--text-tertiary); }
+.paper-doc-options { list-style: none; margin: 0; padding: 0 0 0 var(--space-5); display: grid; gap: var(--space-2); }
+.paper-doc-option { display: flex; align-items: baseline; gap: var(--space-2); font-size: var(--text-body-sm); color: var(--text-secondary); }
+.paper-doc-option-letter {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px; height: 20px;
+  border-radius: var(--radius-xs);
+  border: var(--border-width) solid var(--border);
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+  flex-shrink: 0;
+}
+.paper-doc-answer-space {
+  height: 40px;
+  margin-left: var(--space-5);
+  border-bottom: var(--border-width) dashed var(--border);
+}
+.paper-doc-model {
+  margin-left: var(--space-5);
+  padding: var(--space-3);
+  background: var(--success-tint);
+  border-left: 2px solid var(--success);
+  border-radius: var(--radius-sm);
+}
+.paper-doc-model .overline { color: var(--success-ink); }
+
+/* ============================================================================
+   PtmManager — teacher-side slot availability + parent queries + summaries.
+   ============================================================================ */
+.ptm-slots { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.ptm-slot {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.ptm-slot-open { background: var(--bg-canvas); }
+.ptm-slot-time { display: inline-flex; align-items: center; gap: var(--space-2); font-variant-numeric: tabular-nums; color: var(--text-primary); font-weight: var(--fw-medium); white-space: nowrap; }
+.ptm-slot-with { min-width: 0; }
+.ptm-slot-action { display: inline-flex; }
+@media (max-width: 720px) {
+  .ptm-slot { grid-template-columns: auto 1fr; row-gap: var(--space-2); }
+  .ptm-slot-action { grid-column: 1 / -1; }
+}
+.ptm-queries { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.ptm-query {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.ptm-query-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
+.ptm-query-question { margin: 0; color: var(--text-primary); font-style: italic; }
+.ptm-query-prepared {
+  padding: var(--space-3);
+  background: var(--bg-sunken);
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--subject, var(--accent));
+}
+.ptm-query-prepared .overline { color: var(--text-tertiary); }
+.ptm-summaries { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.ptm-summary {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+}
+.ptm-summary-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.ptm-summary-agreed { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.ptm-summary-agreed-item { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--text-secondary); }
+
+/* ============================================================================
    LessonNotesCapture — the raw textarea + the structured, editable placeholders.
    ============================================================================ */
 .notes-textarea {
@@ -4832,6 +5058,441 @@ td.muted .roster-sub { color: var(--text-tertiary); }
 }
 
 /* ============================================================================
+   STUDENT GAPS — mock-taking session, varied practice formats, achievement
+   badges, the format hub, and the hierarchical course browser.
+
+   Laws: hairline structure + tonal steps + frost only, NEVER a shadow. One
+   accent per surface (the route hue, --accent). Tints are color-mix against
+   --accent / a state colour — never a new pigment. Reduced-motion honoured:
+   the one transition (the flashcard flip) is disabled under the reduce query;
+   everything works without animation.
+   ============================================================================ */
+
+/* ── Mock-taking session ──────────────────────────────────────────────────── */
+.mock-session { display: grid; gap: var(--space-5); }
+
+.mock-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+.mock-bar-facts { display: flex; align-items: center; gap: var(--space-4); flex-wrap: wrap; }
+.mock-fact { font-size: var(--text-caption); color: var(--text-tertiary); }
+.mock-fact b { color: var(--text-primary); font-weight: var(--fw-medium); }
+
+.mock-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+}
+.mock-timer .mono { font-size: 16px; color: var(--text-primary); font-weight: var(--fw-medium); }
+.mock-timer.up { border-color: var(--amber); }
+.mock-timer.up .mono { color: var(--amber-ink, var(--text-primary)); }
+
+.mock-cols {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: var(--space-5);
+  align-items: start;
+}
+@media (max-width: 720px) { .mock-cols { grid-template-columns: 1fr; } }
+
+.mock-nav {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  padding: var(--space-4);
+  position: sticky;
+  top: var(--space-4);
+}
+.mock-nav-section + .mock-nav-section { margin-top: var(--space-4); }
+.mock-nav-grid { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.mock-nav-cell {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-tertiary);
+  font-size: var(--text-caption);
+  cursor: pointer;
+  transition: background var(--dur, 180ms) var(--ease, ease), border-color var(--dur, 180ms) var(--ease, ease);
+}
+.mock-nav-cell.answered { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text-primary); }
+.mock-nav-cell.current { border-color: var(--accent); color: var(--accent); }
+
+.mock-main { display: grid; gap: var(--space-4); }
+.mock-options { display: grid; gap: var(--space-2); }
+.mock-option {
+  display: flex; align-items: center; gap: var(--space-3);
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color var(--dur, 180ms) var(--ease, ease), background var(--dur, 180ms) var(--ease, ease);
+}
+.mock-option:hover { background: var(--bg-sunken); }
+.mock-option.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.mock-option-key {
+  flex: none;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: var(--border-width) solid var(--border);
+  border-radius: 50%;
+  font-size: var(--text-caption);
+  font-family: var(--font-mono);
+  color: var(--text-secondary);
+}
+.mock-option.selected .mock-option-key { border-color: var(--accent); color: var(--accent); }
+.mock-controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+
+/* ── Shared interaction surfaces (formats) ────────────────────────────────── */
+.format-card { display: block; }
+.format-done { display: grid; gap: var(--space-3); justify-items: start; }
+.format-done .glyph { color: var(--accent); }
+
+/* Flashcard — a flip card. The ONLY animation here; gated by reduce. */
+.flashcard {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  aspect-ratio: 3 / 2;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  perspective: 1000px;
+}
+.flashcard-inner {
+  position: relative;
+  display: block;
+  width: 100%; height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.5s var(--ease, ease);
+}
+.flashcard.flipped .flashcard-inner { transform: rotateY(180deg); }
+.flashcard-face {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: var(--space-2);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  backface-visibility: hidden;
+  padding: var(--space-5);
+  text-align: center;
+}
+.flashcard-back { transform: rotateY(180deg); background: var(--bg-sunken); }
+
+/* Fill-the-blank — slots + draggable word pills. */
+.blank-slot {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 96px;
+  margin: 0 4px;
+  padding: 2px 10px;
+  border: 0;
+  border-bottom: 2px dashed var(--border);
+  background: transparent;
+  color: var(--text-tertiary);
+  font: inherit;
+  cursor: pointer;
+}
+.blank-slot.filled { border-bottom-style: solid; color: var(--text-primary); background: var(--bg-sunken); border-radius: var(--radius-sm); }
+.blank-slot.ok { border-color: var(--success); color: var(--success-ink, var(--text-primary)); }
+.blank-slot.miss { border-color: var(--hot-red); }
+.pill-tray { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: var(--space-4); }
+.word-pill {
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-size: var(--text-body-sm);
+  cursor: grab;
+}
+.word-pill.active { border-color: var(--accent); color: var(--accent); }
+.word-pill.used { opacity: 0.4; cursor: default; }
+
+/* Matching — two columns, tap a term then its definition. */
+.match-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: var(--space-3); }
+@media (max-width: 560px) { .match-grid { grid-template-columns: 1fr; } }
+.match-col { display: grid; gap: var(--space-2); }
+.match-item {
+  display: flex; flex-direction: column; gap: 2px;
+  text-align: left;
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color var(--dur, 180ms) var(--ease, ease);
+}
+.match-item.active { border-color: var(--accent); }
+.match-item.def.used { background: var(--bg-sunken); }
+.match-item.ok { border-color: var(--success); }
+.match-item.miss { border-color: var(--hot-red); }
+.match-item:disabled { opacity: 0.55; cursor: default; }
+.match-term { font-weight: var(--fw-medium); }
+
+/* Predict / missing-step — option buttons. */
+.predict-options { display: grid; gap: var(--space-2); }
+.predict-option {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: border-color var(--dur, 180ms) var(--ease, ease), background var(--dur, 180ms) var(--ease, ease);
+}
+.predict-option:hover:not(:disabled) { background: var(--bg-sunken); }
+.predict-option.selected { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+.predict-option.ok { border-color: var(--success); background: color-mix(in srgb, var(--success) 8%, transparent); }
+.predict-option.miss { border-color: var(--hot-red); }
+
+/* Assemble-the-proof / fill-the-missing-step — ordered steps. */
+.proof-list { list-style: none; margin: var(--space-3) 0 0; padding: 0; display: grid; gap: var(--space-2); }
+.proof-step {
+  display: flex; align-items: center; gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.proof-step.gap { border-style: dashed; background: var(--bg-sunken); }
+.proof-step.ok { border-color: var(--success); }
+.proof-step.miss { border-color: var(--amber); }
+.proof-num {
+  flex: none;
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: var(--border-width) solid var(--border);
+  border-radius: 50%;
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+.proof-text { flex: 1; font-size: var(--text-body-sm); }
+.proof-moves { display: inline-flex; gap: 2px; }
+.proof-moves button {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  width: 28px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.proof-moves button:disabled { opacity: 0.35; cursor: default; }
+.proof-list.static .proof-step { cursor: default; }
+
+/* Teach-it-back — free text + a self-check cue list. */
+.teach-area {
+  width: 100%;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font: inherit;
+  padding: var(--space-3);
+  resize: vertical;
+}
+.teach-area:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.teach-cues { display: grid; gap: var(--space-2); }
+.teach-cue {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-body-sm);
+}
+.teach-cue input { position: absolute; opacity: 0; pointer-events: none; }
+.teach-tick {
+  flex: none;
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: transparent;
+}
+.teach-cue.on { border-color: var(--accent); }
+.teach-cue.on .teach-tick { border-color: var(--accent); color: var(--accent); }
+
+/* ── The format hub — a gallery of format tiles ───────────────────────────── */
+.format-hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-3);
+}
+.format-tile {
+  display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-2);
+  text-align: left;
+  padding: var(--space-4);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  cursor: pointer;
+  transition: border-color var(--dur, 180ms) var(--ease, ease), background var(--dur, 180ms) var(--ease, ease);
+}
+.format-tile:hover { border-color: var(--accent); background: var(--bg-sunken); }
+.format-tile-ic {
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--accent);
+}
+
+/* ── Achievement badges ───────────────────────────────────────────────────── */
+.badge-board {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  padding: var(--space-4);
+}
+.badge-grid { display: grid; gap: var(--space-2); }
+.badge-tile {
+  display: flex; align-items: flex-start; gap: var(--space-3);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+}
+.badge-tile.earned { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+.badge-tile.in-reach { opacity: 0.92; }
+.badge-ic {
+  flex: none;
+  width: 36px; height: 36px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: var(--border-width) solid var(--border);
+  border-radius: 50%;
+  color: var(--text-tertiary);
+}
+.badge-tile.earned .badge-ic { border-color: var(--accent); color: var(--accent); }
+.badge-body { display: grid; gap: 1px; }
+.badge-earned-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: var(--text-caption); font-family: var(--font-mono);
+  color: var(--accent);
+}
+.badge-reach-chip {
+  font-size: var(--text-caption); font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+
+/* ── Hierarchical course browser ──────────────────────────────────────────── */
+.course-browser { display: grid; gap: var(--space-3); }
+.course-subject {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+.course-subject-head {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-4);
+  border: 0;
+  background: var(--bg-surface);
+  cursor: pointer;
+  text-align: left;
+}
+.course-subject-band {
+  flex: none;
+  width: 40px; height: 40px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--subject-hue, var(--accent));
+  color: #fff;
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+}
+.course-subject-lead { flex: 1; display: grid; gap: 1px; }
+.course-caret { color: var(--text-tertiary); transition: transform var(--dur, 180ms) var(--ease, ease); }
+.course-caret.open { transform: rotate(90deg); }
+.course-subject-head .course-caret.open { transform: rotate(180deg); }
+
+.course-terms { border-top: var(--border-width) solid var(--border); }
+.course-term { border-bottom: var(--border-width) solid var(--border); }
+.course-term:last-child { border-bottom: 0; }
+.course-term-head, .course-chapter-head {
+  display: flex; align-items: center; gap: var(--space-3);
+  width: 100%;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.course-term-head { padding: var(--space-3) var(--space-4); }
+.course-chapters { padding: 0 var(--space-4) var(--space-3) var(--space-5); display: grid; gap: var(--space-2); }
+.course-chapter {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-base, var(--bg-surface));
+}
+.course-chapter-head { padding: var(--space-3); }
+.course-chapter-num {
+  flex: none;
+  width: 22px; height: 22px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+.course-chapter-head .body-sm { flex: 1; }
+
+.course-topics { list-style: none; margin: 0; padding: 0 var(--space-3) var(--space-3) var(--space-5); display: grid; gap: var(--space-2); }
+.course-topic {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-top: var(--border-width) solid var(--border);
+}
+.course-topic:first-child { border-top: 0; }
+.course-topic-lead { display: flex; align-items: center; gap: var(--space-3); }
+.course-topic-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-tertiary); flex: none; }
+.course-topic-name { color: var(--text-primary); font-size: var(--text-body-sm); }
+.course-topic-name:hover { color: var(--accent); }
+.course-sublessons { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.sublesson-chip {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-pill, 999px);
+  background: var(--bg-surface);
+  color: var(--text-secondary);
+  font-size: var(--text-caption);
+}
+.sublesson-chip:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Reduced-motion: drop the one transition (the flip) and the caret/cell eases. */
+@media (prefers-reduced-motion: reduce) {
+  .flashcard-inner,
+  .course-caret,
+  .mock-nav-cell,
+  .mock-option,
+  .predict-option,
+  .format-tile,
+  .match-item { transition: none; }
+}
+
+/* ============================================================================
    PRINT — the clean PDF path for HolisticProgressCard (window.print()).
    Drops the app chrome (rail, dock, orb, topbar, actions) and lays the report
    out as a single calm document. Triggered by the report's Print / PDF button.
@@ -4867,4 +5528,58 @@ td.muted .roster-sub { color: var(--text-tertiary); }
   .report-print .report-grid-2 { grid-template-columns: 1fr 1fr !important; }
   /* Keep the donut/line crisp on paper. */
   .report-print svg { max-width: 100%; }
+}
+
+/* ============================================================================
+   APPEARANCE — the Settings theme-palette picker + visual-accessibility mode.
+
+   The AppearanceApplier stamps these attributes on <html> from the persisted
+   Appearance. They re-skin the whole surface from one place. Brand law holds:
+   the accents are the COOL subject palette only — never coral, never warm.
+   ============================================================================ */
+
+/* Chosen accent — overrides the per-surface (data-surface) default hue so the
+   whole surface reads in the user's chosen cool subject hue. The raw palette is
+   theme-agnostic; the -tint vars already flip per data-theme in tokens.css. */
+html[data-accent='cobalt']   { --accent: var(--cobalt);   --accent-ink: var(--cobalt-ink);   --accent-tint: var(--cobalt-tint); }
+html[data-accent='tiffany']  { --accent: var(--tiffany);  --accent-ink: var(--tiffany-ink);  --accent-tint: var(--tiffany-tint); }
+html[data-accent='emerald']  { --accent: var(--emerald);  --accent-ink: var(--emerald-ink);  --accent-tint: var(--emerald-tint); }
+html[data-accent='violet']   { --accent: var(--violet);   --accent-ink: var(--violet-ink);   --accent-tint: var(--violet-tint); }
+html[data-accent='indigo']   { --accent: var(--indigo);   --accent-ink: var(--indigo-ink);   --accent-tint: var(--indigo-tint); }
+html[data-accent='cyan']     { --accent: var(--cyan);     --accent-ink: var(--cyan-ink);     --accent-tint: var(--cyan-tint); }
+
+/* Visual-accessibility: larger text. Nudges the body/caption/data ramp up a
+   step so reading is easier WITHOUT breaking the layout grid. Headings keep
+   their hierarchy; only the reading sizes grow. */
+html[data-large-text] {
+  --text-body:    18px;
+  --text-body-sm: 16px;
+  --text-caption: 15px;
+  --text-data:    15px;
+  --text-overline: 12px;
+}
+
+/* Visual-accessibility: high contrast. Darkens secondary/tertiary text and
+   firms the hairlines so structure and copy read clearly. Tonal, never a
+   shadow — depth stays hairline + tonal per the brand. */
+html[data-high-contrast] {
+  --text-secondary: var(--black-700);
+  --text-tertiary:  var(--black-500);
+  --border:         var(--black-300);
+  --border-strong:  var(--black-400);
+}
+html[data-high-contrast][data-theme='dark'] {
+  --text-secondary: var(--white-200);
+  --text-tertiary:  var(--white-300);
+}
+
+/* Visual-accessibility: opt-in reduced motion. The OS @media query still wins
+   on its own; this lets a user who has no OS setting turn motion down here. */
+html[data-reduce-motion] *,
+html[data-reduce-motion] *::before,
+html[data-reduce-motion] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
 }
