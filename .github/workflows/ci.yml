@@ -1,0 +1,108 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Two independent jobs run in parallel — the TypeScript surface/contracts/design
+# system, and the Python spine engines + capability modules.
+jobs:
+  typescript:
+    name: TypeScript — typecheck, vitest, web build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Typecheck (contracts · design-system · web)
+        run: npm run typecheck
+      - name: Unit tests (vitest)
+        run: npx vitest run
+      - name: Web production build
+        run: npm run build -w @classess/web
+
+  python:
+    name: Python — pytest (engines + modules)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Run the Python suite (per module)
+        run: bash scripts/test-python.sh
+
+  # The end-to-end gate: build the web surface, serve it with `next start` on the
+  # harness port, then drive the Playwright suite (auth/nav/vidya/responsive +
+  # the hard zero-console-error gate) across every viewport. Any spec failure —
+  # including a console error — fails `npm run e2e`, which fails this job.
+  e2e:
+    name: E2E — Playwright (web surface, all viewports)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+
+      # Cache the downloaded browsers; key on the lockfile so a Playwright bump
+      # busts it. On a hit we still install OS deps (not cached) for Chromium.
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install Playwright browsers (+ OS deps)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+        working-directory: e2e
+      - name: Install Playwright OS deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+        working-directory: e2e
+
+      # The suite is designed to run against a production `next start` (see the
+      # config notes), so build then serve, not `next dev`.
+      - name: Web production build
+        run: npm run build -w @classess/web
+
+      - name: Start web surface on the harness port
+        run: |
+          PORT=3947 npm run start -w @classess/web &
+          echo "WEB_PID=$!" >> "$GITHUB_ENV"
+          # Wait until the server answers before driving the browser (curl is on
+          # the runner; no extra dependency just to poll a port).
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3947 >/dev/null && echo "web up" && exit 0
+            sleep 2
+          done
+          echo "web surface did not come up on :3947" >&2
+          exit 1
+
+      - name: Run Playwright E2E (npm run e2e)
+        env:
+          E2E_BASE_URL: http://localhost:3947
+        run: npm run e2e
+
+      - name: Stop web surface
+        if: always()
+        run: '[ -n "${WEB_PID:-}" ] && kill "$WEB_PID" || true'
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: e2e/playwright-report
+          retention-days: 7
