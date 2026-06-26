@@ -147,6 +147,7 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
           }}
         >
           <Icon name="plus" size="md" />
+          <span className="rail-label">New conversation</span>
         </Link>
 
         <button
@@ -158,6 +159,7 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
           onClick={() => setDrawerOpen((v) => !v)}
         >
           <Icon name="search" size="md" />
+          <span className="rail-label">Search and history</span>
         </button>
 
         {items.map((item) => {
@@ -173,6 +175,7 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
               data-rail-href={item.href}
             >
               <Icon name={item.icon} size="md" />
+              <span className="rail-label">{item.label}</span>
             </Link>
           );
         })}
@@ -187,6 +190,7 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
           onClick={nextRole}
         >
           <Icon name="grid" size="md" />
+          <span className="rail-label">Role · {ROLE_LABELS[role]}</span>
         </button>
 
         <Link
@@ -196,6 +200,7 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
           title="Settings"
         >
           <Icon name="settings" size="md" />
+          <span className="rail-label">Settings</span>
         </Link>
         <Link
           className={`rail-btn${pathname === '/profile' ? ' active' : ''}`}
@@ -204,6 +209,7 @@ export function Rail({ role: roleProp, onRoleChange, onNewConversation }: RailPr
           title="Profile"
         >
           <Icon name="user" size="md" />
+          <span className="rail-label">Profile</span>
         </Link>
       </nav>
 

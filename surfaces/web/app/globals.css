@@ -37,6 +37,9 @@ a {
   display: flex;
   min-height: 100vh;
   width: 100%;
+  /* The rail is a fixed overlay that expands on hover WITHOUT reflowing the
+     surface; reserve its collapsed width so content never sits under it. */
+  padding-left: var(--rail-collapsed, 64px);
 }
 
 .app-main {
@@ -142,20 +145,38 @@ a {
   justify-content: center;
 }
 
-/* The slim icon rail. */
+/* ----------------------------------------------------------------------------
+   The ExpandingRail — fixed left, collapsed to an icon column, expands
+   butter-smooth to reveal labels on hover/focus. Overlays the surface (content
+   never reflows). Sticky-equivalent (fixed, full height), one accent, hairline
+   border, frosted on expand. Mercedes-precise; honours reduced-motion.
+   -------------------------------------------------------------------------- */
 .rail {
-  width: 64px;
-  flex: 0 0 64px;
+  position: fixed;
+  left: 0;
+  top: 0;
+  height: 100vh;
+  width: var(--rail-collapsed, 64px);
+  z-index: 50;
   background: var(--bg-surface);
   border-right: var(--border-width) solid var(--border);
   display: flex;
   flex-direction: column;
-  align-items: center;
-  padding: var(--space-4) 0;
-  gap: var(--space-2);
-  position: sticky;
-  top: 0;
-  height: 100vh;
+  align-items: stretch;
+  padding: var(--space-4) 12px;
+  gap: 2px;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-width: none;
+  transition: width var(--dur) var(--ease), background var(--dur) var(--ease);
+}
+.rail::-webkit-scrollbar { width: 0; height: 0; }
+.rail:hover,
+.rail:focus-within {
+  width: var(--rail-expanded, 244px);
+  background: var(--frost-bg, var(--bg-surface));
+  backdrop-filter: var(--frost-blur, none);
+  -webkit-backdrop-filter: var(--frost-blur, none);
 }
 
 .rail-spacer {
@@ -163,17 +184,44 @@ a {
 }
 
 .rail-btn {
-  width: 40px;
   height: 40px;
-  display: inline-flex;
+  width: 100%;
+  display: flex;
   align-items: center;
-  justify-content: center;
+  gap: var(--space-3);
+  padding: 0 8px;
   border: 0;
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
   position: relative;
-  border-radius: var(--radius-sm, 4px);
+  border-radius: var(--radius-sm, 6px);
+  white-space: nowrap;
+  text-align: left;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  transition: background var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+/* Pin the glyph to the collapsed gutter so icons never shift as the rail opens. */
+.rail-btn > .icon,
+.rail-btn > svg {
+  flex: 0 0 24px;
+  width: 24px;
+}
+
+/* The label rides in as the rail opens — opacity + a small slide, GPU-friendly. */
+.rail-label {
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity var(--dur) var(--ease), transform var(--dur) var(--ease);
+  pointer-events: none;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rail:hover .rail-label,
+.rail:focus-within .rail-label {
+  opacity: 1;
+  transform: none;
 }
 
 .rail-btn:hover {
@@ -189,13 +237,18 @@ a {
 .rail-btn.active::before {
   content: "";
   position: absolute;
-  left: -12px;
+  left: 0;
   top: 9px;
   bottom: 9px;
   width: 2px;
   pointer-events: none;
-  border-radius: 2px;
+  border-radius: 0 2px 2px 0;
   background: var(--accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail,
+  .rail-label { transition: none; }
 }
 
 .rail-mark {

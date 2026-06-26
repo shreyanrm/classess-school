@@ -32,15 +32,19 @@ import { useT } from '@/lib/i18n';
 import { useProactive } from '@/lib/useProactive';
 import { GREETING, HOME_CHIPS, ROLE_LABELS } from '@/lib/mock';
 
-/** The molten / ultramarine / violet bloom blobs — atmosphere only, low alpha. */
+/** The living COOL bloom behind the composer — ultramarine (the v3 brand
+   signature) at the heart, soft cobalt + violet on the flanks, a cool cyan
+   drift. Gemini-soft, NO coral/warm tones anywhere. Additively blended +
+   blurred so it reads as one soft, alive field of light, not three discs. */
 const BLOOM_BLOBS: Array<{ x: number; y: number; r: number; c: [number, number, number]; a: number }> = [
-  { x: 0.42, y: 0.62, r: 0.42, c: [255, 77, 26], a: 0.05 },
-  { x: 0.6, y: 0.5, r: 0.5, c: [31, 53, 224], a: 0.06 },
-  { x: 0.5, y: 0.7, r: 0.36, c: [122, 47, 242], a: 0.04 },
+  { x: 0.46, y: 0.56, r: 0.54, c: [60, 92, 240], a: 0.17 },   // ultramarine — brand signature heart
+  { x: 0.58, y: 0.52, r: 0.48, c: [92, 138, 246], a: 0.13 },  // soft cobalt blue
+  { x: 0.40, y: 0.52, r: 0.46, c: [124, 88, 232], a: 0.12 },  // violet flank
+  { x: 0.54, y: 0.64, r: 0.50, c: [72, 172, 214], a: 0.09 },  // cool cyan drift
 ];
 
-/** A small dot hue per chip slot — purely decorative, cycles the bloom palette. */
-const CHIP_DOTS = ['var(--molten-ink)', 'var(--signature)', 'var(--accent)'];
+/** A small dot hue per chip slot — purely decorative, cool brand palette only. */
+const CHIP_DOTS = ['var(--signature)', 'var(--cobalt-ink)', 'var(--violet-ink)'];
 
 /* Hairline inline glyphs for the two affordances the icon registry does not
    carry (mic, sun/moon). currentColor stroke; no fill, no shadow. */
@@ -107,16 +111,21 @@ export function RoleLanding() {
     };
     const paint = () => {
       ctx.clearRect(0, 0, w, h);
+      // Additive blend so the warm + cool blobs sum into one living field of
+      // light (Claude-bloom style) rather than three flat discs.
+      ctx.globalCompositeOperation = 'lighter';
       BLOOM_BLOBS.forEach((b, i) => {
-        const cx = (b.x + (reduce ? 0 : Math.sin(t + i * 1.7) * 0.05)) * w;
-        const cy = (b.y + (reduce ? 0 : Math.cos(t * 0.9 + i) * 0.04)) * h;
-        const rr = b.r * Math.min(w, h);
+        const cx = (b.x + (reduce ? 0 : Math.sin(t + i * 1.7) * 0.06)) * w;
+        const cy = (b.y + (reduce ? 0 : Math.cos(t * 0.9 + i) * 0.05)) * h;
+        const rr = b.r * Math.max(w, h);
         const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rr);
         g.addColorStop(0, `rgba(${b.c[0]},${b.c[1]},${b.c[2]},${b.a})`);
+        g.addColorStop(0.6, `rgba(${b.c[0]},${b.c[1]},${b.c[2]},${b.a * 0.35})`);
         g.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = g;
         ctx.fillRect(0, 0, w, h);
       });
+      ctx.globalCompositeOperation = 'source-over';
     };
     const frame = () => {
       t += 0.0024;
@@ -290,8 +299,10 @@ export function RoleLanding() {
           border:var(--border-width) solid var(--border);border-radius:4px;padding:1px 5px;background:var(--bg-sunken);}
 
         .ch-home{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:0 var(--space-6);overflow:hidden;}
-        .ch-ambient{position:absolute;inset:0;pointer-events:none;z-index:0;}
-        .ch-ambient canvas{width:100%;height:100%;display:block;}
+        .ch-ambient{position:absolute;inset:0;pointer-events:none;z-index:0;
+          -webkit-mask-image:radial-gradient(58% 52% at 50% 57%,#000 22%,transparent 92%);
+          mask-image:radial-gradient(58% 52% at 50% 57%,#000 22%,transparent 92%);}
+        .ch-ambient canvas{width:100%;height:100%;display:block;filter:blur(62px) saturate(1.05);opacity:.78;}
         .ch-center{position:relative;z-index:2;width:100%;max-width:720px;text-align:center;}
         .ch-greet{font-size:46px;font-weight:300;letter-spacing:-.025em;line-height:1.08;margin:0;color:var(--text-primary);}
         .ch-sub{margin-top:var(--space-4);color:var(--text-secondary);font-size:16px;}
@@ -307,7 +318,7 @@ export function RoleLanding() {
           cursor:pointer;color:var(--text-secondary);transition:background var(--dur) var(--ease),color var(--dur) var(--ease);}
         .ch-icon-btn:hover{background:var(--bg-sunken);color:var(--text-primary);}
         .ch-glyph{width:20px;height:20px;stroke:currentColor;stroke-width:1.5;fill:none;stroke-linecap:round;stroke-linejoin:round;}
-        .ch-mic:hover{background:var(--molten-tint);color:var(--molten-ink);}
+        .ch-mic:hover{background:var(--bg-sunken);color:var(--signature);}
         .ch-model{display:flex;align-items:center;gap:var(--space-1);font-size:13px;color:var(--text-secondary);padding:var(--space-2) var(--space-3);
           border:0;background:transparent;border-radius:var(--radius-sm);cursor:pointer;font-family:var(--font-sans);
           transition:background var(--dur) var(--ease);}
