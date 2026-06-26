@@ -7,9 +7,10 @@ _Last updated: 2026-06-26._
 
 ## 0. TL;DR — where we are right now
 - **Branch:** `v3-design-revamp` (NOT yet merged/deployed). The LIVE site `3.classess.com` is still the OLD pre-revamp build (`main` @ `3845e4b`). Nothing in this revamp is live until the final merge+deploy.
-- **In flight:** flow-gaps workflow `w3z81qn6u` (~half done — Student gaps done, Teacher in progress, then Admin/Settings/gate).
-- **Dev server:** `npm run dev -w @classess/web -- --port 3210` (used for screenshots).
-- **Next after gaps:** (1) my own VISUAL pass (screenshot + eyeball + polish every screen), (2) go live (E2E → merge → deploy → prod smoke).
+- **Latest commit:** `7f1576c` — flow gaps done. Hero + visual revamp + flow build + gaps ALL committed + typecheck/387-tests green. The v2-experience flow is substantially complete (P0/P1/P2 + most P3).
+- **NEXT (now): the VISUAL PASS** — screenshot every route, eyeball against the sample-page bar, fix anything templated/sparse/off-brand/janky, close minor residual gaps. Then go live.
+- **Dev server:** `npm run dev -w @classess/web -- --port 3210` (used for screenshots; recipe in §6).
+- **Residual minor/by-design gaps** (close in the visual pass, except the design-decisions which need the user): StudyQuadrant→teacher wire, perf bubble chart, sectioned mock paper, notifications drawer, Help/FAQ, fuller admin role catalogue. Design-decisions to confirm with user: raw-marks report-card export, peer-to-peer student chat.
 
 ## 1. DESIGN NORTH-STAR (the bar — do not drift)
 - **Mercedes-sophisticated, spacey-but-refined, Virgil-intentional.** Cool + soft. **NO coral / warm-orange anywhere.**
@@ -29,12 +30,42 @@ _Last updated: 2026-06-26._
 ## 3. WHAT'S HAPPENING (in flight)
 - **`w3z81qn6u`** flow-gaps workflow: building the P2/P3 v2 features. New components landed: `MockSession`, `PracticeFormats`, `CourseBrowser`, `AchievementBadges`, `Markbook`, `PtmManager`, `QuestionPaperPreview`; data `courseData.ts`, `mockSession.ts`; route `/teacher/together`. Stage order: StudentGaps ✅ → TeacherGaps ⏳ → AdminGaps → SettingsGaps → Gate.
 
-## 4. WHAT NEEDS TO HAPPEN (remaining, in order)
-1. **Finish `w3z81qn6u`** + close any residual blueprint gaps it reports (`still_missing`).
-2. **VISUAL VERIFICATION PASS (me):** screenshot every route across all 4 roles (recipe in §6), READ each, compare to the sample-page bar + the references, fix anything templated/sparse/off-brand/janky. Polish motion. This is the pass that was pointless before the flow was right.
-3. **Vidya end-to-end:** confirm the 5-path generative chat + ambient watch-and-teach + handwritten molten/acid… → NOTE: annotations must be HANDWRITTEN (Caveat, sketched) but in COOL ultramarine/acid (NO coral) per the no-coral rule.
-4. **Go live:** `bash scripts/ci.sh` + `npm run e2e` green → merge `v3-design-revamp` → `main` → push (needs `workflow` scope for `.github/workflows`) → redeploy backend (Railway) + web (Vercel) → prod smoke at 3.classess.com.
-5. Only then say DONE.
+## 4. HOW TO COMPLETE — runbook (remaining, in order)
+> Each step is typecheck-gated (`npm run typecheck -w @classess/web`) and, for UI, visually verified via §6 before moving on. Flow is already done (P0/P1/P2 + most P3); what's left is the visual pass → review → live.
+
+**Step A — finish the VISUAL PASS** (screenshot every route, fix anything templated/sparse/off-brand/janky, close the §0 minor gaps). One serial lane per role + shared. For each route: §6 screenshot → READ → fix → re-shoot → repeat until it matches the §1 bar. Save shots to `/tmp/polish/<role>/`.
+
+**Step B — human (me) review:** read the `/tmp/polish` shots, compare to ${SAMPLE in §1}, do final hands-on fixes on any screen still off.
+
+**Step C — Vidya end-to-end check:** orb opens text-ready (✓), 5-path chat works, ambient watch-and-teach + on-screen annotations are HANDWRITTEN (Caveat, sketched) in COOL ultramarine/acid — **no coral**.
+
+**Step D — confirm the 2 design-decisions with the user:** raw-marks report-card export? peer-to-peer student chat? (build or formally drop.)
+
+**Step E — GO LIVE (exact commands):**
+```
+cd /Users/depl/Documents/classess-school
+bash scripts/ci.sh            # typecheck + vitest(387) + pytest + build — must be green
+npm run e2e                   # Playwright (self-manages :3210) — must be green
+git checkout main && git merge v3-design-revamp     # fast-forward (no .github changes on this branch → no workflow-scope issue)
+git push origin main
+# backend:
+export RAILWAY_TOKEN="$(grep -E '^RAILWAY_TOKEN=' .env.local | cut -d= -f2- | tr -d '"')"
+railway up --service classess-backend --environment production
+# web:
+export VERCEL_TOKEN="$(grep -E '^VERCEL_TOKEN=' .env.local | cut -d= -f2- | tr -d '"')"
+vercel --prod --yes --token "$VERCEL_TOKEN"
+# prod smoke:
+curl -s -o /dev/null -w '%{http_code}\n' https://3.classess.com
+curl -s https://classess-backend-production.up.railway.app/health
+```
+**Step F — only then say DONE** (per §1 done-definition: premium visual + v2-experience-complete + live + verified-by-me).
+
+### Resuming from a FRESH session (if this one stops)
+1. Memory auto-loads → it points here. Read this whole doc + `docs/V2-EXPERIENCE-MAP.md`.
+2. `cd /Users/depl/Documents/classess-school && git checkout v3-design-revamp && git log --oneline -8` (confirm latest commit; `git status` for any uncommitted in-flight work — re-verify/redo it).
+3. `npm run dev -w @classess/web -- --port 3210` (for §6 screenshots).
+4. **NOTE — workflow runs are session-specific** (`resumeFromRunId` only works in the same session). A fresh session CANNOT resume my background workflows; instead **re-do the current step hands-on, or re-author the visual-pass / gap workflow** from the spec in §1 + §4 + `docs/V2-EXPERIENCE-MAP.md` (the design bar, the recipes, and the residual-gap list are all self-contained here).
+5. Continue from the step above that isn't done yet (currently: **Step A, visual pass**).
 
 ## 5. WHERE WHAT'S THERE (key paths)
 - Web app: `surfaces/web/app` (routes) + `surfaces/web/app/_components` (components) + `surfaces/web/lib` (data/hooks).
