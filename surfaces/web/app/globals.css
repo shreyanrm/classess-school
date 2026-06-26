@@ -4174,3 +4174,697 @@ td.muted .roster-sub { color: var(--text-tertiary); }
   overflow: hidden;
   background: var(--bg-surface);
 }
+
+/* ============================================================================
+   SHARED VISUALIZATION + REPORT COMPONENTS — the v2->v3 viz kit.
+
+   AttendanceHeatmap · HolisticProgressCard (+ print) · ProjectRubric ·
+   PaperAnalysis · BloomTaxonomy / PerformanceTrend / SuccessGauge · CalendarGrid
+   · TimetableGrid. All cool ultramarine / brand only — NO coral, NO warm-orange.
+   Depth = hairline + tonal step + frost, NEVER a shadow. mono-caps overlines.
+   Reduced-motion honoured (the charts carry no positional motion). Every state
+   is a designed state. Subjects draw from the cool SubjectAccent palette via
+   data-subject -> --subject (mapping above) or an inline var(--<accent>).
+   ============================================================================ */
+
+/* A calm surface card the viz components sit in — hairline + tonal, no shadow.
+   .stack handles vertical rhythm; .viz-card adds the surface + padding. */
+.viz-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+/* Inside a .viz-card the .stack rhythm is owned by flex gap — drop the margin
+   rule so the inline gap on the card takes effect. */
+.viz-card.stack > * + * { margin-top: 0; }
+.viz-card .stack { display: flex; flex-direction: column; }
+.viz-card .stack > * + * { margin-top: 0; }
+
+/* A soft member chip — a name pill in a remedial group / list. Cool, tonal. */
+.chip-soft {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+
+/* ── AttendanceHeatmap ──────────────────────────────────────────────────── */
+.att-heatmap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.att-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+.att-summary-pct {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+}
+.att-pct-value {
+  font-family: var(--font-sans);
+  font-variation-settings: var(--sans-axes);
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.att-pct-unit { font-size: var(--text-h4); color: var(--text-tertiary); }
+
+.att-months {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+}
+.att-month { display: flex; flex-direction: column; gap: var(--space-2); }
+.att-month-label { margin: 0; }
+.att-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 3px;
+  width: fit-content;
+}
+.att-cell {
+  width: 15px;
+  height: 15px;
+  border-radius: var(--radius-xs);
+  border: var(--border-width) solid var(--border);
+  background: var(--bg-sunken);
+}
+.att-cell-pad { background: transparent; border-color: transparent; }
+.att-legend-swatch { width: 13px; height: 13px; }
+
+/* Cool ramp: present = surface accent solid; half = accent tint; leave = cyan
+   tint; absent = a tonal step + a STRONG hairline (non-punitive, never a red
+   wash); holiday = sunken with a dashed hairline; weekend/future = quiet. */
+.att-cell[data-state='present'] { background: var(--accent); border-color: var(--accent); }
+.att-cell[data-state='half'] {
+  background: color-mix(in srgb, var(--accent) 42%, var(--bg-surface));
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+.att-cell[data-state='leave'] {
+  background: var(--cyan-tint);
+  border-color: color-mix(in srgb, var(--cyan) 45%, var(--border));
+}
+.att-cell[data-state='absent'] {
+  background: var(--bg-canvas);
+  border-color: var(--border-strong);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent, transparent 3px,
+    color-mix(in srgb, var(--text-tertiary) 40%, transparent) 3px,
+    color-mix(in srgb, var(--text-tertiary) 40%, transparent) 4px
+  );
+}
+.att-cell[data-state='holiday'] {
+  background: var(--bg-sunken);
+  border-style: dashed;
+  border-color: var(--border-strong);
+}
+.att-cell[data-state='weekend'] { background: var(--bg-canvas); border-color: var(--border); opacity: 0.6; }
+.att-cell[data-state='future'] { background: transparent; border-style: dashed; }
+.att-cell[data-state='none'] { background: transparent; border-color: transparent; }
+
+.att-legend,
+.cal-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+.att-legend-item,
+.cal-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+}
+
+/* ── Donut + legend (Bloom, competency) ─────────────────────────────────── */
+.donut { position: relative; flex: none; }
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+  text-align: center;
+}
+.donut-legend { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); min-width: 0; }
+.donut-legend-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-2);
+}
+.donut-legend-label { font-size: var(--text-body-sm); color: var(--text-secondary); }
+.donut-legend-value { color: var(--text-primary); }
+.bloom-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+.bloom-body .donut-legend { flex: 1; min-width: 180px; }
+
+/* ── TrendLine axis ─────────────────────────────────────────────────────── */
+.trend-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 0 16px;
+}
+.trend-axis-label { color: var(--text-tertiary); font-size: var(--text-overline); }
+/* The "actual to date" key uses the existing .trajectory-key token (accent). */
+
+/* ── ArcGauge ───────────────────────────────────────────────────────────── */
+.gauge { position: relative; flex: none; }
+.gauge-center {
+  position: absolute;
+  inset: 0;
+  bottom: 18%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.gauge-value {
+  font-family: var(--font-sans);
+  font-variation-settings: var(--sans-axes);
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+.gauge-label { margin-top: 2px; }
+.gauge-body {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+.gauge-body .stack { flex: 1; min-width: 220px; }
+
+/* ── HolisticProgressCard (the report) ──────────────────────────────────── */
+.report-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+  border-bottom: var(--border-width) solid var(--border);
+  padding-bottom: var(--space-4);
+}
+.report-head-actions { display: flex; align-items: center; gap: var(--space-3); }
+.report-section { display: flex; flex-direction: column; }
+.report-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-6);
+}
+@media (max-width: 760px) {
+  .report-grid-2 { grid-template-columns: 1fr; }
+}
+.report-att {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-wrap: wrap;
+}
+.report-att-pct { display: flex; flex-direction: column; }
+.report-att-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3) var(--space-5);
+}
+.report-att-count { font-size: var(--text-body-sm); color: var(--text-secondary); }
+.report-att-count strong { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+.report-obs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.report-obs-row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+  align-items: start;
+}
+
+/* ── ProjectRubric ──────────────────────────────────────────────────────── */
+.rubric-scroll { overflow-x: auto; }
+.rubric-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body-sm);
+  min-width: 640px;
+}
+.rubric-table th,
+.rubric-table td {
+  border: var(--border-width) solid var(--border);
+  padding: var(--space-3);
+  text-align: left;
+  vertical-align: top;
+}
+.rubric-table thead th {
+  font-size: var(--text-overline);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: var(--fw-medium);
+  background: var(--bg-sunken);
+}
+.rubric-criterion-head { min-width: 130px; }
+.rubric-criterion { font-weight: var(--fw-medium); color: var(--text-primary); background: var(--bg-sunken); }
+.rubric-cell { position: relative; color: var(--text-secondary); }
+.rubric-cell-text { display: block; padding-right: 18px; }
+.rubric-cell.awarded {
+  background: var(--subject-tint, var(--accent-tint));
+  color: var(--text-primary);
+}
+.rubric-cell.awarded::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 2px;
+  background: var(--subject, var(--accent));
+}
+.rubric-awarded-mark {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  color: var(--subject, var(--accent));
+  display: inline-flex;
+}
+.rubric-submissions { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.rubric-submission {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) 0;
+  border-bottom: var(--border-width) solid var(--border);
+}
+.rubric-submission:last-child { border-bottom: 0; }
+.rubric-submission-label { font-size: var(--text-body-sm); color: var(--text-primary); }
+.rubric-submission-when { white-space: nowrap; }
+
+/* ── PaperAnalysis: target-band bar + key + periods + remedials ─────────── */
+.band-bar {
+  display: flex;
+  height: 18px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: var(--border-width) solid var(--border);
+}
+.band-seg { display: block; height: 100%; }
+.band-seg.band-below {
+  background: var(--bg-canvas);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent, transparent 3px,
+    color-mix(in srgb, var(--text-tertiary) 35%, transparent) 3px,
+    color-mix(in srgb, var(--text-tertiary) 35%, transparent) 4px
+  );
+}
+.band-seg.band-on { background: var(--accent-tint); border-left: var(--border-width) solid var(--accent); border-right: var(--border-width) solid var(--accent); }
+.band-seg.band-above { background: var(--accent); }
+.band-key { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-5); }
+.band-key-item { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--text-caption); color: var(--text-secondary); }
+.band-key-swatch { width: 13px; height: 13px; border-radius: var(--radius-xs); border: var(--border-width) solid var(--border); display: inline-block; }
+.band-key-swatch.band-below {
+  background-image: repeating-linear-gradient(-45deg, transparent, transparent 2px, color-mix(in srgb, var(--text-tertiary) 40%, transparent) 2px, color-mix(in srgb, var(--text-tertiary) 40%, transparent) 3px);
+}
+.band-key-swatch.band-on { background: var(--accent-tint); border-color: var(--accent); }
+.band-key-swatch.band-above { background: var(--accent); border-color: var(--accent); }
+
+.paper-periods { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-4); }
+.paper-period { display: flex; flex-direction: column; gap: var(--space-2); }
+.paper-period-head { display: flex; align-items: center; gap: var(--space-2); }
+.paper-period-label { font-size: var(--text-body-sm); font-weight: var(--fw-medium); color: var(--text-primary); }
+
+.paper-remedials { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-3); }
+.paper-remedial {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+}
+.paper-remedial-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.paper-remedial-topic { font-size: var(--text-body-sm); font-weight: var(--fw-medium); color: var(--text-primary); }
+.paper-remedial-members { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+
+/* ── CalendarGrid ───────────────────────────────────────────────────────── */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: var(--border-width);
+  background: var(--border);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.cal-weekday {
+  background: var(--bg-sunken);
+  padding: var(--space-2);
+  text-align: center;
+  font-size: var(--text-overline);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.cal-cell {
+  background: var(--bg-surface);
+  min-height: 72px;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.cal-cell-pad { background: var(--bg-canvas); }
+.cal-daynum { font-size: var(--text-caption); color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.cal-events { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cal-event {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+.cal-event-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cal-event-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 2px;
+  flex: none;
+  display: inline-block;
+  background: var(--text-tertiary);
+}
+/* Event types — cool / brand palette only, never coral/warm-orange. */
+.cal-event-dot[data-type='exam']     { background: var(--ultramarine); }
+.cal-event-dot[data-type='ptm']      { background: var(--indigo); }
+.cal-event-dot[data-type='holiday']  { background: var(--tiffany); }
+.cal-event-dot[data-type='homework'] { background: var(--cobalt); }
+.cal-event-dot[data-type='activity'] { background: var(--violet); }
+
+.cal-upcoming { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.cal-upcoming-row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: var(--space-3);
+}
+.cal-upcoming-day { color: var(--text-tertiary); white-space: nowrap; }
+.cal-upcoming-label { font-size: var(--text-body-sm); color: var(--text-primary); }
+
+/* ── TimetableGrid ──────────────────────────────────────────────────────── */
+.tt-grid {
+  display: grid;
+  grid-template-columns: 64px repeat(var(--tt-cols, 6), 1fr);
+  gap: var(--border-width);
+  background: var(--border);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.tt-corner { background: var(--bg-sunken); }
+.tt-dayhead {
+  background: var(--bg-sunken);
+  padding: var(--space-2);
+  text-align: center;
+  font-size: var(--text-overline);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.tt-dayhead.tt-today { color: var(--accent); }
+.tt-time {
+  background: var(--bg-sunken);
+  padding: var(--space-3) var(--space-2);
+  font-size: var(--text-overline);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+.tt-cell {
+  background: var(--bg-surface);
+  min-height: 56px;
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tt-cell.tt-today-col { background: var(--bg-canvas); }
+.tt-free { align-items: flex-start; justify-content: center; }
+.tt-block-subject { font-size: var(--text-caption); font-weight: var(--fw-medium); color: var(--text-primary); }
+.tt-block-detail { font-size: 10px; }
+/* The subject-tinted left rail comes from .subject-tinted (the mapping above);
+   the block keeps a calm surface so the hue reads as an edge, not a wash. */
+
+/* ============================================================================
+   AssignmentBoard — chapter-grouped list rows (submissions %, due, status).
+   Depth = hairline + tonal step + the subject-tinted left rail. No shadow.
+   ============================================================================ */
+.assign-list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.assign-row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+.assign-row-link { cursor: pointer; transition: border-color var(--dur-fast) var(--ease); }
+.assign-row-link:hover { border-color: var(--subject, var(--accent)); }
+.assign-row-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.assign-row-main { min-width: 0; }
+.assign-row-meta { display: flex; align-items: center; gap: var(--space-3); flex-shrink: 0; }
+.assign-pct { display: flex; align-items: center; gap: var(--space-2); }
+.assign-pct .progress { width: 88px; }
+.assign-pct .progress > span { background: var(--subject, var(--accent)); }
+@media (max-width: 720px) {
+  .assign-row { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .assign-row-meta { flex-wrap: wrap; }
+}
+
+/* ============================================================================
+   TestPaperCard — section-wise mark distribution table + the weight ramp bar.
+   ============================================================================ */
+.paper-sections-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-body-sm);
+  min-width: 560px;
+}
+.paper-sections-table th,
+.paper-sections-table td {
+  border: var(--border-width) solid var(--border);
+  padding: var(--space-3);
+  text-align: left;
+}
+.paper-sections-table thead th,
+.paper-sections-table tfoot th {
+  font-size: var(--text-overline);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+  font-weight: var(--fw-medium);
+  background: var(--bg-sunken);
+}
+.paper-sections-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.paper-sections-table tfoot td { background: var(--bg-sunken); }
+.paper-weight-bar {
+  display: flex;
+  width: 100%;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-sunken);
+}
+.paper-weight-seg { height: 100%; border-right: var(--border-width) solid var(--bg-surface); }
+.paper-weight-seg:last-child { border-right: 0; }
+
+/* ============================================================================
+   LessonNotesCapture — the raw textarea + the structured, editable placeholders.
+   ============================================================================ */
+.notes-textarea {
+  width: 100%;
+  min-height: 132px;
+  resize: vertical;
+  padding: var(--space-3) var(--space-4);
+  background: var(--bg-sunken);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: var(--text-body-sm);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+.notes-textarea:focus-visible { outline: none; border-color: var(--accent); }
+.notes-textarea::placeholder { color: var(--text-tertiary); }
+.notes-sections { display: grid; gap: var(--space-3); }
+@media (min-width: 720px) { .notes-sections { grid-template-columns: 1fr 1fr; } }
+.notes-section { display: flex; flex-direction: column; gap: var(--space-2); }
+.notes-section-field {
+  width: 100%;
+  resize: vertical;
+  padding: var(--space-2) var(--space-3);
+  background: var(--bg-surface);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: var(--text-body-sm);
+  color: var(--text-primary);
+  line-height: 1.55;
+}
+.notes-section-field:focus-visible { outline: none; border-color: var(--accent); }
+.notes-section-field::placeholder { color: var(--text-tertiary); }
+
+/* ============================================================================
+   HolisticCardBuilder — the editable observation list.
+   ============================================================================ */
+.builder-obs { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.builder-obs-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+}
+
+/* ============================================================================
+   AcademicPlanner — the year x month subject Gantt. A label gutter + a month
+   header, then one lane per subject; each unit is an absolutely-positioned
+   tinted bar spanning its month range. Depth = hairline + tonal step + the
+   subject hue. No shadow. Reduced-motion safe (static geometry, no transitions).
+   ============================================================================ */
+.gantt {
+  display: grid;
+  grid-template-columns: 132px repeat(var(--gantt-cols, 12), 1fr);
+  gap: var(--border-width);
+  background: var(--border);
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.gantt-corner { background: var(--bg-sunken); }
+.gantt-month {
+  background: var(--bg-sunken);
+  padding: var(--space-2) 0;
+  text-align: center;
+  font-size: var(--text-overline);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.gantt-month.gantt-month-now { color: var(--accent); }
+.gantt-lane-label {
+  background: var(--bg-sunken);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.gantt-lane-label .caption { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The track spans all the month columns and hosts the absolutely-placed bars. */
+.gantt-track {
+  position: relative;
+  background: var(--bg-surface);
+  min-height: 40px;
+  padding: 4px 0;
+}
+.gantt-gridlines {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--gantt-cols, 12), 1fr);
+  pointer-events: none;
+}
+.gantt-gridline { border-right: var(--border-width) solid var(--border); }
+.gantt-gridline:last-child { border-right: 0; }
+.gantt-gridline-now { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.gantt-bar {
+  position: absolute;
+  top: 4px;
+  bottom: 4px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--subject) 16%, var(--bg-surface));
+  border: var(--border-width) solid color-mix(in srgb, var(--subject) 40%, transparent);
+  border-left: 3px solid var(--subject);
+  min-width: 0;
+  box-sizing: border-box;
+}
+.gantt-bar-current {
+  border-color: var(--subject);
+  border-width: 1.5px;
+  background: color-mix(in srgb, var(--subject) 26%, var(--bg-surface));
+  font-weight: var(--fw-medium);
+}
+.gantt-bar-label {
+  font-size: var(--text-caption);
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ============================================================================
+   PRINT — the clean PDF path for HolisticProgressCard (window.print()).
+   Drops the app chrome (rail, dock, orb, topbar, actions) and lays the report
+   out as a single calm document. Triggered by the report's Print / PDF button.
+   ============================================================================ */
+@media print {
+  /* Hide everything not part of the report. */
+  .rail,
+  .rail-drawer,
+  .vidya-dock,
+  .vidya-orb-root,
+  .voice-bloom,
+  .surface-topbar,
+  .surface-vidya-chips,
+  .no-print,
+  .ev-drawer-root,
+  .sheet-root { display: none !important; }
+
+  html, body { background: #fff; }
+  .app-frame { padding-left: 0 !important; }
+  .surface-body { overflow: visible !important; padding: 0 !important; }
+  .surface-body-inner { max-width: none !important; }
+
+  /* The report fills the page; remove the card chrome so it reads as a doc. */
+  .report-print {
+    border: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+    color: #000;
+    gap: 18px !important;
+  }
+  .report-print .viz-card,
+  .report-print .report-section { break-inside: avoid; }
+  .report-print .report-grid-2 { grid-template-columns: 1fr 1fr !important; }
+  /* Keep the donut/line crisp on paper. */
+  .report-print svg { max-width: 100%; }
+}

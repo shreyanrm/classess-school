@@ -8,9 +8,11 @@ import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { masteryEvidence } from '../../_components/MasteryConclusion';
-import { StatMatrix, IgniteCard, Panel, FlagRow, HandnotePanel } from '../../_components/StudentComposed';
+import { BloomTaxonomy } from '../../_components/Charts';
+import { StatMatrix, IgniteCard, Panel, FlagRow, HandnotePanel, SecHead } from '../../_components/StudentComposed';
 import { useDeepReads } from '@/lib/useDeepReads';
 import { useGenerator } from '@/lib/useGenerator';
+import { useVizData } from '@/lib/useVizData';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
 import { BAND_SHORT, computeMastery, type EngineEvent } from '@/lib/engine';
@@ -60,6 +62,9 @@ export default function PracticePage() {
   const { phase, reads, source } = useDeepReads([LOOP_TOPIC_ID]);
   const baseline = reads.find((r) => r.topicId === LOOP_TOPIC_ID);
   const worksheet = useGenerator<Worksheet>('worksheet');
+  // The result review reads gateway-first (seed fallback): the Bloom mix and the
+  // per-question, cognitive-level review of this check. Re-labelled to the topic.
+  const result = useVizData(['quizResult'], SUBJECT);
   const { emit } = useEmit();
 
   const [events, setEvents] = useState<EngineEvent[]>([]);
@@ -100,6 +105,19 @@ export default function PracticePage() {
     worksheet.phase === 'ready' && (worksheet.artifact?.items.length ?? 0) > 0
       ? worksheet.source
       : 'fallback';
+
+  // The result review — the Bloom mix as a donut (re-labelled to this topic) and
+  // the per-question, cognitive-level review. Bands + plain notes, never a score.
+  const quiz = result.data.quizResult;
+  const resultBloom = useMemo(
+    () => ({
+      topicLabel: `${TOPIC.name} — this check`,
+      slices: quiz.bloom,
+      read: quiz.read,
+      confidence: quiz.confidence,
+    }),
+    [quiz],
+  );
 
   useEffect(() => {
     setIndex(startIndex);
@@ -228,6 +246,7 @@ export default function PracticePage() {
           />
 
           {done ? (
+            <>
             <section className="next-step-hero reveal reveal-3">
               <div className="ignite-row">
                 {mastery.reading.independent ? (
@@ -254,6 +273,54 @@ export default function PracticePage() {
                 ) : null}
               </div>
             </section>
+
+            {/* The result review — a check to LEARN from, not a score. The
+                thinking-level mix, then a per-question review tied to the
+                cognitive level each one asked of you. Plain language, no %. */}
+            <section className="stack">
+              <SecHead title="Your check, reviewed" meta={<span className="overline">what you learn from it</span>} />
+              <p className="body-sm muted" style={{ maxWidth: 560 }}>
+                {quiz.read}
+              </p>
+              <BloomTaxonomy data={resultBloom} source={result.sourceByKind.quizResult} />
+            </section>
+
+            <section>
+              <SecHead title="Question by question" meta={<span className="overline">by thinking level</span>} />
+              <div className="table-wrap">
+                <table className="table">
+                  <thead>
+                    <tr>
+                      <th>Thinking level</th>
+                      <th>How it went</th>
+                      <th>On your own</th>
+                      <th>What it was</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quiz.questions.map((q, i) => (
+                      <tr key={i}>
+                        <td>{q.level}</td>
+                        <td>
+                          <Tag tone={q.outcome === 'right' ? 'success' : q.outcome === 'close' ? 'info' : 'warning'}>
+                            <span className="dot" />
+                            {q.outcome === 'right' ? 'Got it' : q.outcome === 'close' ? 'So close' : 'Next focus'}
+                          </Tag>
+                        </td>
+                        <td className="muted">{q.unaided ? 'Unaided' : 'With a hint'}</td>
+                        <td className="muted">{q.note}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="caption quiet" style={{ marginTop: 'var(--space-2)' }}>
+                A &ldquo;next focus&rdquo; is named, not a failing — it is exactly where a little practice goes
+                furthest. No marks here, ever.
+              </p>
+              <SourceNote source={result.source} />
+            </section>
+            </>
           ) : (
             // VidyaWatch reads the step the learner is on; the active item is a HARD
             // step once it is Core/Stretch — Vidya may offer to walk it through.

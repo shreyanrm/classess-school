@@ -20,7 +20,10 @@ import { DimensionBars } from '../../../_components/DimensionBars';
 import { GapChips } from '../../../_components/GapChips';
 import { EvidenceDrawer } from '../../../_components/EvidenceDrawer';
 import { Trajectory } from '../../../_components/Trajectory';
+import { AttendanceHeatmap } from '../../../_components/AttendanceHeatmap';
+import { HolisticCardBuilder } from '../../../_components/HolisticCardBuilder';
 import { useClassInsights } from '@/lib/useClassInsights';
+import { useVizData } from '@/lib/useVizData';
 import { BAND_SHORT, gapLabel } from '@/lib/engine';
 import { CLASS_LABEL, ROSTER, studentLabel } from '@/lib/loopData';
 import type { StudentTopicRead } from '@/lib/classRead';
@@ -102,6 +105,10 @@ export default function StudentDetailPage() {
   const ref = typeof params?.ref === 'string' ? params.ref : Array.isArray(params?.ref) ? params.ref[0]! : '';
 
   const { phase, insights, source, refresh } = useClassInsights();
+  // The holistic-card composite + the attendance history read gateway-first
+  // (seed fallback), keyed to this learner so the card + heatmap render real-
+  // shaped data with an observable SourceNote.
+  const viz = useVizData(['holistic', 'attendance'], ref);
   const allReads = useMemo(() => insights?.reads ?? [], [insights]);
   const reads = useMemo(
     () => allReads.filter((r) => r.studentRef === ref),
@@ -377,6 +384,32 @@ export default function StudentDetailPage() {
               <span className="overline">direction, not a grade</span>
             </div>
             <Trajectory series={series} />
+          </section>
+
+          <section className="stack">
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                Attendance
+              </h3>
+              <span className="overline">a calm pattern, never a judgement</span>
+            </div>
+            <AttendanceHeatmap
+              record={{ ...viz.data.attendance, rowLabel: label }}
+              source={viz.sourceByKind.attendance}
+            />
+          </section>
+
+          <section className="stack">
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                Holistic progress card
+              </h3>
+              <span className="overline">compose, then share to the family</span>
+            </div>
+            <HolisticCardBuilder
+              data={{ ...viz.data.holistic, subjectLabel: label, classLabel: CLASS_LABEL }}
+              source={viz.sourceByKind.holistic}
+            />
           </section>
 
           <SourceNote source={source} />

@@ -6,23 +6,45 @@ import { SurfaceShell } from '../../_components/SurfaceShell';
 import { StatCell } from '../../_components/StatCell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
+import { CalendarGrid } from '../../_components/CalendarGrid';
+import { TimetableGrid } from '../../_components/TimetableGrid';
+import { AcademicPlanner } from '../../_components/AcademicPlanner';
 import { SCHEDULE_ALTERNATIVES, SUBSTITUTION_NEED } from '@/lib/mock';
 import { useAdminConfig } from '@/lib/adminConfig';
+import { useVizData } from '@/lib/useVizData';
+import { ACADEMIC_PLANNER_FALLBACK } from '@/lib/opsData';
 
 type Decision = 'pending' | 'approved' | 'declined';
+type View = 'calendar' | 'timetable' | 'planner' | 'cover';
 
 /**
- * Calendar and timetable — recomposed to the sample-page bar. When a slot needs
- * cover, the platform proposes SCORED ALTERNATIVES with a plain-language fit and
- * tradeoff. A page-head with a mono meta line + tab strip, a count-up stat matrix
- * (open slot / alternatives / best fit), then cols: the need + the scored
- * alternatives + the approval control on the main; the affected-day timetable
- * (.sched) and a handnote on the 320px aside. Each alternative carries an
- * Approval control — it never auto-commits; the human picks and approves. The
- * choice and decision persist through the wall.
+ * Calendar and timetable (admin) — recomposed to the sample-page bar and
+ * deepened to the full v2 calendar engine, in the v3 grammar. Four views ride a
+ * tab strip, the active one persisting through the wall:
+ *
+ *   · Calendar — a monthly event grid (cool/brand-coded event types) + an
+ *     upcoming list (CalendarGrid, gateway-first via useVizData).
+ *   · Timetable — the weekly day × period grid (TimetableGrid).
+ *   · Academic planner — the year × month subject Gantt (AcademicPlanner).
+ *   · Cover — the substitution flow: SCORED ALTERNATIVES with a plain-language
+ *     fit + tradeoff, each behind an Approval control; nothing auto-commits.
+ *
+ * Event types use the cool accent palette only — never coral. Each viz carries a
+ * SourceNote so the gateway-vs-fallback seam stays honest.
  */
 export default function AdminCalendarPage() {
   const surface = useAdminConfig('calendar');
+  const viz = useVizData(['calendar', 'timetable'], 'school-north');
+
+  const savedView = surface.config.view;
+  const view: View =
+    savedView === 'timetable' || savedView === 'planner' || savedView === 'cover' || savedView === 'calendar'
+      ? (savedView as View)
+      : 'calendar';
+  const setView = (v: View) => {
+    void surface.set('view', v);
+  };
+
   const savedChosen = typeof surface.config.chosen === 'string' ? surface.config.chosen : null;
   const savedDecision =
     surface.config.decision === 'approved' || surface.config.decision === 'declined'
@@ -39,23 +61,50 @@ export default function AdminCalendarPage() {
   };
 
   const strongFits = SCHEDULE_ALTERNATIVES.filter((a) => a.fit === 'high').length;
+  const calendar = viz.data.calendar;
+  const timetable = viz.data.timetable;
+  const exams = calendar.events.filter((e) => e.type === 'exam').length;
+  const ptms = calendar.events.filter((e) => e.type === 'ptm').length;
+
+  const dock: Record<View, { intro: string; chips: string[] }> = {
+    calendar: {
+      intro:
+        'This is the academic calendar — every event on one calm month grid, colour-coded by type. Ask me what is coming up, or to schedule a holiday or a parent meeting; I prepare it and hold it for your approval.',
+      chips: ['What is coming up this month', 'Schedule a parent-teacher meeting', 'Add the mid-term holiday'],
+    },
+    timetable: {
+      intro:
+        'This is the weekly timetable — every period for the week, subjects on the cool palette, free slots reading as calm empty cells. Ask me to generate a fresh timetable; I prepare it for you to approve.',
+      chips: ['Generate a fresh timetable', 'Where are the free slots', 'Balance the load across days'],
+    },
+    planner: {
+      intro:
+        'This is the academic planner — a year of units laid out month by month, by subject. Ask me to pace a unit or reflow the plan when a section falls behind; I prepare the change for your approval.',
+      chips: ['Pace the trigonometry unit', 'What runs in the exam months', 'Reflow the plan for a behind section'],
+    },
+    cover: {
+      intro:
+        'A teacher in Section 10-B is on approved leave on Thursday. I have scored three alternatives. Pick one and approve it; I will not commit anything on my own.',
+      chips: ['Why is option one the best fit', 'Show the full week', 'Generate a fresh timetable'],
+    },
+  };
 
   return (
     <SurfaceShell
       eyebrow="Calendar and timetable"
-      title="Cover for an open slot"
+      title="The school calendar"
       breadcrumb={[{ label: 'School', href: '/' }, { label: 'Calendar' }]}
       meta={[
-        { value: 1, label: 'open slot' },
-        { value: SCHEDULE_ALTERNATIVES.length, label: 'alternatives scored' },
-        { value: strongFits, label: 'strong fits' },
+        { value: calendar.events.length, label: `events in ${calendar.label}` },
+        { value: exams, label: 'assessments' },
+        { value: ptms, label: 'parent meetings' },
         { label: 'nothing auto-commits' },
       ]}
       tabs={[
-        { label: 'Cover', active: true },
-        { label: 'Exams', href: '/admin/exams' },
-        { label: 'Curriculum', href: '/admin/curriculum' },
-        { label: 'Briefing', href: '/admin' },
+        { label: 'Calendar', active: view === 'calendar', onClick: () => setView('calendar') },
+        { label: 'Timetable', active: view === 'timetable', onClick: () => setView('timetable') },
+        { label: 'Academic planner', active: view === 'planner', onClick: () => setView('planner') },
+        { label: 'Cover a slot', active: view === 'cover', onClick: () => setView('cover') },
       ]}
       actions={
         <Link href="/admin/exams" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
@@ -63,58 +112,150 @@ export default function AdminCalendarPage() {
           Exam operations
         </Link>
       }
-      dockIntro="A teacher in Section 10-B is on approved leave on Thursday. I have scored three alternatives. Pick one and approve it; I will not commit anything on my own."
-      dockChips={['Why is option one the best fit', 'Show the full week', 'Generate a fresh timetable']}
+      dockIntro={dock[view].intro}
+      dockChips={dock[view].chips}
       aside={
         surface.phase !== 'ready' ? null : (
           <>
-            <div className="ignite-card reveal reveal-2">
-              <div className="row-between" style={{ marginBottom: 14 }}>
-                <span className="overline">Yours to decide</span>
-                <Icon name="flame" size="md" style={{ color: 'var(--accent)' }} />
-              </div>
-              <div className="who">{SCHEDULE_ALTERNATIVES.length} scored options, zero auto-commits</div>
-              <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
-                Each alternative carries a plain-language fit and the tradeoff it costs. The platform
-                proposes; you approve.
-              </p>
-            </div>
-
-            <div className="panel">
-              <div className="sec-head" style={{ marginBottom: 8 }}>
-                <h4 className="h4" style={{ margin: 0 }}>
-                  Thursday, Section 10-B
-                </h4>
-                <span className="overline">affected day</span>
-              </div>
-              {[
-                { t: '09:00', subject: 'Mathematics', note: 'Ratios sequence — on plan.' },
-                { t: '11:30', subject: 'Open slot', note: 'Assigned teacher on approved leave.' },
-                { t: '14:00', subject: 'Science', note: 'Practical — may shift with option 2.' },
-              ].map((s) => (
-                <div className="sched" key={s.t}>
-                  <span className="t">{s.t}</span>
-                  <div>
-                    <div className="body-sm" style={{ fontWeight: 500 }}>
-                      {s.subject}
-                    </div>
-                    <p className="caption">{s.note}</p>
+            {view === 'cover' ? (
+              <>
+                <div className="ignite-card reveal reveal-2">
+                  <div className="row-between" style={{ marginBottom: 14 }}>
+                    <span className="overline">Yours to decide</span>
+                    <Icon name="flame" size="md" style={{ color: 'var(--accent)' }} />
                   </div>
+                  <div className="who">{SCHEDULE_ALTERNATIVES.length} scored options, zero auto-commits</div>
+                  <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
+                    Each alternative carries a plain-language fit and the tradeoff it costs. The platform
+                    proposes; you approve.
+                  </p>
                 </div>
-              ))}
-            </div>
 
-            <div className="panel" style={{ padding: '18px 20px' }}>
-              <p className="handnote" style={{ fontSize: 22 }}>
-                keep the ratios sequence intact — option one costs the least
-              </p>
-            </div>
+                <div className="panel">
+                  <div className="sec-head" style={{ marginBottom: 8 }}>
+                    <h4 className="h4" style={{ margin: 0 }}>
+                      Thursday, Section 10-B
+                    </h4>
+                    <span className="overline">affected day</span>
+                  </div>
+                  {[
+                    { t: '09:00', subject: 'Mathematics', note: 'Ratios sequence — on plan.' },
+                    { t: '11:30', subject: 'Open slot', note: 'Assigned teacher on approved leave.' },
+                    { t: '14:00', subject: 'Science', note: 'Practical — may shift with option 2.' },
+                  ].map((s) => (
+                    <div className="sched" key={s.t}>
+                      <span className="t">{s.t}</span>
+                      <div>
+                        <div className="body-sm" style={{ fontWeight: 500 }}>
+                          {s.subject}
+                        </div>
+                        <p className="caption">{s.note}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="panel" style={{ padding: '18px 20px' }}>
+                  <p className="handnote" style={{ fontSize: 22 }}>
+                    keep the ratios sequence intact — option one costs the least
+                  </p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="ignite-card reveal reveal-2">
+                  <div className="row-between" style={{ marginBottom: 14 }}>
+                    <span className="overline">Coming up</span>
+                    <Icon name="flame" size="md" style={{ color: 'var(--accent)' }} />
+                  </div>
+                  <div className="who">{exams} assessment{exams === 1 ? '' : 's'} in {calendar.label}</div>
+                  <p className="body-sm" style={{ opacity: 0.8, marginTop: 8 }}>
+                    The calendar is one calm month grid. Assessments, parent meetings, holidays and
+                    homework deadlines read by their own cool hue.
+                  </p>
+                </div>
+
+                <div className="panel">
+                  <div className="sec-head" style={{ marginBottom: 8 }}>
+                    <h4 className="h4" style={{ margin: 0 }}>One calendar engine</h4>
+                    <Tag tone="info" dot>four views</Tag>
+                  </div>
+                  <p className="caption" style={{ marginBottom: 12 }}>
+                    The month grid, the weekly timetable, the year planner and slot cover all read one
+                    source. A change in one is reflected across the rest.
+                  </p>
+                  {[
+                    { t: 'Calendar', note: 'Every dated event, by type.' },
+                    { t: 'Timetable', note: 'The weekly period grid.' },
+                    { t: 'Planner', note: 'The year of units, month by month.' },
+                  ].map((s) => (
+                    <div className="sched" key={s.t}>
+                      <span className="t">{s.t}</span>
+                      <div>
+                        <p className="caption">{s.note}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="panel" style={{ padding: '18px 20px' }}>
+                  <p className="handnote" style={{ fontSize: 22 }}>
+                    plan the year, then protect it — a slip caught in a month is small
+                  </p>
+                </div>
+              </>
+            )}
           </>
         )
       }
     >
       {surface.phase !== 'ready' ? (
         <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      ) : view === 'calendar' ? (
+        <>
+          <Matrix columns={3} className="reveal reveal-1">
+            <StatCell label="Events this month" value={calendar.events.length} delta={calendar.label} tone="flat" />
+            <StatCell label="Assessments" value={exams} delta="on the calendar" tone="flat" />
+            <StatCell label="Parent meetings" value={ptms} delta="scheduled" tone="up" />
+          </Matrix>
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>Academic calendar</h3>
+              <span className="overline">monthly grid · event types</span>
+            </div>
+            <CalendarGrid month={calendar} source={viz.sourceByKind.calendar ?? viz.source} />
+          </section>
+        </>
+      ) : view === 'timetable' ? (
+        <>
+          <Matrix columns={3} className="reveal reveal-1">
+            <StatCell label="Days" value={timetable.dayLabels.length} delta="in the week" tone="flat" />
+            <StatCell label="Periods a day" value={timetable.periodLabels.length} delta="time bands" tone="flat" />
+            <StatCell label="Scheduled blocks" value={timetable.blocks.length} delta="across the week" tone="up" />
+          </Matrix>
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>Weekly timetable</h3>
+              <span className="overline">day × period</span>
+            </div>
+            <TimetableGrid timetable={timetable} source={viz.sourceByKind.timetable ?? viz.source} />
+          </section>
+        </>
+      ) : view === 'planner' ? (
+        <>
+          <Matrix columns={3} className="reveal reveal-1">
+            <StatCell label="Subjects" value={new Set(ACADEMIC_PLANNER_FALLBACK.units.map((u) => u.subjectName)).size} delta="planned" tone="flat" />
+            <StatCell label="Units" value={ACADEMIC_PLANNER_FALLBACK.units.length} delta="across the year" tone="flat" />
+            <StatCell label="In delivery now" value={ACADEMIC_PLANNER_FALLBACK.units.filter((u) => u.current).length} delta="this month" tone="up" />
+          </Matrix>
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>Academic planner</h3>
+              <span className="overline">year × month Gantt</span>
+            </div>
+            <AcademicPlanner data={ACADEMIC_PLANNER_FALLBACK} source={surface.source} />
+          </section>
+        </>
       ) : (
         <>
           <Matrix columns={3} className="reveal reveal-1">

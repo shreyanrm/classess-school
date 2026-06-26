@@ -10,8 +10,12 @@ import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { StudyQuadrant } from '../../_components/StudyQuadrant';
 import { Trajectory } from '../../_components/Trajectory';
+import { BloomTaxonomy } from '../../_components/Charts';
+import { PaperAnalysis } from '../../_components/PaperAnalysis';
 import { useAdminConfig } from '@/lib/adminConfig';
 import { useGatewaySource } from '@/lib/useGatewaySource';
+import { useVizData } from '@/lib/useVizData';
+import { SCHOOL_PAPER_FALLBACK } from '@/lib/opsData';
 import { SCHOOL_STATS, SCHOOL_TRENDS } from '@/lib/mock';
 import { ADMIN_CONCERNS, ADMIN_INTERVENTIONS } from '@/lib/mock';
 import { PACING_ROWS, TRAJECTORY, pacingSummary, type QuadrantBand, type QuadrantPoint } from '@/lib/adminData';
@@ -82,6 +86,7 @@ export default function AdminIntelligencePage() {
   const [query, setQuery] = useState<Query | null>(null);
   const pacing = pacingSummary();
   const { source } = useGatewaySource('intelligence-views', { view: 'class-insights' });
+  const viz = useVizData(['bloom'], 'school-north');
 
   function startSet(band: QuadrantBand, group: QuadrantPoint[]) {
     openVidya(
@@ -403,6 +408,37 @@ export default function AdminIntelligencePage() {
                   ]}
                   whySeeing="Trends tell you where to put attention next; the evidence keeps the curriculum explainable, not a black box."
                 />
+              </section>
+
+              <section>
+                <div className="sec-head">
+                  <h3 className="h3" style={{ margin: 0 }}>
+                    Thinking levels
+                  </h3>
+                  <span className="overline">cognitive mix, school-wide</span>
+                </div>
+                <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+                  Where the school’s demonstrated work is concentrated across Bloom’s levels — a share,
+                  never a grade. The next stretch is more analysing and creating, not only recall.
+                </p>
+                <BloomTaxonomy data={viz.data.bloom} source={viz.sourceByKind.bloom ?? viz.source} />
+              </section>
+
+              <section>
+                <div className="sec-head">
+                  <h3 className="h3" style={{ margin: 0 }}>
+                    Target bands across the cycle
+                  </h3>
+                  <Link href="/admin/exams" className="overline" style={{ color: 'var(--accent)' }}>
+                    Full paper analysis
+                  </Link>
+                </div>
+                <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+                  The whole-school target-band distribution — below, on, above — with the prepared
+                  cross-section remedial groups. Bands, never raw marks; the remedial steps wait for a
+                  coordinator’s approval.
+                </p>
+                <PaperAnalysis data={SCHOOL_PAPER_FALLBACK} source={surface.source} />
               </section>
             </>
           ) : lens === 'behaviour' ? (

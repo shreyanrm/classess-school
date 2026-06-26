@@ -9,7 +9,10 @@ import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ApprovalControl } from '../../_components/ApprovalControl';
+import { LessonNotesCapture } from '../../_components/LessonNotesCapture';
+import { TimetableGrid } from '../../_components/TimetableGrid';
 import { useClassInsights } from '@/lib/useClassInsights';
+import { useVizData } from '@/lib/useVizData';
 import { useGenerator } from '@/lib/useGenerator';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
@@ -25,13 +28,14 @@ import type { LessonPlan, SessionPlan } from '@/lib/generate';
  * adaptive; delivering a day is the teacher's act, never auto-published.
  */
 
-type Horizon = 'annual' | 'unit' | 'weekly' | 'daily';
+type Horizon = 'annual' | 'unit' | 'weekly' | 'daily' | 'timetable';
 
 const HORIZONS: { id: Horizon; label: string }[] = [
   { id: 'annual', label: 'Annual' },
   { id: 'unit', label: 'Unit' },
   { id: 'weekly', label: 'Weekly' },
   { id: 'daily', label: 'Daily' },
+  { id: 'timetable', label: 'Timetable' },
 ];
 
 const SUBJECTS = [
@@ -64,6 +68,11 @@ export default function PlanPage() {
   // engine fallback). The band counts below are drawn from that read, never a
   // single score — the same source the rest of the loop trusts.
   const { phase, insights, source, refresh } = useClassInsights();
+  // The teacher's timetable + teaching stats read gateway-first (seed fallback).
+  const viz = useVizData(['timetable', 'teachingStats']);
+  // Mon..Sat columns: highlight today (the grid is Mon=0). Sunday => no column.
+  const todayCol = ((new Date().getDay() + 6) % 7);
+  const stats = viz.data.teachingStats;
   // The two planning generators, gateway-first (SourceNote degrade). Generating
   // PREPARES a verified draft; publishing it for approval is the human act below.
   const lesson = useGenerator<LessonPlan>('lesson-plan');
@@ -231,6 +240,36 @@ export default function PlanPage() {
             ))}
           </div>
         </section>
+      )}
+
+      {horizon === 'timetable' && (
+        <>
+          <section className="stack">
+            <p className="overline">Your teaching week</p>
+            <p className="caption quiet">
+              Plain counts of your teaching load — never a ranking or a judgement.
+            </p>
+            <Matrix columns={3}>
+              <StatCell label="Classes this week" value={stats.classesThisWeek} delta="across all sections" tone="flat" />
+              <StatCell label="This month" value={stats.classesThisMonth} delta="delivered + scheduled" tone="flat" />
+              <StatCell label="This year" value={stats.classesThisYear} delta="to date" tone="up" />
+            </Matrix>
+            <Matrix columns={3}>
+              <StatCell label="Substitutions covered" value={stats.substitutionsCovered} delta="you stepped in" tone="flat" />
+              <StatCell label="Leave taken" value={stats.leaveTaken} delta="this term" tone="flat" />
+              <StatCell label="Leave balance" value={stats.leaveBalance} delta="days remaining" tone="flat" />
+            </Matrix>
+          </section>
+          <section className="stack">
+            <p className="overline">Weekly timetable</p>
+            <p className="caption quiet">Today is highlighted. Free slots read as calm empty cells.</p>
+            <TimetableGrid
+              timetable={viz.data.timetable}
+              source={viz.sourceByKind.timetable}
+              highlightDay={todayCol <= 5 ? todayCol : undefined}
+            />
+          </section>
+        </>
       )}
 
       {horizon === 'daily' && !focusTopic && (
@@ -451,6 +490,13 @@ export default function PlanPage() {
               )}
             </div>
           </SpotlightCard>
+
+          {/* Lesson notes — capture (type or voice) -> Format with AI ->
+              structured, editable placeholders -> save through the ladder. The
+              Vidya generative-UI showcase for the daily horizon. */}
+          <div style={{ marginTop: 'var(--space-4)' }}>
+            <LessonNotesCapture topicLabel={focusTopic.name} topicId={focusTopic.id} />
+          </div>
         </section>
       )}
     </SurfaceShell>

@@ -18,6 +18,7 @@ import { useStore } from '@/lib/useStore';
 import { useProactive } from '@/lib/useProactive';
 import { useGatewaySource } from '@/lib/useGatewaySource';
 import { countStructure } from '@/lib/setupDraft';
+import { LEAVE_FALLBACK, SUPPORT_LOG_FALLBACK, leaveCounts, supportCounts } from '@/lib/opsData';
 
 /**
  * The admin morning briefing — recomposed to the sample-page bar so it reads as
@@ -119,6 +120,11 @@ export function AdminHome() {
   const independent = SCHOOL_STATS.find((s) => s.label === 'Students working independently');
   const teacherSupport = SCHOOL_STATS.find((s) => s.label === 'Teachers needing support');
 
+  // Operational read for the leadership panel — leave at the gate + support items.
+  const leave = leaveCounts(LEAVE_FALLBACK);
+  const support = supportCounts(SUPPORT_LOG_FALLBACK);
+  const leaveAwaiting = leave.pending + leave.flagged;
+
   return (
     <SurfaceShell
       eyebrow={school.institution.name}
@@ -139,6 +145,10 @@ export function AdminHome() {
       ]}
       actions={
         <>
+          <Link href="/admin/operations" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
+            <Icon name="clock" size="sm" />
+            Operations
+          </Link>
           <Link href="/admin/intelligence" className="btn btn-secondary row" style={{ gap: 'var(--space-2)' }}>
             <Icon name="chart" size="sm" />
             School intelligence
@@ -222,6 +232,15 @@ export function AdminHome() {
                 </div>
               </div>
             ))}
+            <Link
+              href="/admin/operations"
+              className="btn btn-secondary btn-sm btn-block"
+              style={{ marginTop: 16 }}
+            >
+              {leaveAwaiting > 0 || support.needsLook > 0
+                ? `Operations — ${leaveAwaiting} leave, ${support.needsLook} support items`
+                : 'Open daily operations'}
+            </Link>
           </div>
 
           <div className="panel" style={{ padding: '18px 20px' }}>

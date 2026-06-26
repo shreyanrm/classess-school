@@ -8,7 +8,9 @@ import { ConsentGated } from '../../_components/ConsentGated';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { LanguageBadge } from '../../_components/LanguageBadge';
+import { HolisticProgressCard } from '../../_components/HolisticProgressCard';
 import { useParentRead } from '@/lib/useParentRead';
+import { useVizData } from '@/lib/useVizData';
 import { useReaderText } from '@/lib/useReaderText';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
@@ -37,6 +39,11 @@ export default function ParentReportsPage() {
   const [childId, setChildId] = useState(DEFAULT_CHILD_ID);
   const child = findChild(childId);
   const { phase, data, source } = useParentRead(childId);
+  // The holistic progress card the school shared — read GATEWAY-FIRST keyed to
+  // this child, seed-fallback on degrade, with its own SourceNote. Rendered as
+  // the PARENT audience (plain bands; the six-dimension lens stays teacher-only)
+  // with a Print / PDF path.
+  const viz = useVizData(['holistic'], childId);
   const { emit } = useEmit();
   const { t } = useT();
 
@@ -172,6 +179,31 @@ export default function ParentReportsPage() {
             {data.reports.map((r) => (
               <ReportCard key={r.id} report={r} childLabel={child.label} tx={tx} />
             ))}
+          </section>
+
+          <section className="stack">
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                Holistic progress card
+              </h3>
+              <span className="overline">the whole picture · print or save as PDF</span>
+            </div>
+            <p className="caption quiet">
+              One calm report gathering {child.label}&apos;s competency mix, foundations, the direction
+              of travel, attendance, and the teacher&apos;s notes. Plain-language bands throughout —
+              never a raw mark — and printable for a meeting or the record.
+            </p>
+            <div className="viz-card">
+              <HolisticProgressCard
+                data={{
+                  ...viz.data.holistic,
+                  subjectLabel: child.label,
+                  classLabel: child.section,
+                }}
+                source={viz.sourceByKind.holistic}
+                audience="parent"
+              />
+            </div>
           </section>
 
           <p className="caption quiet row" style={{ gap: 'var(--space-2)' }}>

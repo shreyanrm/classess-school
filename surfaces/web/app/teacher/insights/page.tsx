@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   type Confidence,
@@ -15,7 +15,11 @@ import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { Trajectory } from '../../_components/Trajectory';
 import { RecommendationItem } from '../../_components/RecommendationItem';
+import { PaperAnalysis } from '../../_components/PaperAnalysis';
+import { TestPaperCard } from '../../_components/TestPaperCard';
+import { BloomTaxonomy } from '../../_components/Charts';
 import { useClassInsights } from '@/lib/useClassInsights';
+import { useVizData } from '@/lib/useVizData';
 import { useProactive } from '@/lib/useProactive';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
@@ -24,6 +28,8 @@ import type { StudentTopicRead } from '@/lib/classRead';
 import type { Recommendation } from '@/lib/mock';
 import type { TrajectorySeries } from '@/lib/adminData';
 import { CLASS_LABEL, CLASS_REF } from '@/lib/loopData';
+
+type InsightsTab = 'class' | 'paper' | 'papers';
 
 /**
  * Class insights — recomposed to the beauty bar: a count-up stat matrix, the
@@ -147,6 +153,11 @@ function toRecommendation(r: StudentTopicRead): Recommendation {
 
 export default function ClassInsightsPage() {
   const { phase, insights, source, refresh } = useClassInsights();
+  // The analytics tabs read gateway-first (seed fallback): the paper-analysis
+  // target bands + remedial grouping, the prepared test paper, the Bloom mix.
+  const viz = useVizData(['paper', 'testPaper', 'bloom']);
+  const [tab, setTab] = useState<InsightsTab>('class');
+  const [paperApproved, setPaperApproved] = useState(false);
   const { emit } = useEmit();
   const { actioned } = useProactive(CLASS_REF);
 
@@ -288,6 +299,57 @@ export default function ClassInsightsPage() {
         <ReadStates phase={phase} onRetry={refresh} />
       ) : (
         <>
+          <div className="segmented" role="tablist" aria-label="Insights view">
+            <button type="button" role="tab" aria-selected={tab === 'class'} className={tab === 'class' ? 'active' : ''} onClick={() => setTab('class')}>
+              Class read
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'paper'} className={tab === 'paper' ? 'active' : ''} onClick={() => setTab('paper')}>
+              Paper analysis
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'papers'} className={tab === 'papers' ? 'active' : ''} onClick={() => setTab('papers')}>
+              Test papers
+            </button>
+          </div>
+
+          {tab === 'paper' ? (
+            <>
+              <section className="stack">
+                <div className="sec-head">
+                  <h3 className="h3" style={{ margin: 0 }}>Paper analysis</h3>
+                  <span className="overline">target bands · remedial grouping</span>
+                </div>
+                <PaperAnalysis data={viz.data.paper} source={viz.sourceByKind.paper} />
+              </section>
+              <section className="stack">
+                <div className="sec-head">
+                  <h3 className="h3" style={{ margin: 0 }}>Thinking levels</h3>
+                  <span className="overline">where the cognition sits</span>
+                </div>
+                <BloomTaxonomy data={viz.data.bloom} source={viz.sourceByKind.bloom} />
+              </section>
+            </>
+          ) : null}
+
+          {tab === 'papers' ? (
+            <section className="stack">
+              <div className="sec-head">
+                <h3 className="h3" style={{ margin: 0 }}>Test papers</h3>
+                <span className="overline">section-wise mark distribution</span>
+              </div>
+              <TestPaperCard
+                data={{ ...viz.data.testPaper, approved: paperApproved || viz.data.testPaper.approved }}
+                source={viz.sourceByKind.testPaper}
+                onApprove={() => setPaperApproved(true)}
+              />
+              <p className="caption quiet">
+                The paper is prepared with its answer key and waits for your approval — section marks
+                describe the paper&apos;s structure, never a learner&apos;s score.
+              </p>
+            </section>
+          ) : null}
+
+          {tab !== 'class' ? null : (
+          <>
           <Matrix columns={4} className="reveal reveal-1">
             <StatCell
               label="Working independently"
@@ -368,6 +430,8 @@ export default function ClassInsightsPage() {
             )}
             <SourceNote source={source} />
           </section>
+          </>
+          )}
         </>
       )}
     </SurfaceShell>

@@ -8,6 +8,10 @@ import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { useEvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { masteryEvidence } from '../../_components/MasteryConclusion';
+import { BloomTaxonomy, PerformanceTrend, SuccessGauge } from '../../_components/Charts';
+import { Trajectory } from '../../_components/Trajectory';
+import { AttendanceHeatmap } from '../../_components/AttendanceHeatmap';
+import { HolisticProgressCard } from '../../_components/HolisticProgressCard';
 import {
   StatMatrix,
   SubjectGrid,
@@ -19,8 +23,10 @@ import {
   type SubjectCardModel,
 } from '../../_components/StudentComposed';
 import { useDeepReads, type TopicRead } from '@/lib/useDeepReads';
+import { useVizData } from '@/lib/useVizData';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
+import type { TrajectorySeries } from '@/lib/adminData';
 import { BAND_SHORT, gapLabel } from '@/lib/engine';
 import {
   topicInfo,
@@ -48,6 +54,7 @@ const PROFILE_TOPICS = [...MATH_TOPICS, ...PHYS_TOPICS];
 const SUBJECT_LEADS = [MATH_TOPICS[0], PHYS_TOPICS[0]].filter(Boolean) as string[];
 
 type Query = 'weakest' | 'unlocks' | 'independent' | null;
+type Tab = 'profile' | 'analytics' | 'attendance';
 
 // State tones stay cool/brand: success for independent, info (cool blue) for the
 // developing path. Amber/warning is reserved for the one genuinely-fading case
@@ -62,9 +69,13 @@ const BAND_TONE = {
 
 export default function ProgressPage() {
   const { phase, reads, source } = useDeepReads(PROFILE_TOPICS);
+  // The analytics tabs read gateway-first (seed fallback): the thinking-level
+  // mix, the performance trend, the honest likelihood, and the attendance grid.
+  const viz = useVizData(['bloom', 'trend', 'success', 'attendance', 'holistic']);
   const { emit } = useEmit();
   const drawer = useEvidenceDrawer();
   const [query, setQuery] = useState<Query>(null);
+  const [tab, setTab] = useState<Tab>('profile');
 
   // Only show topics we have evidence on (the spine omits the rest too).
   const rows = useMemo(() => reads.filter((r) => r.mastery.observationCount > 0), [reads]);
@@ -74,6 +85,34 @@ export default function ProgressPage() {
   )[0];
   const revisionDue = rows.filter((r) => r.mastery.revisionDue);
   const focuses = rows.reduce((n, r) => n + r.gaps.filter((g) => g.evidence.confirmed).length, 0);
+
+  // The student's own independence trajectory — a direction read by SHAPE, built
+  // from the live reads. A direction, never a grade; the share of your own topics
+  // standing unaided, projected forward as fresh evidence arrives.
+  const series: TrajectorySeries = useMemo(() => {
+    const total = Math.max(1, rows.length);
+    const sharePct = Math.round((independent.length / total) * 100);
+    const actual = [
+      Math.max(0, sharePct - 24),
+      Math.max(0, sharePct - 16),
+      Math.max(0, sharePct - 9),
+      Math.max(0, sharePct - 4),
+      sharePct,
+    ];
+    const predicted = [
+      sharePct,
+      Math.min(100, sharePct + 5),
+      Math.min(100, sharePct + 9),
+      Math.min(100, sharePct + 13),
+    ];
+    return {
+      topic: 'Your independence — this term',
+      actual,
+      predicted,
+      read: 'This is the share of your topics you can now do on your own, rising over time. The dotted line projects the same trend forward — a direction, never a grade, and it shifts as you do more unaided work.',
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows.length, independent.length]);
 
   // The subject-card grid — built from the live reads, cool hues only.
   const subjects: SubjectCardModel[] = useMemo(
@@ -138,6 +177,11 @@ export default function ProgressPage() {
         { value: independent.length, label: 'on your own' },
         { label: 'plain language only' },
       ]}
+      tabs={[
+        { label: 'Profile', active: tab === 'profile', onClick: () => setTab('profile') },
+        { label: 'Analytics', active: tab === 'analytics', onClick: () => setTab('analytics') },
+        { label: 'Attendance', active: tab === 'attendance', onClick: () => setTab('attendance') },
+      ]}
       dockIntro="This is your profile in plain language — what you can do on your own, and what still leans on support. Ask me anything about it."
       dockChips={['What am I weakest at', 'What unlocks identities', 'What can I do on my own']}
       aside={
@@ -184,7 +228,7 @@ export default function ProgressPage() {
     >
       {phase !== 'ready' ? (
         <ReadStates phase={phase} />
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && tab === 'profile' ? (
         <div className="empty">
           <Icon name="target" size="lg" className="glyph" />
           <h4 className="body">Let us find where to start</h4>
@@ -208,6 +252,8 @@ export default function ProgressPage() {
             ]}
           />
 
+          {tab === 'profile' ? (
+          <>
           <section className="reveal reveal-3">
             <SecHead title="Your subjects" meta={<span className="overline">mastery by subject</span>} />
             <SubjectGrid subjects={subjects} />
@@ -290,8 +336,77 @@ export default function ProgressPage() {
               </table>
             </div>
           </section>
+          </>
+          ) : null}
 
-          <SourceNote source={source} />
+          {tab === 'analytics' ? (
+            <>
+              <p className="body-sm muted" style={{ maxWidth: 580, marginTop: 'var(--space-2)' }}>
+                These are honest reads of the shape of your learning — a direction, never a grade, and
+                no single score. Each one refreshes as you do more of your own work.
+              </p>
+
+              <section className="stack">
+                <SecHead title="Your thinking levels" meta={<span className="overline">where the thinking sits</span>} />
+                <BloomTaxonomy data={viz.data.bloom} source={viz.sourceByKind.bloom} />
+              </section>
+
+              <section className="stack">
+                <SecHead title="Where you are heading" meta={<span className="overline">direction, not a grade</span>} />
+                <PerformanceTrend data={viz.data.trend} source={viz.sourceByKind.trend} />
+              </section>
+
+              <section className="stack">
+                <SecHead title="On your current pace" meta={<span className="overline">a likelihood, not a promise</span>} />
+                {/* Students see the plain READ only — the percentage stays teacher/parent-side. */}
+                <SuccessGauge data={viz.data.success} source={viz.sourceByKind.success} showValue={false} />
+              </section>
+
+              <section className="stack">
+                <SecHead title="Your independence trajectory" meta={<span className="overline">the share you do on your own</span>} />
+                <div className="viz-card">
+                  <Trajectory series={series} />
+                </div>
+              </section>
+
+              <section className="stack">
+                <SecHead title="Your progress card" meta={<span className="overline">the whole picture · print or save as PDF</span>} />
+                <p className="body-sm muted" style={{ maxWidth: 580 }}>
+                  One calm summary of where you are — your competency mix, your foundations, where you
+                  are heading, and your attendance. Plain language, never a mark; print it or save it
+                  as a PDF whenever you want.
+                </p>
+                <div className="viz-card">
+                  {/* The student audience: plain bands, no teacher-only reasoning,
+                      no "prepared step waits for approval" note. */}
+                  <HolisticProgressCard
+                    data={{ ...viz.data.holistic, subjectLabel: 'Your progress', classLabel: 'This term' }}
+                    source={viz.sourceByKind.holistic}
+                    audience="student"
+                  />
+                </div>
+              </section>
+            </>
+          ) : null}
+
+          {tab === 'attendance' ? (
+            <section className="stack">
+              <SecHead title="Your attendance" meta={<span className="overline">month by day · plain counts</span>} />
+              <div className="viz-card">
+                <AttendanceHeatmap record={viz.data.attendance} source={viz.sourceByKind.attendance} />
+              </div>
+              <p className="body-sm muted" style={{ maxWidth: 560 }}>
+                A calm read of a pattern, never a judgement. Half days count as half a day present, and
+                holidays sit outside the count — see your{' '}
+                <Link href="/student/timetable" style={{ color: 'var(--accent)', textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                  timetable
+                </Link>{' '}
+                for the week ahead.
+              </p>
+            </section>
+          ) : null}
+
+          <SourceNote source={tab === 'profile' ? source : viz.source} />
         </>
       )}
     </SurfaceShell>

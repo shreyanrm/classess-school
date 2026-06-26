@@ -9,6 +9,7 @@ import { ReadStates } from '../../../_components/ReadStates';
 import { SourceNote } from '../../../_components/SourceNote';
 import { EvidenceDrawer } from '../../../_components/EvidenceDrawer';
 import { masteryEvidence } from '../../../_components/MasteryConclusion';
+import { BloomTaxonomy, PerformanceTrend } from '../../../_components/Charts';
 import {
   StatMatrix,
   IgniteCard,
@@ -18,6 +19,7 @@ import {
   SecHead,
 } from '../../../_components/StudentComposed';
 import { useDeepReads, type TopicRead } from '@/lib/useDeepReads';
+import { useVizData } from '@/lib/useVizData';
 import { BAND_SHORT, gapLabel } from '@/lib/engine';
 import { topicInfo, EDGES, LOOP_TOPIC_ID } from '@/lib/loopData';
 
@@ -60,6 +62,15 @@ export default function TopicDetailPage() {
   );
   // Read this topic AND its prerequisites gateway-first, in one governed hop.
   const { phase, reads, source } = useDeepReads([id, ...prereqIds]);
+  // The topic-scoped analytics — the thinking-level mix and the direction this
+  // topic is heading, read gateway-first (seed fallback). Re-labelled to the
+  // topic so the read reads as "for this topic", never a class-wide figure.
+  const viz = useVizData(['bloom', 'trend'], id);
+  const bloom = useMemo(() => ({ ...viz.data.bloom, topicLabel: info.name }), [viz.data.bloom, info.name]);
+  const trend = useMemo(
+    () => ({ ...viz.data.trend, topicLabel: `${info.name} — your own work` }),
+    [viz.data.trend, info.name],
+  );
 
   const read = reads.find((r) => r.topicId === id);
   const prereqReads = prereqIds
@@ -208,6 +219,20 @@ export default function TopicDetailPage() {
                 );
               })}
             </div>
+          </section>
+
+          {/* Thinking levels — the cognitive mix this topic has drawn on, as a
+              donut of demonstrated work. A mix, never a grade. */}
+          <section className="stack">
+            <SecHead title="Your thinking levels" meta={<span className="overline">where the thinking sits</span>} />
+            <BloomTaxonomy data={bloom} source={viz.sourceByKind.bloom} />
+          </section>
+
+          {/* Where this topic is heading — a direction read by SHAPE, from your
+              own work. The dotted line projects the trend forward, never a promise. */}
+          <section className="stack">
+            <SecHead title="Where this is heading" meta={<span className="overline">direction, not a grade</span>} />
+            <PerformanceTrend data={trend} source={viz.sourceByKind.trend} />
           </section>
 
           {/* Focuses — the confirmed gaps, never from a single bad score. */}

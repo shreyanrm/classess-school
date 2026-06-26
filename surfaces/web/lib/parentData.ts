@@ -88,6 +88,15 @@ export interface ParentBriefing {
    areas. Plain language throughout.
    ---------------------------------------------------------------------------- */
 
+/**
+ * What KIND of moment a timeline row is — the v2 child-record data points,
+ * carried into v3 and re-expressed in plain language:
+ *   · milestone     — something the child can now do on their own (a crossing).
+ *   · observation   — a calm, dated note from the classroom (what was noticed).
+ *   · intervention  — a PREPARED supportive step (waits for a human; never auto-fires).
+ */
+export type MomentKind = 'milestone' | 'observation' | 'intervention';
+
 export interface TimelineMoment {
   id: string;
   when: string;
@@ -95,6 +104,24 @@ export interface TimelineMoment {
   detail: string;
   tone: ParentTone;
   subject: SubjectAccent;
+  /** The kind of moment — drives the marker glyph + the row's plain label. */
+  kind: MomentKind;
+  /**
+   * The evidence behind this moment, in the parent's language — what was
+   * observed/corroborated, each with a human "when". Every conclusion on the
+   * timeline carries a path to its evidence (explainable intelligence). A
+   * milestone is corroborated across attempts, never a single score.
+   */
+  evidence: { text: string; when?: string }[];
+  /** Plain "why am I seeing this" for the moment's evidence drawer. */
+  whySeeing: string;
+  /**
+   * For a PREPARED intervention only — the supportive next step the school has
+   * prepared, and who holds it. It waits; it never auto-sends.
+   */
+  prepared?: { step: string; owner: string };
+  /** True for a milestone the child can now do unprompted — lights the marker. */
+  independent?: boolean;
 }
 
 export interface PlainPoint {
@@ -265,14 +292,34 @@ const DATA_BY_CHILD: Record<string, ParentChildData> = {
         detail: 'Two fresh checks, no prompts. This is now something Child A can do on their own.',
         tone: 'celebrate',
         subject: 'cobalt',
+        kind: 'milestone',
+        independent: true,
+        evidence: [
+          { text: 'Two linear-equation checks solved with no hints used.', when: 'Today' },
+          { text: 'The independence read crossed from "with support" to "on their own".', when: 'This week' },
+          { text: 'A milestone is confirmed across attempts — never from a single good day.' },
+        ],
+        whySeeing:
+          'A milestone is a crossing the child can now do unprompted, corroborated over time — shared so a win at home can be celebrated out loud.',
       },
       {
         id: 'pa-t2',
         when: 'This week',
-        title: 'Working through equivalent fractions with a little support',
-        detail: 'Getting there. A worked example to start still helps; that is normal at this stage.',
+        title: 'A short fractions warm-up has been prepared',
+        detail: 'Child A is close on equivalent fractions; a worked example to start still helps. A gentle home activity is ready for whenever it suits.',
         tone: 'support',
         subject: 'cobalt',
+        kind: 'intervention',
+        prepared: {
+          step: 'A 15-minute fractions warm-up, prepared and waiting in Learn alongside.',
+          owner: 'You, with the Section 10-B teacher',
+        },
+        evidence: [
+          { text: 'Two recent checks — close on equivalent fractions, a small wobble on simplifying.', when: 'This week' },
+          { text: 'The teacher noted a worked example still helps Child A get started.' },
+        ],
+        whySeeing:
+          'A prepared step is supportive, not an order — it waits for you, and nothing is assigned or sent on its own.',
       },
       {
         id: 'pa-t3',
@@ -281,6 +328,13 @@ const DATA_BY_CHILD: Record<string, ParentChildData> = {
         detail: 'Photosynthesis is dependable when guided. Explaining it unprompted is the next small step.',
         tone: 'steady',
         subject: 'emerald',
+        kind: 'observation',
+        evidence: [
+          { text: 'Guided Science tasks completed carefully and accurately.', when: 'Last week' },
+          { text: 'A calm, dated note from the classroom — a pattern to notice, never a judgement.' },
+        ],
+        whySeeing:
+          'An observation is a calm note of what was noticed in class — context for a conversation, not a verdict.',
       },
     ],
     strengths: [
@@ -466,14 +520,49 @@ const DATA_BY_CHILD: Record<string, ParentChildData> = {
         detail: 'A full set, unprompted. This is now something Child B can do independently.',
         tone: 'celebrate',
         subject: 'cobalt',
+        kind: 'milestone',
+        independent: true,
+        evidence: [
+          { text: 'A full multiplication set worked through with no prompts.', when: 'Today' },
+          { text: 'First time unaided — a clear step up from last fortnight.', when: 'This fortnight' },
+          { text: 'A milestone is confirmed across attempts, never a single lucky run.' },
+        ],
+        whySeeing:
+          'A milestone is a crossing the child can now do on their own, corroborated over time — a real win to enjoy.',
       },
       {
         id: 'pb-t2',
         when: 'This week',
-        title: 'Building reading fluency',
-        detail: 'Careful and accurate. Reading aloud regularly will help it become smoother.',
+        title: 'A little reading-aloud practice is prepared',
+        detail: 'Child B reads carefully and is building fluency. Short, regular reading aloud is ready for whenever it suits.',
         tone: 'support',
         subject: 'violet',
+        kind: 'intervention',
+        prepared: {
+          step: 'A 10-minute reading-aloud routine, prepared and waiting in Learn alongside.',
+          owner: 'You, with the English teacher',
+        },
+        evidence: [
+          { text: 'Reading checks — careful and accurate, with pace still building.', when: 'This week' },
+          { text: 'The teacher noted reading aloud at home settles fluency fastest.' },
+        ],
+        whySeeing:
+          'A prepared step is supportive, not an order — it waits for you, and nothing is assigned on its own.',
+      },
+      {
+        id: 'pb-t3',
+        when: 'Last fortnight',
+        title: 'Settling well into number work',
+        detail: 'Approaches new number problems calmly and checks their own work — a lovely habit forming.',
+        tone: 'steady',
+        subject: 'cobalt',
+        kind: 'observation',
+        evidence: [
+          { text: 'Number tasks attempted methodically, with self-checking noticed.', when: 'Last fortnight' },
+          { text: 'A calm, dated note from the classroom — a pattern to notice, never a judgement.' },
+        ],
+        whySeeing:
+          'An observation is a calm note of what was noticed in class — context for a conversation, not a verdict.',
       },
     ],
     strengths: [

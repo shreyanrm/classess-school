@@ -8,8 +8,10 @@ import { StatCell } from '../../_components/StatCell';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
+import { PaperAnalysis } from '../../_components/PaperAnalysis';
 import { SCAN_ROWS } from '@/lib/examsData';
 import { useAdminConfig } from '@/lib/adminConfig';
+import { SCHOOL_PAPER_FALLBACK } from '@/lib/opsData';
 
 /**
  * Exam operations (admin) — recomposed to the sample-page bar. Scheduling,
@@ -30,9 +32,17 @@ const STAGES: { id: Stage; label: string }[] = [
   { id: 'intake', label: 'Scan intake' },
 ];
 
+type Mode = 'ops' | 'analysis';
+
 export default function ExamsPage() {
   const [stage, setStage] = useState<Stage>('schedule');
   const surface = useAdminConfig('exams');
+  const savedMode = surface.config.mode;
+  const mode: Mode = savedMode === 'analysis' ? 'analysis' : 'ops';
+  const setMode = (m: Mode) => {
+    void surface.set('mode', m);
+  };
+  const paper = SCHOOL_PAPER_FALLBACK;
   const approved: Record<Stage, boolean> = {
     schedule: surface.config.schedule === true,
     seating: surface.config.seating === true,
@@ -90,9 +100,9 @@ export default function ExamsPage() {
         { label: 'nothing fires on its own' },
       ]}
       tabs={[
-        { label: 'Operations', active: true },
+        { label: 'Operations', active: mode === 'ops', onClick: () => setMode('ops') },
+        { label: 'Paper analysis', active: mode === 'analysis', onClick: () => setMode('analysis') },
         { label: 'Calendar', href: '/admin/calendar' },
-        { label: 'Curriculum', href: '/admin/curriculum' },
         { label: 'Governance', href: '/admin/governance' },
       ]}
       actions={
@@ -162,6 +172,27 @@ export default function ExamsPage() {
     >
       {surface.phase !== 'ready' ? (
         <ReadStates phase={surface.phase} onRetry={surface.refresh} />
+      ) : mode === 'analysis' ? (
+        <>
+          <Matrix columns={4} className="reveal reveal-1">
+            <StatCell label="Students" value={paper.total} delta="sat the cycle" tone="flat" />
+            <StatCell label="On target" value={paper.overall.on} delta="inside the calm band" tone="up" />
+            <StatCell label="Below target" value={paper.overall.below} delta="surfaced for support" tone={paper.overall.below > 0 ? 'down' : 'flat'} />
+            <StatCell label="Remedial prepared" value={paper.remedial.length} delta="awaiting approval" tone="flat" />
+          </Matrix>
+
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>Paper analysis</h3>
+              <span className="overline">whole-school target bands</span>
+            </div>
+            <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+              Every section that sat the cycle, read as target bands — below, on, above — never raw
+              marks. Cross-section remedial groups are prepared and wait for a coordinator’s approval.
+            </p>
+            <PaperAnalysis data={paper} source={surface.source} />
+          </section>
+        </>
       ) : (
         <>
           <Matrix columns={4} className="reveal reveal-1">

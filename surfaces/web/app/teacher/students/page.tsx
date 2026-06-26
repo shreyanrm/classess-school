@@ -8,7 +8,9 @@ import { StatCell } from '../../_components/StatCell';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
+import { AttendanceHeatmap } from '../../_components/AttendanceHeatmap';
 import { useClassInsights } from '@/lib/useClassInsights';
+import { useVizData } from '@/lib/useVizData';
 import { CLASS_LABEL, ROSTER } from '@/lib/loopData';
 import { gapLabel } from '@/lib/engine';
 import type { StudentTopicRead } from '@/lib/classRead';
@@ -136,6 +138,9 @@ function rollupRoster(reads: StudentTopicRead[]): RosterRow[] {
 
 export default function ClassRosterPage() {
   const { phase, insights, source, refresh } = useClassInsights();
+  // The class attendance history reads gateway-first (seed fallback) — the
+  // month x day heatmap, a calm pattern read, never a judgement.
+  const viz = useVizData(['attendance']);
   const reads = useMemo(() => insights?.reads ?? [], [insights]);
   const roster = useMemo(() => rollupRoster(reads), [reads]);
   const [filter, setFilter] = useState<Filter>('all');
@@ -416,6 +421,19 @@ export default function ClassRosterPage() {
               </div>
             )}
             <SourceNote source={source} />
+          </section>
+
+          <section className="stack">
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                Class attendance
+              </h3>
+              <span className="overline">month by day · a pattern to notice</span>
+            </div>
+            <AttendanceHeatmap
+              record={{ ...viz.data.attendance, rowLabel: CLASS_LABEL }}
+              source={viz.sourceByKind.attendance}
+            />
           </section>
         </>
       )}

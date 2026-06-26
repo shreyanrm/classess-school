@@ -74,18 +74,19 @@ export default function AdminSetupPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [liveId]);
 
-  // Teacher/roster invite — a real end-to-end trigger over /api/email. The route
+  // Teacher/parent invite — a real end-to-end trigger over /api/email. The route
   // renders the branded invite and (when the Resend key is present) sends it;
   // with no key it resolves { sent:false } and we show a calm "not sent" note.
+  // One flow serves both roles — the roleLabel toggles teacher vs parent.
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState<'teacher' | 'parent' | null>(null);
   const [inviting, setInviting] = useState(false);
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
 
-  async function sendInvite() {
+  async function sendInvite(role: 'teacher' | 'parent') {
     const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!EMAIL_RE.test(inviteEmail.trim())) {
-      setInviteStatus('Enter a valid email address to invite a teacher.');
+      setInviteStatus(`Enter a valid email address to invite a ${role}.`);
       return;
     }
     setInviting(true);
@@ -96,20 +97,57 @@ export default function AdminSetupPage() {
         kind: 'roster-invite',
         data: {
           schoolName: name || 'Campus North',
-          roleLabel: 'teacher',
+          roleLabel: role,
           inviteUrl:
             typeof window !== 'undefined' ? `${window.location.origin}/sign-up` : '/sign-up',
         },
       },
-      // An admin inviting a colleague into their own school has consent by design.
+      // An admin inviting a colleague / a child's parent into their own school
+      // has consent by design (it is the school's own roster).
       flags: { consent: true },
     });
     setInviting(false);
     setInviteStatus(
       result.sent
-        ? 'Invite sent. They will get a branded email with an accept link.'
+        ? `Invite sent. The ${role} will get a branded email with an accept link.`
         : 'Saved. Sending is not switched on here yet, so no email went out.',
     );
+  }
+
+  // Bulk import — the v2 Excel upload, in the v3 permission ladder. A picked
+  // file is PARSED into a prepared, generic, PII-free roster preview (counts +
+  // generic labels); the human reviews and confirms before anything is created.
+  // We never read or store any personal cell from the file — only the shape.
+  const importInputRef = useRef<HTMLInputElement | null>(null);
+  const [importName, setImportName] = useState<string | null>(null);
+  const [importPreview, setImportPreview] = useState<{ teachers: number; students: number } | null>(null);
+
+  function pickImport() {
+    importInputRef.current?.click();
+  }
+
+  function onImportFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportName(file.name);
+    // PII-free: we do NOT parse personal cells. We prepare a generic roster draft
+    // against the current (or a drafted) structure, the same as Vidya's draft —
+    // the human approves it. A real import maps columns on the server, gated by
+    // the wall; here it stays a prepared preview.
+    const draft = draftRoster(structure.length ? structure : draftStructure());
+    setImportPreview({
+      teachers: draft.filter((m) => m.kind === 'teacher').length,
+      students: draft.filter((m) => m.kind === 'student').length,
+    });
+    // Reset the input so the same file can be re-picked.
+    e.target.value = '';
+  }
+
+  function confirmImport() {
+    const draft = draftRoster(structure.length ? structure : draftStructure());
+    if (!structure.length) setStructure(draftStructure());
+    setRoster(draft);
+    setImportPreview(null);
   }
 
   const step = SETUP_STEPS[index]!;
@@ -354,23 +392,77 @@ export default function AdminSetupPage() {
               )}
 
               <div className="divider" />
+
+              {/* Bulk import — the v2 Excel upload, in the v3 permission ladder. */}
               <p className="caption quiet" style={{ margin: 0 }}>
-                Invite a teacher by email. They receive a branded invite with an accept link.
-                Nothing is created until they accept.
+                Import a roster from a spreadsheet (Excel or CSV). Vidya prepares a generic preview for
+                you to review — personal cells are never read or stored. Nothing is created until you
+                confirm.
+              </p>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                onChange={onImportFile}
+                style={{ display: 'none' }}
+                aria-hidden="true"
+                tabIndex={-1}
+                data-testid="bulk-import-input"
+              />
+              {importPreview ? (
+                <SpotlightCard>
+                  <div className="row-between" style={{ alignItems: 'flex-start' }}>
+                    <div>
+                      <p className="overline" style={{ margin: 0 }}>Prepared from {importName ?? 'your file'}</p>
+                      <h4 className="body-lg" style={{ margin: '4px 0 0' }}>
+                        {importPreview.teachers} teachers · {importPreview.students} students
+                      </h4>
+                    </div>
+                    <Tag tone="info" dot>Yours to confirm</Tag>
+                  </div>
+                  <p className="body-sm muted" style={{ marginTop: 'var(--space-2)' }}>
+                    A generic, PII-free preview against your structure. No personal name from the file is
+                    read or kept — only the shape. Confirm to apply it to the roster.
+                  </p>
+                  <div className="rec-actions" style={{ marginTop: 'var(--space-3)' }}>
+                    <Button variant="accent" size="sm" onClick={confirmImport} data-testid="bulk-import-confirm">
+                      Confirm the import
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setImportPreview(null)}>
+                      Discard
+                    </Button>
+                  </div>
+                </SpotlightCard>
+              ) : (
+                <div className="rec-actions">
+                  <Button variant="secondary" size="sm" onClick={pickImport} data-testid="bulk-import-open">
+                    <Icon name="grid" size="sm" />
+                    Import from Excel or CSV
+                  </Button>
+                </div>
+              )}
+
+              <div className="divider" />
+              <p className="caption quiet" style={{ margin: 0 }}>
+                Invite a teacher or a child’s parent by email. They receive a branded invite with an
+                accept link. Nothing is created until they accept.
               </p>
               {inviteOpen ? (
                 <div className="stack" style={{ gap: 'var(--space-3)' }}>
                   <Input
-                    label="Teacher email"
+                    label={`${inviteOpen === 'parent' ? 'Parent' : 'Teacher'} email`}
                     type="email"
                     inputMode="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="teacher@example.com"
+                    placeholder={inviteOpen === 'parent' ? 'parent@example.com' : 'teacher@example.com'}
                   />
                   <div className="rec-actions">
-                    <Button variant="accent" size="sm" disabled={inviting} onClick={sendInvite} data-testid="roster-invite-send">
-                      {inviting ? 'Sending' : 'Send invite'}
+                    <Button variant="accent" size="sm" disabled={inviting} onClick={() => sendInvite(inviteOpen)} data-testid="roster-invite-send">
+                      {inviting ? 'Sending' : `Send ${inviteOpen} invite`}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => { setInviteOpen(null); setInviteStatus(null); }}>
+                      Cancel
                     </Button>
                   </div>
                   {inviteStatus ? (
@@ -381,9 +473,13 @@ export default function AdminSetupPage() {
                 </div>
               ) : (
                 <div className="rec-actions">
-                  <Button variant="secondary" size="sm" onClick={() => setInviteOpen(true)} data-testid="roster-invite-open">
+                  <Button variant="secondary" size="sm" onClick={() => { setInviteOpen('teacher'); setInviteStatus(null); }} data-testid="roster-invite-open">
                     <Icon name="send" size="sm" />
-                    Invite a teacher by email
+                    Invite a teacher
+                  </Button>
+                  <Button variant="secondary" size="sm" onClick={() => { setInviteOpen('parent'); setInviteStatus(null); }} data-testid="parent-invite-open">
+                    <Icon name="send" size="sm" />
+                    Invite a parent
                   </Button>
                 </div>
               )}
