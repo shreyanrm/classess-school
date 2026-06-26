@@ -206,7 +206,6 @@ export function RoleLanding() {
 
           <div className="ch-center">
             <h1 className="ch-greet">{GREETING[role]}</h1>
-            <p className="ch-sub">{t('landing.sub')}</p>
 
             <div className="ch-composer">
               <button className="ch-icon-btn" title="Attach" aria-label="Attach" onClick={() => openVidya()}>
@@ -262,27 +261,14 @@ export function RoleLanding() {
               </button>
             </div>
 
-            <div className="ch-chips">
-              {chips.map((chip, i) => (
-                <button
-                  key={chip.key}
-                  className="ch-chip"
-                  onClick={() => ask(chip.prompt)}
-                  title={liveChips ? chip.prompt : undefined}
-                >
-                  <span className="ch-dot" style={{ background: CHIP_DOTS[i % CHIP_DOTS.length] }} />
-                  {chip.label}
-                </button>
-              ))}
-            </div>
+            {/* Pure Gemini-spare: nothing under the composer. Proactive
+                suggestions live in the orb + the proactive queue, not here. */}
           </div>
 
-          {/* Bottom hint bar — the quiet affordances (spec 16.1). */}
+          {/* Bottom hint bar — the quietest affordances only (Gemini-spare). */}
           <div className="ch-hints" aria-hidden="true">
             <span><kbd className="ch-kbd">⌘K</kbd> commands</span>
             <span><kbd className="ch-kbd">Space</kbd> talk to Vidya</span>
-            <span>Tap the orb anytime</span>
-            <span>Hover the rail to expand</span>
           </div>
         </section>
       </main>
