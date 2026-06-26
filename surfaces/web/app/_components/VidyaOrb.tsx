@@ -142,16 +142,16 @@ export function VidyaOrb() {
   useEffect(() => {
     function onOpen(e: Event) {
       setOpen(true);
+      // Open straight into a ready text composer. Voice is OPT-IN (the mic, or
+      // hold-Space) — never an auto getUserMedia on open, which stalls the
+      // opening gesture and makes the orb feel broken / unresponsive.
+      setTextMode(true);
       const prompt = (e as CustomEvent<{ prompt?: string }>).detail?.prompt;
-      // A starter prompt arrives as text, so stay in text mode for that turn.
-      if (prompt) {
-        setTextMode(true);
-        void send(prompt);
-      }
+      if (prompt) void send(prompt);
     }
     function onNew() {
       reset();
-      setTextMode(false);
+      setTextMode(true);
       setOpen(true);
     }
     window.addEventListener(VIDYA_OPEN_EVENT, onOpen);
@@ -416,7 +416,12 @@ export function VidyaOrb() {
         aria-expanded={open}
         title="Vidya"
         data-testid="vidya-orb"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => {
+          // Open text-ready (no auto getUserMedia — that hangs the open). Voice
+          // is opt-in: the mic in the panel, or hold-Space.
+          setTextMode(true);
+          setOpen((v) => !v);
+        }}
       >
         {/* The living presence: hairline ring + drifting/breathing gradient core
             + glass highlight + centered low-opacity spark. No shadow (spec 17.1). */}
