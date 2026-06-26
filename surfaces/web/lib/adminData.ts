@@ -530,3 +530,135 @@ export const STANDING_META: Record<
   'needs-work': { tone: 'warning', label: 'Needs work' },
   'at-risk': { tone: 'danger', label: 'At risk' },
 };
+
+/* ----------------------------------------------------------- Role catalogue */
+
+/**
+ * One capability a role holds, read from the role's point of view. `gated` means
+ * the act is consequential — the role may PREPARE it, but it never auto-fires;
+ * an explicit human decision closes it. This mirrors the capability→role
+ * permissions matrix, turned around so leadership can read a single role's whole
+ * remit at a glance (the per-role catalogue, not the per-capability matrix).
+ */
+export interface RoleCapability {
+  /** The capability, phrased as something this role does. */
+  label: string;
+  /** True when consequential — prepared, never auto-fired; a human closes it. */
+  gated: boolean;
+}
+
+/** A governance role in the institution tree, with its scope + permission set. */
+export interface RoleProfile {
+  id: string;
+  /** The role name — Principal, Coordinator, HOD, Examination, Teacher, Vidya. */
+  name: string;
+  /** A short mono token for the matrix overline (e.g. "school-wide"). */
+  scopeToken: string;
+  /** One plain-language line on what this role governs and how far it reaches. */
+  scope: string;
+  /** How many people hold the role, plain count — generic, never named. */
+  holders: number;
+  /** The role's capability set, read from the role's side of the matrix. */
+  capabilities: RoleCapability[];
+  /** True for the one non-human actor — the platform only ever prepares. */
+  platform?: boolean;
+}
+
+/**
+ * The role catalogue — every governance role with its reach and the exact set of
+ * capabilities it holds, consistent with PERMISSION_MATRIX (capability→role) but
+ * pivoted to role→capability so a leader can audit one role's whole remit. Owner
+ * is the apex (everything a Principal can, plus structure + governance), so it is
+ * read as a superset rather than re-listed line by line. Generic counts only.
+ */
+export const ROLE_CATALOGUE: RoleProfile[] = [
+  {
+    id: 'owner',
+    name: 'Owner',
+    scopeToken: 'apex · whole institution',
+    scope: 'The apex of the tree. Holds everything a Principal does, plus the school structure and governance itself — policy, the permission ladder, and break-glass.',
+    holders: 1,
+    capabilities: [
+      { label: 'Set policy and the permission ladder', gated: true },
+      { label: 'Engage break-glass (recorded)', gated: true },
+      { label: 'View school-wide intelligence', gated: false },
+      { label: 'Approve a timetable or substitution', gated: true },
+      { label: 'Publish a report to parents', gated: true },
+    ],
+  },
+  {
+    id: 'principal',
+    name: 'Principal',
+    scopeToken: 'school-wide',
+    scope: 'Leads the whole school. Approves the consequential acts that reach families and the timetable, and reads every section.',
+    holders: 1,
+    capabilities: [
+      { label: 'View school-wide intelligence', gated: false },
+      { label: 'Approve a timetable or substitution', gated: true },
+      { label: 'Publish a report to parents', gated: true },
+      { label: 'Send a message to a parent', gated: true },
+    ],
+  },
+  {
+    id: 'coordinator',
+    name: 'Coordinator',
+    scopeToken: 'by campus / grade',
+    scope: 'Runs a campus or grade band. Holds the day-to-day approvals — substitutions, pacing, leave at the gate — within that scope.',
+    holders: 3,
+    capabilities: [
+      { label: 'View intelligence in scope', gated: false },
+      { label: 'Approve a timetable or substitution', gated: true },
+      { label: 'Send a message to a parent', gated: true },
+      { label: 'Approve leave at the gate', gated: true },
+    ],
+  },
+  {
+    id: 'hod',
+    name: 'Head of Department',
+    scopeToken: 'by subject',
+    scope: 'Owns a subject across sections. Reads subject-wide intelligence and shapes the curriculum plan; consequential acts still route to a Coordinator or Principal.',
+    holders: 5,
+    capabilities: [
+      { label: 'View subject-wide intelligence', gated: false },
+      { label: 'Propose a curriculum or pacing change', gated: false },
+      { label: 'Recommend an intervention (no action)', gated: false },
+    ],
+  },
+  {
+    id: 'examination',
+    name: 'Examination',
+    scopeToken: 'assessment · secure',
+    scope: 'Owns the assessment cycle and the secure print path. The only role besides the Principal that may publish a report.',
+    holders: 2,
+    capabilities: [
+      { label: 'Finalise a grade', gated: true },
+      { label: 'Publish a report to parents', gated: true },
+      { label: 'Release a secure exam paper', gated: true },
+    ],
+  },
+  {
+    id: 'teacher',
+    name: 'Teacher',
+    scopeToken: 'own sections',
+    scope: 'Teaches and assesses their own sections. Finalises grades and messages families for the classes they hold — never beyond them.',
+    holders: 24,
+    capabilities: [
+      { label: 'Finalise a grade (own sections)', gated: true },
+      { label: 'Send a message to a parent', gated: true },
+      { label: 'View intelligence for own sections', gated: false },
+    ],
+  },
+  {
+    id: 'vidya',
+    name: 'The platform (Vidya)',
+    scopeToken: 'prepares · never acts',
+    scope: 'The one non-human actor. It only ever PREPARES — it drafts, surfaces, and recommends. Every consequential act it readies is closed by a human in the right role.',
+    holders: 0,
+    platform: true,
+    capabilities: [
+      { label: 'Draft a recommendation (no action)', gated: false },
+      { label: 'Prepare a report or message for review', gated: false },
+      { label: 'Surface a gap or risk to a human', gated: false },
+    ],
+  },
+];

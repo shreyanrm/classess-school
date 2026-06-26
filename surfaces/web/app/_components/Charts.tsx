@@ -325,6 +325,158 @@ export function PerformanceTrend({
   );
 }
 
+/* ----------------------------------------------------------------------------
+   EffortOutcomeScatter — a small bubble plot of prep-effort vs where it landed.
+   Each bubble is one topic: x = how much practice you put in (pieces of your own
+   work), y = how far it has landed (a plain band — never a raw score), and the
+   bubble grows with how much of that work you did unaided. The hue is the topic's
+   subject accent (cool/brand only). The signal it carries: effort generally
+   lifts outcome, and the topics sitting low-left are where a little practice goes
+   furthest. Hairline + tonal, NO shadow; static SVG geometry, reduced-motion safe.
+   -------------------------------------------------------------------------- */
+export interface ScatterPoint {
+  /** Topic label, shown on hover (title) + in the legend list. */
+  label: string;
+  /** Practice effort — pieces of your own work (drives the x position). */
+  effort: number;
+  /** Outcome 0..1 — how far it has landed (drives the y position). NOT shown numerically. */
+  outcome: number;
+  /** 0..1 share of the work that was unaided — drives the bubble radius + ring. */
+  independence: number;
+  /** Cool/brand subject accent. */
+  accent: SubjectAccent;
+  /** True when the topic is genuinely standing on its own (a filled bubble). */
+  independent?: boolean;
+}
+
+const SC_W = 580;
+const SC_H = 280;
+const SC_PAD_L = 96;
+const SC_PAD_B = 44;
+const SC_PAD_T = 18;
+const SC_PAD_R = 24;
+
+/** A plain band for the y axis — never a number. The full word is in the title. */
+const OUTCOME_BANDS = ['Starting', 'With support', 'Developing', 'Reliable', 'On your own'];
+
+export function EffortOutcomeScatter({ points }: { points: ScatterPoint[] }) {
+  const maxEffort = Math.max(4, ...points.map((p) => p.effort));
+  const plotW = SC_W - SC_PAD_L - SC_PAD_R;
+  const plotH = SC_H - SC_PAD_T - SC_PAD_B;
+  const x = (effort: number) => SC_PAD_L + (effort / maxEffort) * plotW;
+  const y = (outcome: number) => SC_PAD_T + (1 - Math.max(0, Math.min(1, outcome))) * plotH;
+  // Bubble radius eases with independence so unaided wins read larger.
+  const radius = (p: ScatterPoint) => 6 + p.independence * 9;
+
+  // Four horizontal band guides at the quarter lines (the y "labels").
+  const bandLines = [0, 0.25, 0.5, 0.75, 1];
+
+  return (
+    <div className="scatter" role="img" aria-label="Practice effort against where each topic has landed. Topics with more of your own work generally sit higher.">
+      <svg viewBox={`0 0 ${SC_W} ${SC_H}`} preserveAspectRatio="xMidYMid meet" className="scatter-svg">
+        {/* horizontal band guides + their plain labels */}
+        {bandLines.map((b, i) => {
+          const yy = y(b);
+          return (
+            <g key={b}>
+              <line x1={SC_PAD_L} y1={yy} x2={SC_W - SC_PAD_R} y2={yy} className="scatter-grid" />
+              <text x={SC_PAD_L - 8} y={yy + 3} textAnchor="end" className="scatter-axis-label">
+                {OUTCOME_BANDS[i]}
+              </text>
+            </g>
+          );
+        })}
+        {/* axes */}
+        <line x1={SC_PAD_L} y1={SC_PAD_T} x2={SC_PAD_L} y2={SC_H - SC_PAD_B} className="scatter-axis" />
+        <line x1={SC_PAD_L} y1={SC_H - SC_PAD_B} x2={SC_W - SC_PAD_R} y2={SC_H - SC_PAD_B} className="scatter-axis" />
+        {/* x ticks — effort, in pieces of work */}
+        {[0, Math.round(maxEffort / 2), maxEffort].map((t, i) => (
+          <text key={i} x={x(t)} y={SC_H - SC_PAD_B + 16} textAnchor="middle" className="scatter-axis-label">
+            {t}
+          </text>
+        ))}
+        <text x={SC_PAD_L + plotW / 2} y={SC_H - 6} textAnchor="middle" className="scatter-axis-caption">
+          pieces of your own work →
+        </text>
+        {/* bubbles */}
+        {points.map((p, i) => {
+          const r = radius(p);
+          const stroke = `var(--${p.accent})`;
+          return (
+            <circle
+              key={`${p.label}-${i}`}
+              cx={x(p.effort)}
+              cy={y(p.outcome)}
+              r={r}
+              fill={p.independent ? stroke : `var(--${p.accent}-tint)`}
+              stroke={stroke}
+              strokeWidth={1}
+              className="scatter-bubble"
+              style={{ ['--reveal-delay' as string]: `${i * 60}ms` }}
+            >
+              <title>{`${p.label}: ${OUTCOME_BANDS[Math.round(p.outcome * 4)]}, ${p.effort} ${p.effort === 1 ? 'piece' : 'pieces'} of work`}</title>
+            </circle>
+          );
+        })}
+      </svg>
+      <ul className="scatter-legend">
+        {points.map((p, i) => (
+          <li className="scatter-legend-item" key={`${p.label}-${i}`}>
+            <span
+              className="subject-dot"
+              style={{
+                background: p.independent ? `var(--${p.accent})` : `var(--${p.accent}-tint)`,
+                borderColor: `var(--${p.accent})`,
+              }}
+              aria-hidden="true"
+            />
+            <span className="scatter-legend-label">{p.label}</span>
+            <span className="data scatter-legend-value">
+              {p.effort} {p.effort === 1 ? 'piece' : 'pieces'}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export function EffortOutcomeCard({
+  points,
+  source = 'fallback',
+}: {
+  points: ScatterPoint[];
+  source?: ReadSource;
+}) {
+  return (
+    <div className="stack viz-card" style={{ gap: 'var(--space-3)' }}>
+      <div className="sec-head">
+        <h4 className="h4" style={{ margin: 0 }}>
+          Practice and where it lands
+        </h4>
+        <span className="overline">effort, not a grade</span>
+      </div>
+      <EffortOutcomeScatter points={points} />
+      <p className="body-sm" style={{ margin: 0 }}>
+        Each bubble is a topic — further right means more of your own practice, higher up means it has
+        landed more firmly. A bigger, filled bubble is work you did unaided. The pattern is honest: the
+        practice you put in is what lifts a topic, and the bubbles sitting low-left are where a little
+        more goes furthest.
+      </p>
+      <EvidenceDrawer
+        claim="How this is read"
+        evidence={[
+          'The x position is the count of your own attempts and checks on each topic — pieces of your work, not a timer.',
+          'The y position is a plain band read from that same evidence; it is never surfaced as a number or a percentage.',
+          'A larger, filled bubble means more of the work on that topic was unaided — the share that lights the spark.',
+        ]}
+        whySeeing="Seeing effort against outcome together makes the next move obvious: the topics low and to the left repay a short, focused practice the most."
+      />
+      <SourceNote source={source} />
+    </div>
+  );
+}
+
 export function SuccessGauge({
   data,
   source = 'fallback',

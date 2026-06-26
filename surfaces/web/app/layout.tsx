@@ -7,6 +7,7 @@ import { AppearanceApplier } from './_components/AppearanceApplier';
 import { VidyaOrb } from './_components/VidyaOrb';
 import { CommandPalette } from './_components/CommandPalette';
 import { EvidenceDrawerHost } from './_components/EvidenceDrawer';
+import { AppDrawersHost } from './_components/AppDrawers';
 import '@classess/design-system/styles.css';
 import './globals.css';
 
@@ -42,6 +43,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {/* The universal Cmd/Ctrl-K command palette — the keyboard twin of
                   the orb, available on every surface (spec 17.3-17.4). */}
               <CommandPalette />
+              {/* The global Notifications + Help/FAQ side drawers, reached from
+                  the topbar bell and help affordance. */}
+              <AppDrawersHost />
             </RoleProvider>
           </LocaleProvider>
         </ThemeProvider>

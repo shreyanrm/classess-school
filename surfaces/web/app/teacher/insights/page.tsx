@@ -18,7 +18,9 @@ import { RecommendationItem } from '../../_components/RecommendationItem';
 import { PaperAnalysis } from '../../_components/PaperAnalysis';
 import { TestPaperCard } from '../../_components/TestPaperCard';
 import { Markbook } from '../../_components/Markbook';
+import { StudyQuadrant } from '../../_components/StudyQuadrant';
 import { BloomTaxonomy } from '../../_components/Charts';
+import { openVidya } from '../../_components/VidyaOrb';
 import { useClassInsights } from '@/lib/useClassInsights';
 import { useVizData } from '@/lib/useVizData';
 import { useProactive } from '@/lib/useProactive';
@@ -27,7 +29,7 @@ import { EVENT_PURPOSE } from '@/lib/events';
 import { gapLabel } from '@/lib/engine';
 import type { StudentTopicRead } from '@/lib/classRead';
 import type { Recommendation } from '@/lib/mock';
-import type { TrajectorySeries } from '@/lib/adminData';
+import type { QuadrantBand, QuadrantPoint, TrajectorySeries } from '@/lib/adminData';
 import { CLASS_LABEL, CLASS_REF } from '@/lib/loopData';
 
 type InsightsTab = 'class' | 'paper' | 'papers' | 'markbook';
@@ -87,6 +89,50 @@ function rollupBySubject(reads: StudentTopicRead[]): SubjectRollup[] {
     });
   }
   return out.sort((a, b) => a.averagePct - b.averagePct);
+}
+
+/**
+ * Place each learner on the 2×2 study quadrant from the LIVE class read — never
+ * the seed cohort. Independence = the share of touched topics worked on their
+ * own; consistency = how steady the mastery reads across those topics (a small
+ * spread reads as a consistent learner, a wide one as uneven). Both are
+ * directions, never a grade. Confidentiality: a generic per-learner label only.
+ */
+function quadrantFromReads(reads: StudentTopicRead[]): QuadrantPoint[] {
+  const byStudent = new Map<string, StudentTopicRead[]>();
+  for (const r of reads) {
+    const list = byStudent.get(r.studentRef) ?? [];
+    list.push(r);
+    byStudent.set(r.studentRef, list);
+  }
+  const points: QuadrantPoint[] = [];
+  for (const [ref, list] of byStudent) {
+    if (list.length === 0) continue;
+    // Independence (x): the share of touched topics worked on their own.
+    const independence = Math.round(
+      (list.filter((r) => r.mastery.reading.independent).length / list.length) * 100,
+    );
+    // Consistency (y): how steady that standing is — the share of topics that
+    // are NOT carrying a confirmed gap, blended with the composite spread so a
+    // learner who is uniformly secure reads as more consistent than one who
+    // swings between mastered and shaky. Both are directions, never a grade.
+    const cleanShare =
+      list.filter((r) => r.confirmedGaps.length === 0).length / list.length;
+    const composites = list.map((r) => r.mastery.reading.composite);
+    const mean = composites.reduce((s, v) => s + v, 0) / composites.length;
+    const variance =
+      composites.reduce((s, v) => s + (v - mean) ** 2, 0) / composites.length;
+    const steadiness = 1 - Math.min(1, Math.sqrt(variance) * 2);
+    const consistency = Math.round((cleanShare * 0.6 + steadiness * 0.4) * 100);
+    points.push({
+      id: ref,
+      label: list[0]!.studentLabel,
+      section: CLASS_LABEL,
+      independence,
+      consistency,
+    });
+  }
+  return points;
 }
 
 /** The CSS subject-card with the colour band + animated, subject-coloured bar. */
@@ -165,10 +211,21 @@ export default function ClassInsightsPage() {
   const summary = insights?.summary;
   const reads = useMemo(() => insights?.reads ?? [], [insights]);
   const subjects = useMemo(() => rollupBySubject(reads), [reads]);
+  const quadrantPoints = useMemo(() => quadrantFromReads(reads), [reads]);
   const recs = useMemo(
     () => (insights?.needingAttention ?? []).map(toRecommendation),
     [insights],
   );
+
+  // Tapping a quadrant band hands the suggested set to Vidya, prepared — it runs
+  // through the approval ladder and never fires on its own.
+  function startSet(band: QuadrantBand, group: QuadrantPoint[]) {
+    openVidya(
+      `Prepare the suggested set for the ${group.length} ${
+        group.length === 1 ? 'learner' : 'learners'
+      } in the "${band}" band of ${CLASS_LABEL}. Map it to their confirmed gaps. I will approve it before anything is assigned.`,
+    );
+  }
 
   // The independence trajectory, built from the live class read — a direction
   // the teacher reads by SHAPE, recalculated as evidence arrives.
@@ -416,6 +473,27 @@ export default function ClassInsightsPage() {
                   <SubjectMasteryCard key={s.subjectId} rollup={s} index={i} />
                 ))}
               </Matrix>
+            )}
+          </section>
+
+          <section className="stack">
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
+                Group by independence
+              </h3>
+              <span className="overline">independence × consistency</span>
+            </div>
+            {quadrantPoints.length === 0 ? (
+              <div className="empty">
+                <Icon name="grid" size="lg" className="glyph" />
+                <h4 className="body">No learners to place yet</h4>
+                <p>
+                  As evidence arrives, each learner lands on the quadrant by how much they work on
+                  their own against how steady that is — a direction to teach by, never a grade.
+                </p>
+              </div>
+            ) : (
+              <StudyQuadrant points={quadrantPoints} onStartSet={startSet} />
             )}
           </section>
 

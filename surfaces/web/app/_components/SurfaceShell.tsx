@@ -7,6 +7,7 @@ import { Icon, SuggestionChip, useTheme } from '@classess/design-system';
 import { Rail } from './Rail';
 import { openVidya } from './VidyaOrb';
 import { openCommandPalette } from './CommandPalette';
+import { openNotifications, openHelp } from './AppDrawers';
 import { useOnline } from '@/lib/useOnline';
 import { useRole } from '@/lib/RoleContext';
 import type { Role } from '@/lib/mock';
@@ -150,6 +151,27 @@ export function SurfaceShell({
           >
             <Icon name={theme === 'dark' ? 'home' : 'settings'} size="sm" />
             <span>{theme === 'dark' ? 'Light' : 'Dark'}</span>
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-icon btn-ghost topbar-bell"
+            onClick={openNotifications}
+            aria-label="Notifications"
+            data-testid="topbar-notifications"
+          >
+            <Icon name="bell" size="sm" />
+            <span className="topbar-bell-dot" aria-hidden="true" />
+          </button>
+
+          <button
+            type="button"
+            className="btn btn-icon btn-ghost"
+            onClick={() => openHelp()}
+            aria-label="Help and FAQ"
+            data-testid="topbar-help"
+          >
+            <Icon name="info" size="sm" />
           </button>
 
           <button

@@ -18,6 +18,7 @@ import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ApprovalControl } from '../../_components/ApprovalControl';
 import { AssignmentBoard } from '../../_components/AssignmentBoard';
 import { ProjectRubric } from '../../_components/ProjectRubric';
+import { QuestionPaperPreview } from '../../_components/QuestionPaperPreview';
 import { BottomSheet } from '../../_components/BottomSheet';
 import { useSurfaceState } from '@/lib/useSurfaceState';
 import { useGatewaySource } from '@/lib/useGatewaySource';
@@ -40,7 +41,7 @@ import type { AssignmentRow } from '@/lib/vizData';
  */
 
 type AnswerState = 'correct' | 'incomplete' | 'misunderstood';
-type EvalTab = 'submissions' | 'assignments' | 'projects';
+type EvalTab = 'submissions' | 'paper' | 'assignments' | 'projects';
 
 interface ResponseRow {
   id: string;
@@ -131,11 +132,15 @@ export default function EvaluatePage() {
   // The per-response rows are the spine's coursework evaluation read. Probe the
   // wall so the OBSERVABLE source marker sits on the table.
   const { source } = useGatewaySource('coursework');
-  // The assignment board + project rubric read gateway-first (seed fallback).
-  const viz = useVizData(['assignments', 'rubric']);
+  // The assignment board + project rubric + the source paper (with its answer
+  // key) read gateway-first (seed fallback). The paper is the document the
+  // submissions were answering — surfaced here so a mark can be checked against
+  // exactly what was asked.
+  const viz = useVizData(['assignments', 'rubric', 'paperPreview']);
   const [tab, setTab] = useState<EvalTab>('submissions');
   const [decisions, setDecisions] = useState<Record<string, RowDecision>>({});
   const [returned, setReturned] = useState(false);
+  const [paperApproved, setPaperApproved] = useState(false);
   const [openProject, setOpenProject] = useState<AssignmentRow | null>(null);
 
   const needingReview = useMemo(() => ROWS.filter((r) => r.band !== 'high'), []);
@@ -189,6 +194,9 @@ export default function EvaluatePage() {
           <div className="segmented" role="tablist" aria-label="Evaluation view">
             <button type="button" role="tab" aria-selected={tab === 'submissions'} className={tab === 'submissions' ? 'active' : ''} onClick={() => setTab('submissions')}>
               Submissions
+            </button>
+            <button type="button" role="tab" aria-selected={tab === 'paper'} className={tab === 'paper' ? 'active' : ''} onClick={() => setTab('paper')}>
+              Question paper
             </button>
             <button type="button" role="tab" aria-selected={tab === 'assignments'} className={tab === 'assignments' ? 'active' : ''} onClick={() => setTab('assignments')}>
               Assignments
@@ -337,6 +345,26 @@ export default function EvaluatePage() {
                 )}
               </section>
             </>
+          ) : null}
+
+          {tab === 'paper' ? (
+            <section className="stack">
+              <div className="sec-head">
+                <h3 className="h3" style={{ margin: 0 }}>The source paper</h3>
+                <span className="overline">what the submissions answered</span>
+              </div>
+              <p className="caption quiet">
+                The prepared paper these responses were answering, laid out as a document with its
+                section headings, numbered questions, and point values. Switch to the Answer key for
+                the model answers — your key while you grade, never shown to a learner. A mark can be
+                checked against exactly what was asked.
+              </p>
+              <QuestionPaperPreview
+                data={{ ...viz.data.paperPreview, approved: paperApproved || viz.data.paperPreview.approved }}
+                source={viz.sourceByKind.paperPreview}
+                onApprove={() => setPaperApproved(true)}
+              />
+            </section>
           ) : null}
 
           {tab === 'assignments' ? (

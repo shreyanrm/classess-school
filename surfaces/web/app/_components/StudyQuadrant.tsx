@@ -20,6 +20,16 @@ import { EvidenceDrawer } from './EvidenceDrawer';
    mastery read — never a raw score, never a formula. v4.1 tokens; no shadow.
    ============================================================================ */
 
+/** A stable 0..1 pseudo-jitter from a point id + salt — deterministic per render. */
+function hashJitter(id: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < id.length; i += 1) {
+    h ^= id.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return ((h >>> 0) % 1000) / 1000;
+}
+
 const BAND_AT: Record<QuadrantBand, { x: 'left' | 'right'; y: 'top' | 'bottom' }> = {
   // y is independence-consistency; high consistency sits at the top.
   star: { x: 'right', y: 'top' },
@@ -76,15 +86,23 @@ export function StudyQuadrant({ points, onStartSet }: StudyQuadrantProps) {
 
         {all.map((p) => {
           const meta = QUADRANT_META[bandOf(p)];
+          // Inset to 6–94% so a learner sitting at 0 or 100 on either axis still
+          // reads as a whole dot, never half-clipped by the quadrant border.
+          // A small DETERMINISTIC jitter (keyed off the id) fans out learners who
+          // share the same read so the cluster is legible — it never moves a
+          // point across the band boundary, so the grouping stays truthful.
+          const jx = (hashJitter(p.id, 1) - 0.5) * 11;
+          const jy = (hashJitter(p.id, 2) - 0.5) * 11;
+          const xr = Math.max(0, Math.min(100, p.independence));
+          const yr = Math.max(0, Math.min(100, p.consistency));
+          const x = Math.max(3, Math.min(97, 6 + (xr / 100) * 88 + jx));
+          const y = Math.max(3, Math.min(97, 6 + (yr / 100) * 88 + jy));
           return (
             <span
               key={p.id}
               className="quadrant-point"
               data-tone={meta.tone}
-              style={{
-                left: `${p.independence}%`,
-                bottom: `${p.consistency}%`,
-              }}
+              style={{ left: `${x}%`, bottom: `${y}%` }}
               title={`${p.label} · ${p.section}`}
               aria-hidden="true"
             />

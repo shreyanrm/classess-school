@@ -8,7 +8,13 @@ import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { useEvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { masteryEvidence } from '../../_components/MasteryConclusion';
-import { BloomTaxonomy, PerformanceTrend, SuccessGauge } from '../../_components/Charts';
+import {
+  BloomTaxonomy,
+  PerformanceTrend,
+  SuccessGauge,
+  EffortOutcomeCard,
+  type ScatterPoint,
+} from '../../_components/Charts';
 import { Trajectory } from '../../_components/Trajectory';
 import { AttendanceHeatmap } from '../../_components/AttendanceHeatmap';
 import { HolisticProgressCard } from '../../_components/HolisticProgressCard';
@@ -113,6 +119,27 @@ export default function ProgressPage() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows.length, independent.length]);
+
+  // Practice-effort vs where it landed — one bubble per topic, read straight
+  // from the live evidence: x = pieces of your own work, y = the plain band,
+  // bubble = the share you did unaided. Honest, never a number.
+  const scatter: ScatterPoint[] = useMemo(
+    () =>
+      rows.map((r) => {
+        const info = topicInfo(r.topicId);
+        const obs = r.mastery.observationCount;
+        const indep = obs > 0 ? r.mastery.independentObservationCount / obs : 0;
+        return {
+          label: info.name,
+          effort: obs,
+          outcome: r.mastery.reading.composite,
+          independence: Math.max(0, Math.min(1, indep)),
+          accent: info.accent,
+          independent: r.mastery.reading.independent,
+        };
+      }),
+    [rows],
+  );
 
   // The subject-card grid — built from the live reads, cool hues only.
   const subjects: SubjectCardModel[] = useMemo(
@@ -354,6 +381,14 @@ export default function ProgressPage() {
               <section className="stack">
                 <SecHead title="Where you are heading" meta={<span className="overline">direction, not a grade</span>} />
                 <PerformanceTrend data={viz.data.trend} source={viz.sourceByKind.trend} />
+              </section>
+
+              <section className="stack">
+                <SecHead
+                  title="Practice and where it lands"
+                  meta={<span className="overline">effort against outcome</span>}
+                />
+                <EffortOutcomeCard points={scatter} source={source} />
               </section>
 
               <section className="stack">

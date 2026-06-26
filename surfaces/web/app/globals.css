@@ -793,6 +793,12 @@ a {
 
 .loop-step.done {
   color: var(--text-secondary);
+  border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+  background: color-mix(in srgb, var(--accent) 4%, var(--bg-surface));
+}
+
+.loop-step.active {
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-surface));
 }
 
 .loop-step .num {
@@ -808,6 +814,12 @@ a {
 .loop-step.active .num {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+.loop-step.done .num {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-inverse);
 }
 
 .loop-arrow {
@@ -1229,19 +1241,26 @@ a {
   color: var(--text-tertiary);
   pointer-events: none;
 }
-.quadrant-axis-x { bottom: 6px; right: 10px; }
-.quadrant-axis-y { top: 10px; left: 8px; transform: rotate(-90deg); transform-origin: left top; }
+.quadrant-axis-x { bottom: 7px; right: 12px; }
+.quadrant-axis-y { bottom: 12px; left: 14px; transform: rotate(-90deg); transform-origin: left bottom; }
 
 .quadrant-point {
   position: absolute;
-  z-index: 1;
-  width: 9px;
-  height: 9px;
+  z-index: 3;
+  width: 11px;
+  height: 11px;
   border-radius: 50%;
   transform: translate(-50%, 50%);
   background: var(--text-tertiary);
-  border: var(--border-width) solid var(--bg-surface);
+  border: 1.5px solid var(--bg-surface);
+  transition: transform var(--motion-base, 180ms) var(--ease, cubic-bezier(0.2, 0, 0, 1));
 }
+/* Tint each learner dot by its band so the scatter reads at a glance — a cool,
+   tonal field, never a celebratory or warm colour. */
+.quadrant-point[data-tone='success'] { background: var(--success); }
+.quadrant-point[data-tone='info']    { background: var(--info); }
+.quadrant-point[data-tone='warning'] { background: var(--warning); }
+.quadrant-point[data-tone='danger']  { background: var(--danger); }
 .quadrant-point[data-tone='success'] { background: var(--success); }
 .quadrant-point[data-tone='info'] { background: var(--info); }
 .quadrant-point[data-tone='warning'] { background: var(--warning); }
@@ -1290,6 +1309,67 @@ a {
 .trajectory-key-predicted {
   border-top-style: dotted;
   opacity: 0.7;
+}
+
+/* ── EffortOutcomeScatter — prep-effort vs where it landed, a bubble plot ──── */
+.scatter { display: grid; gap: var(--space-3); }
+.scatter-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-width: 620px;
+}
+.scatter-grid { stroke: var(--border); stroke-width: 0.5; }
+.scatter-axis { stroke: var(--border-strong); stroke-width: 0.5; }
+.scatter-axis-label {
+  fill: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+}
+.scatter-axis-caption {
+  fill: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+.scatter-bubble {
+  opacity: 0;
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: scale(0.4);
+  animation: scatter-pop 520ms var(--ease-out, cubic-bezier(0.16, 1, 0.3, 1)) forwards;
+  animation-delay: var(--reveal-delay, 0ms);
+}
+@keyframes scatter-pop {
+  to { opacity: 1; transform: scale(1); }
+}
+.scatter-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.scatter-legend-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+}
+.scatter-legend-item .subject-dot { border: var(--border-width) solid var(--border); }
+.scatter-legend-label {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-caption);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.scatter-legend-value { color: var(--text-tertiary); flex: none; }
+@media (prefers-reduced-motion: reduce) {
+  .scatter-bubble { opacity: 1; transform: none; animation: none; }
 }
 
 /* ============================================================================
@@ -3935,6 +4015,129 @@ td.muted .roster-sub { color: var(--text-tertiary); }
 }
 
 /* ============================================================================
+   TOPBAR BELL + GLOBAL DRAWERS — notifications + help/FAQ. The bell carries a
+   small unread dot in the surface accent; both drawers ride the .ev-drawer
+   chrome above. Hairline + tonal only, one accent, cool/brand. NO shadow.
+   ============================================================================ */
+.topbar-bell { position: relative; }
+.topbar-bell-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  border: 1.5px solid var(--bg-surface);
+}
+
+/* Notification rows — an icon chip, a title + when, a plain-language body, an
+   unread dot. The whole row is a quiet button that navigates + marks read. */
+.note-list { display: flex; flex-direction: column; gap: var(--space-2); }
+.note-row {
+  display: flex;
+  gap: var(--space-3);
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 13px 14px;
+  cursor: pointer;
+  position: relative;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.note-row:hover { background: var(--bg-sunken); border-color: var(--border-strong); }
+.note-row.unread { background: color-mix(in srgb, var(--accent) 4%, transparent); }
+.note-ic {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  flex: none;
+  background: var(--bg-sunken);
+  color: var(--text-secondary);
+}
+.note-ic.note-success { color: var(--success); background: color-mix(in srgb, var(--success) 10%, transparent); }
+.note-ic.note-info { color: var(--accent); background: color-mix(in srgb, var(--accent) 9%, transparent); }
+.note-ic.note-warning { color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); }
+.note-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.note-top { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.note-title { font-size: var(--text-body-sm); font-weight: var(--fw-medium); color: var(--text-primary); }
+.note-when { color: var(--text-tertiary); flex: none; }
+.note-body { font-size: var(--text-caption); color: var(--text-secondary); line-height: 1.4; }
+.note-dot {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  flex: none;
+}
+
+/* FAQ accordion — a hairline-framed list of question/answer disclosures. */
+.faq-list {
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+.faq-item { border-bottom: var(--border-width) solid var(--border); }
+.faq-item:last-child { border-bottom: 0; }
+.faq-q {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 13px 14px;
+  cursor: pointer;
+  font-size: var(--text-body-sm);
+  font-weight: var(--fw-medium);
+  color: var(--text-primary);
+  transition: background var(--dur-fast) var(--ease);
+}
+.faq-q:hover { background: var(--bg-sunken); }
+.faq-q .icon { color: var(--text-tertiary); flex: none; }
+.faq-item.open .faq-q { background: var(--bg-sunken); }
+.faq-a {
+  padding: 0 14px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  animation: faq-reveal var(--dur) var(--ease) both;
+}
+@keyframes faq-reveal { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+.faq-a .body-sm { color: var(--text-secondary); line-height: 1.5; }
+.faq-ask {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  background: transparent;
+  border: var(--border-width) solid var(--border);
+  border-radius: 999px;
+  padding: 5px 11px;
+  font-size: var(--text-caption);
+  color: var(--accent);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.faq-ask:hover { background: color-mix(in srgb, var(--accent) 7%, transparent); border-color: var(--accent); }
+.faq-ask .icon { width: 13px; height: 13px; }
+
+.help-links { display: flex; flex-direction: column; }
+@media (prefers-reduced-motion: reduce) {
+  .faq-a { animation: none; }
+}
+
+/* ============================================================================
    THE BOTTOM SHEET — actions / approvals / voice. Rises from the bottom over a
    frosted scrim; no shadow. Buttery; reduced-motion holds the end-state.
    ============================================================================ */
@@ -5102,7 +5305,7 @@ td.muted .roster-sub { color: var(--text-tertiary); }
 
 .mock-cols {
   display: grid;
-  grid-template-columns: 200px 1fr;
+  grid-template-columns: 236px 1fr;
   gap: var(--space-5);
   align-items: start;
 }
@@ -5116,21 +5319,57 @@ td.muted .roster-sub { color: var(--text-tertiary); }
   position: sticky;
   top: var(--space-4);
 }
-.mock-nav-section + .mock-nav-section { margin-top: var(--space-4); }
+.mock-nav-section + .mock-nav-section {
+  margin-top: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: var(--border-width) solid var(--border);
+}
+.mock-nav-head { display: flex; align-items: center; gap: var(--space-3); }
+.mock-nav-letter {
+  flex: none;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: var(--border-width) solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-sunken);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  font-weight: var(--fw-medium);
+  color: var(--text-secondary);
+}
+.mock-nav-head-text { min-width: 0; }
+.mock-nav-marks {
+  margin: 2px 0 0;
+  font-family: var(--font-mono);
+  font-size: var(--text-caption);
+  color: var(--text-tertiary);
+}
+.mock-nav-marks b { color: var(--text-secondary); font-weight: var(--fw-medium); }
+.mock-nav-instruction { margin: var(--space-2) 0 var(--space-3); }
 .mock-nav-grid { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .mock-nav-cell {
-  width: 32px; height: 32px;
-  display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 40px;
+  display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1px;
   border: var(--border-width) solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-surface);
   color: var(--text-tertiary);
-  font-size: var(--text-caption);
   cursor: pointer;
   transition: background var(--dur, 180ms) var(--ease, ease), border-color var(--dur, 180ms) var(--ease, ease);
 }
+.mock-nav-cell-n { font-size: var(--text-caption); font-weight: var(--fw-medium); line-height: 1; }
+.mock-nav-cell-m {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: var(--text-tertiary);
+}
 .mock-nav-cell.answered { background: color-mix(in srgb, var(--accent) 10%, transparent); color: var(--text-primary); }
+.mock-nav-cell.answered .mock-nav-cell-m { color: var(--text-secondary); }
 .mock-nav-cell.current { border-color: var(--accent); color: var(--accent); }
+.mock-nav-cell.current .mock-nav-cell-m { color: var(--accent); }
 
 .mock-main { display: grid; gap: var(--space-4); }
 .mock-options { display: grid; gap: var(--space-2); }

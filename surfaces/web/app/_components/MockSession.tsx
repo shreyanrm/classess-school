@@ -262,39 +262,58 @@ export function MockSession({ blueprintId, onExit }: MockSessionProps) {
       </div>
 
       <div className="mock-cols">
-        {/* The question navigator — section-grouped, marks-per-question visible. */}
+        {/* The question navigator — section-grouped, with each section's letter,
+            mark total, and per-question marks made plain (the sectioned-paper
+            shape a real board paper carries). */}
         <nav className="mock-nav" aria-label="Question navigator">
-          {paper.sections.map((section) => (
-            <div key={section.id} className="mock-nav-section">
-              <p className="overline" style={{ margin: '0 0 var(--space-2)' }}>
-                {section.title}
-              </p>
-              <div className="mock-nav-grid">
-                {section.questions.map((item) => {
-                  const idx = questions.findIndex((x) => x.id === item.id);
-                  const answered =
-                    item.kind === 'mcq'
-                      ? typeof responses[item.id] === 'number'
-                      : typeof responses[item.id] === 'string' &&
-                        (responses[item.id] as string).trim().length > 0;
-                  return (
-                    <button
-                      key={item.id}
-                      type="button"
-                      className={`mock-nav-cell${idx === current ? ' current' : ''}${answered ? ' answered' : ''}`}
-                      onClick={() => setCurrent(idx)}
-                      aria-current={idx === current ? 'true' : undefined}
-                      aria-label={`Question ${idx + 1}, ${item.marks} mark${item.marks === 1 ? '' : 's'}${answered ? ', answered' : ''}`}
-                    >
-                      {idx + 1}
-                    </button>
-                  );
-                })}
+          {paper.sections.map((section) => {
+            const sectionMarks = section.questions.reduce((sum, q) => sum + q.marks, 0);
+            return (
+              <div key={section.id} className="mock-nav-section">
+                <div className="mock-nav-head">
+                  <span className="mock-nav-letter" aria-hidden="true">
+                    {section.letter}
+                  </span>
+                  <div className="mock-nav-head-text">
+                    <p className="overline" style={{ margin: 0 }}>
+                      {section.title}
+                    </p>
+                    <p className="mock-nav-marks">
+                      {section.questions.length} Q · <b>{sectionMarks}</b> marks
+                    </p>
+                  </div>
+                </div>
+                <p className="caption quiet mock-nav-instruction">{section.instruction}</p>
+                <div className="mock-nav-grid">
+                  {section.questions.map((item) => {
+                    const idx = questions.findIndex((x) => x.id === item.id);
+                    const answered =
+                      item.kind === 'mcq'
+                        ? typeof responses[item.id] === 'number'
+                        : typeof responses[item.id] === 'string' &&
+                          (responses[item.id] as string).trim().length > 0;
+                    return (
+                      <button
+                        key={item.id}
+                        type="button"
+                        className={`mock-nav-cell${idx === current ? ' current' : ''}${answered ? ' answered' : ''}`}
+                        onClick={() => setCurrent(idx)}
+                        aria-current={idx === current ? 'true' : undefined}
+                        aria-label={`Question ${idx + 1}, ${item.marks} mark${item.marks === 1 ? '' : 's'}${answered ? ', answered' : ''}`}
+                      >
+                        <span className="mock-nav-cell-n">{idx + 1}</span>
+                        <span className="mock-nav-cell-m" aria-hidden="true">
+                          {item.marks}m
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
           <p className="caption quiet" style={{ marginTop: 'var(--space-3)' }}>
-            A filled square is answered. Move freely — nothing is locked.
+            Each square shows its marks; a filled square is answered. Move freely — nothing is locked.
           </p>
         </nav>
 

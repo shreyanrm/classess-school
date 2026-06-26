@@ -9,7 +9,14 @@ import { EvidenceDrawer } from '../../_components/EvidenceDrawer';
 import { ReadStates } from '../../_components/ReadStates';
 import { SourceNote } from '../../_components/SourceNote';
 import { AI_CONTROLS, AUDIT_LOG, PERMISSION_MATRIX, type AiControl } from '@/lib/mock';
-import { POLICIES, policyInForce, aiControlOn, type Policy } from '@/lib/adminData';
+import {
+  POLICIES,
+  ROLE_CATALOGUE,
+  policyInForce,
+  aiControlOn,
+  type Policy,
+  type RoleProfile,
+} from '@/lib/adminData';
 import { useStore } from '@/lib/useStore';
 import { setPolicyVersion, setAiControlOn } from '@/lib/store';
 import { useEmit } from '@/lib/useEmit';
@@ -47,6 +54,7 @@ export default function AdminGovernancePage() {
       breadcrumb={[{ label: 'School', href: '/' }, { label: 'Governance' }]}
       meta={[
         { value: PERMISSION_MATRIX.length, label: 'capabilities' },
+        { value: ROLE_CATALOGUE.length, label: 'roles' },
         { value: POLICIES.length, label: 'policies versioned' },
         { value: consequentialCaps, label: 'human-gated' },
         { label: 'nothing auto-fires' },
@@ -175,6 +183,25 @@ export default function AdminGovernancePage() {
           <section>
             <div className="sec-head">
               <h3 className="h3" style={{ margin: 0 }}>
+                Role catalogue
+              </h3>
+              <span className="overline">{ROLE_CATALOGUE.length} roles · per-role permissions</span>
+            </div>
+            <p className="caption quiet" style={{ marginTop: 'calc(var(--space-4) * -1)', marginBottom: 'var(--space-4)' }}>
+              The same permissions, read from each role&rsquo;s side: its reach in the tree and the exact
+              capabilities it holds. A gated capability is prepared, never auto-fired — a human in the
+              role closes it. Generic counts only; no one is named.
+            </p>
+            <Matrix columns={2}>
+              {ROLE_CATALOGUE.map((role, i) => (
+                <RoleCard key={role.id} role={role} index={i} />
+              ))}
+            </Matrix>
+          </section>
+
+          <section>
+            <div className="sec-head">
+              <h3 className="h3" style={{ margin: 0 }}>
                 Policies
               </h3>
               <span className="overline">versioned, with effective dates</span>
@@ -266,6 +293,79 @@ function AuditTrail({ entries, source }: { entries: GovernanceAuditEntry[]; sour
         </div>
       ))}
     </div>
+  );
+}
+
+/**
+ * One role in the catalogue — its reach in the tree (a mono scope token + a
+ * plain-language line), a generic holder count, and the exact capability set it
+ * holds, each tagged gated (consequential, prepared-never-fired) or open (read
+ * or draft). The platform role reads distinctly: it only ever prepares. Composed
+ * to the surface depth language — hairline panel, tonal capability rows, no
+ * shadow; the accent stays the single admin violet.
+ */
+function RoleCard({ role, index }: { role: RoleProfile; index: number }) {
+  const gatedCount = role.capabilities.filter((c) => c.gated).length;
+  return (
+    <SpotlightCard className={`reveal reveal-${(index % 4) + 1}`}>
+      <div className="row-between" style={{ alignItems: 'flex-start', gap: 'var(--space-3)' }}>
+        <div>
+          <p className="overline" style={{ margin: '0 0 6px' }}>
+            {role.scopeToken}
+          </p>
+          <h3 className="body-lg" style={{ margin: 0 }}>
+            {role.name}
+          </h3>
+        </div>
+        {role.platform ? (
+          <Tag tone="info" dot>
+            Prepares only
+          </Tag>
+        ) : (
+          <Tag tone="neutral" dot>
+            {role.holders} {role.holders === 1 ? 'holder' : 'holders'}
+          </Tag>
+        )}
+      </div>
+
+      <p className="body-sm muted" style={{ margin: 'var(--space-3) 0 0' }}>
+        {role.scope}
+      </p>
+
+      <div
+        className="admin-list"
+        style={{ marginTop: 'var(--space-3)' }}
+        aria-label={`${role.name} capabilities`}
+      >
+        {role.capabilities.map((cap) => (
+          <div
+            key={cap.label}
+            className="admin-list-row"
+            style={{ alignItems: 'center', gap: 'var(--space-3)' }}
+          >
+            <div className="row" style={{ gap: 'var(--space-2)', alignItems: 'center' }}>
+              <Icon
+                name={cap.gated ? 'warning' : 'check'}
+                size="sm"
+                style={{ color: cap.gated ? 'var(--warning)' : 'var(--text-tertiary)', flex: 'none' }}
+              />
+              <span className="body-sm">{cap.label}</span>
+            </div>
+            {cap.gated ? (
+              <Tag tone="warning">Human-gated</Tag>
+            ) : (
+              <Tag tone="neutral">Read or draft</Tag>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <p className="caption quiet" style={{ margin: 'var(--space-3) 0 0' }}>
+        {role.platform
+          ? 'No consequential act fires without a human in the right role.'
+          : `${gatedCount} of ${role.capabilities.length} are human-gated — prepared, then closed by you.`}
+      </p>
+    </SpotlightCard>
   );
 }
 

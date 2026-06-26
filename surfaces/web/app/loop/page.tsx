@@ -15,6 +15,7 @@ import { DimensionBars } from '../_components/DimensionBars';
 import { GapChips } from '../_components/GapChips';
 import { EvidenceDrawer } from '../_components/EvidenceDrawer';
 import { SavedAffordance } from '../_components/SavedAffordance';
+import { StatMatrix, Panel, FlagRow, HandnotePanel, IgniteCard } from '../_components/StudentComposed';
 import { useEmit } from '@/lib/useEmit';
 import { EVENT_PURPOSE } from '@/lib/events';
 import {
@@ -63,6 +64,16 @@ const STAGES: ReadonlyArray<{ id: Stage; label: string }> = [
   { id: 'reassess', label: 'Reassess unaided' },
   { id: 'teacher', label: 'Teacher sees it' },
 ];
+
+/** A one-line "what this stage proves" for the live cycle map in the aside. */
+const STAGE_PROVES: Record<Stage, string> = {
+  assign: 'A quick check is mapped to a topic. Nothing is sent until you choose.',
+  attempt: 'How it was produced — alone or with help — is what we capture.',
+  classify: 'Six dimensions and a gap are weighed from the evidence, live.',
+  intervene: 'A scaffolded task is prepared and held — it never auto-fires.',
+  reassess: 'The learner tries unaided. Mastery only moves on fresh evidence.',
+  teacher: 'The teacher view reflects the reading — no false “secure”.',
+};
 
 type Decision = 'pending' | 'approved' | 'adjusting' | 'declined';
 
@@ -194,13 +205,108 @@ export default function LoopPage() {
   const masteryConfidence: Confidence =
     mastery.observationCount >= 3 ? 'high' : mastery.observationCount === 2 ? 'middle' : 'low';
 
+  // ── Live stat matrix — the same engine reads, surfaced as a count-up grid ──
+  const stageIdx = STAGES.findIndex((s) => s.id === stage);
+  const gapCount = gaps.length;
+  const independent = mastery.reading.independent;
+  const stats = [
+    {
+      label: 'Stage',
+      value: `${stageIdx + 1}`,
+      suffix: ` / ${STAGES.length}`,
+      delta: STAGES[stageIdx]?.label ?? 'Assign',
+      deltaDir: 'flat' as const,
+    },
+    {
+      label: 'Attempts captured',
+      value: events.length,
+      delta: events.length ? 'live, append-only' : 'none yet',
+      deltaDir: events.length ? ('up' as const) : ('flat' as const),
+    },
+    {
+      label: 'Gaps detected',
+      value: gapCount,
+      delta: confirmedGap ? 'one confirmed' : gapCount ? 'watching' : 'clean',
+      deltaDir: confirmedGap ? ('down' as const) : ('flat' as const),
+    },
+    {
+      label: 'Reading',
+      value: mastery.observationCount === 0 ? '—' : BAND_SHORT[mastery.reading.band],
+      delta: independent ? 'independent' : mastery.observationCount ? 'with support' : 'awaiting evidence',
+      deltaDir: independent ? ('up' as const) : ('flat' as const),
+    },
+  ];
+
+  // ── The right rail — what each stage proves + the live cycle map + handnote ─
+  const aside = (
+    <>
+      {independent ? (
+        <IgniteCard
+          when="Just now"
+          who={`${CURRENT_STUDENT.label} reached independent mastery`}
+          detail="The reading crossed into independent on fresh, unaided evidence — not a single lucky score. This is the moment the whole loop exists to earn."
+        />
+      ) : (
+        <div className="ignite-card reveal reveal-3">
+          <div className="row-between" style={{ marginBottom: 14 }}>
+            <span className="overline">The keystone</span>
+            <Icon name="spark" size="sm" style={{ color: 'var(--accent)' }} />
+          </div>
+          <div className="who">Independence is the proof</div>
+          <p className="body-sm" style={{ opacity: 0.82, marginTop: 8 }}>
+            Mastery never moves on a score alone. It moves only when the learner does it unaided — which
+            is exactly what this loop sets out to confirm.
+          </p>
+        </div>
+      )}
+
+      <Panel title="The cycle, live" meta={<span className="overline">{`step ${stageIdx + 1} / ${STAGES.length}`}</span>}>
+        <p className="caption" style={{ marginBottom: 12 }}>
+          Six stages, each emitting real, immutable evidence the engine replays.
+        </p>
+        {STAGES.map((s, i) => (
+          <div className="sched" key={s.id}>
+            <span className="t" style={{ width: 28 }}>
+              {i <= stageIdx ? (
+                <Icon name={i < stageIdx ? 'check' : 'target'} size="sm" style={{ color: 'var(--accent)' }} />
+              ) : (
+                String(i + 1)
+              )}
+            </span>
+            <div>
+              <div className="body-sm" style={{ fontWeight: 500, color: i === stageIdx ? 'var(--text-primary)' : undefined }}>
+                {s.label}
+              </div>
+              <p className="caption">{STAGE_PROVES[s.id]}</p>
+            </div>
+          </div>
+        ))}
+      </Panel>
+
+      <Panel title="What this guarantees" meta={<span className="overline">contract</span>}>
+        <FlagRow flag={{ icon: 'check', title: 'No mock numbers', caption: 'Every read is computed live by the same engine the platform runs.' }} />
+        <FlagRow flag={{ icon: 'target', title: 'Nothing fires on its own', caption: 'The intervention waits for Approve, Adjust, or Decline — always.' }} />
+        <FlagRow flag={{ icon: 'spark', title: 'Plain language only', caption: 'The learner sees words, never the six-dimension reasoning.' }} />
+      </Panel>
+
+      <HandnotePanel>drive it from the buttons, or ask me what each stage proves</HandnotePanel>
+    </>
+  );
+
   return (
     <SurfaceShell
       eyebrow={`${TOPIC.subjectName} · ${TOPIC.chapterName}`}
       title="The live loop"
+      meta={[
+        { value: CURRENT_STUDENT.label, label: 'in focus' },
+        { value: STAGES.length, label: 'stages' },
+        { label: 'computed live' },
+      ]}
+      aside={aside}
       dockIntro="This runs the whole Student to Teacher cycle in your browser. Every reading you see is computed live by the same engine the spine uses — no mock numbers. Drive it from the buttons, or ask me what each stage proves."
       dockChips={['Why is independence the keystone', 'Explain the gap that fired', 'What does a confirmed gap mean']}
     >
+      <StatMatrix stats={stats} columns={4} />
       <section className="stack reveal reveal-2" data-testid="loop-controls">
         <p className="overline">The cycle</p>
         <div className="loop-steps" data-testid="loop-steps">

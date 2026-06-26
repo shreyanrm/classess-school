@@ -1,7 +1,7 @@
 'use client';
 
-import { use } from 'react';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Icon, Matrix, Tag } from '@classess/design-system';
 import { DetailShell } from '../../../_components/DetailShell';
 import { StatCell } from '../../../_components/StatCell';
@@ -19,8 +19,9 @@ import { sectionDetail, STANDING_META, type SectionSubject } from '@/lib/adminDa
  * ignite-card, the Vidya-flagged gaps panel, today's timetable, and a handnote
  * on the 320px aside). A drill-down always has a way up; nothing acts on its own.
  */
-export default function SectionDetailPage({ params }: { params: Promise<{ ref: string }> }) {
-  const { ref } = use(params);
+export default function SectionDetailPage() {
+  const params = useParams<{ ref: string }>();
+  const ref = typeof params?.ref === 'string' ? params.ref : '';
   const section = sectionDetail(ref);
 
   if (!section) {
